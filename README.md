@@ -1,95 +1,95 @@
-# 📚 Memorize - Ứng dụng Học & Ôn tập Từ vựng Tiếng Anh Thông Minh
+# 📚 Memorize - Smart English Vocabulary Learning & Review App
 
-**Memorize** là ứng dụng web học từ vựng tiếng Anh giao diện Mobile-first, tích hợp phương pháp lặp lại ngắt quãng (**Spaced Repetition System - SRS**) cùng các chế độ luyện tập đa dạng và tính năng gamification giúp việc ghi nhớ từ vựng trở nên hiệu quả và thú vị hơn.
-
----
-
-## ✨ Tính năng nổi bật
-
-- 🎴 **Đa dạng chế độ luyện tập**:
-  - **Flashcards**: Lật thẻ từ vựng kết hợp âm thanh phát âm và đánh giá mức độ ghi nhớ.
-  - **Trắc nghiệm (Multiple Choice)**: Lựa chọn đáp án đúng trong thời gian ngắn.
-  - **Điền từ (Fill in the Blank)**: Hoàn thành câu mẫu với từ thích hợp.
-  - **Gõ từ (Type Word)**: Kiểm tra chính tả và trí nhớ bằng cách gõ chính xác từ vựng.
-- 🧠 **Thuật toán SRS (Spaced Repetition System)**: Tự động sắp xếp lịch ôn tập từ vựng dựa trên mức độ thuộc của bạn.
-- ➕ **Thêm từ vựng tùy chỉnh**: Cho phép người dùng tự thêm từ vựng mới vào bộ sưu tập cá nhân.
-- 🎮 **Gamification & Tiến độ**:
-  - Hệ thống điểm kinh nghiệm (XP), Cấp độ (Level) và Chuỗi ngày học (Streak).
-  - Mục tiêu hàng ngày (Daily Goal) & Hệ thống Danh hiệu / Thành tích (Achievements).
-- 📊 **Thống kê chi tiết**: Xem lịch sử luyện tập, tỷ lệ chính xác và tiến độ học tập.
-- 🌙 **Giao diện hiện đại & Dark Mode**: Thiết kế tối ưu cho thiết bị di động, hỗ trợ chế độ Sáng/Tối và hiệu ứng âm thanh sống động.
+**Memorize** is a mobile-first web application designed for learning English vocabulary. Powered by the **Spaced Repetition System (SRS)** algorithm, it offers multiple interactive quiz modes and gamification features to make vocabulary retention effective, engaging, and fun.
 
 ---
 
-## 🛠️ Công nghệ sử dụng
+## ✨ Key Features
+
+- 🎴 **Diverse Practice Modes**:
+  - **Flashcards**: Interactive card flipping with audio pronunciation and self-assessment ratings.
+  - **Multiple Choice**: Speed quiz testing word definitions.
+  - **Fill in the Blank**: Contextual sentence completion exercises.
+  - **Type Word**: Spelling and recall challenges by typing target words.
+- 🧠 **Spaced Repetition System (SRS)**: Smart algorithm that schedules word reviews based on your memory retention level.
+- ➕ **Custom Vocabulary**: Easily add and study your own custom word lists.
+- 🎮 **Gamification & Progress Tracking**:
+  - Experience Points (XP), Levels, and Daily Streaks.
+  - Daily Goals & Achievement unlocking system.
+- 📊 **Detailed Analytics**: Comprehensive view of quiz history, accuracy rates, and learning statistics.
+- 🌙 **Modern UI & Dark Mode**: Mobile-first responsive UI with smooth Framer Motion animations, Dark/Light theme switching, and sound effects.
+
+---
+
+## 🛠️ Tech Stack
 
 - **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Animation**: [Framer Motion](https://www.framer.com/motion/)
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
 - **Icons**: [Lucide React](https://lucide.dev/)
-- **Effects**: `canvas-confetti` (Hiệu ứng ăn mừng khi hoàn thành bài tập)
+- **Effects**: `canvas-confetti` (Celebration effects on quiz completion)
 
 ---
 
-## 🚀 Hướng dẫn cài đặt và chạy ứng dụng
+## 🚀 Getting Started
 
-### Yêu cầu hệ thống
-- **Node.js**: `v18.x` trở lên
-- **npm** hoặc **yarn** / **pnpm** / **bun**
+### Prerequisites
+- **Node.js**: `v18.x` or higher
+- **npm**, **yarn**, **pnpm**, or **bun**
 
-### 1. Clone kho lưu trữ
+### 1. Clone the repository
 ```bash
 git clone https://github.com/hapham96/Memorize.git
 cd Memorize
 ```
 
-### 2. Cài đặt các gói phụ thuộc (Dependencies)
+### 2. Install dependencies
 ```bash
 npm install
 ```
 
-### 3. Chạy môi trường phát triển (Development Mode)
+### 3. Run Development Server
 ```bash
 npm run dev
 ```
-Sau đó mở trình duyệt và truy cập: [http://localhost:3000](http://localhost:3000)
+Open your browser and navigate to: [http://localhost:3000](http://localhost:3000)
 
-### 4. Build ứng dụng cho Production
+### 4. Build for Production
 ```bash
-# Đóng gói sản phẩm
+# Build production bundle
 npm run build
 
-# Chạy bản production đã build
+# Start production server
 npm run start
 ```
 
 ---
 
-## 📂 Cấu trúc thư mục dự án
+## 📂 Project Structure
 
 ```text
 Memorize/
 ├── src/
-│   ├── app/                # Next.js App Router (Layout, Page, Globals CSS)
-│   ├── components/         # Các UI components
-│   │   ├── auth/           # Màn hình Onboarding & Đăng nhập
-│   │   ├── dashboard/      # Màn hình chính & Modal thêm từ vựng
+│   ├── app/                # Next.js App Router (Layouts, Pages, Global CSS)
+│   ├── components/         # UI Components
+│   │   ├── auth/           # Onboarding & Auth screens
+│   │   ├── dashboard/      # Main Dashboard & Add Word modal
 │   │   ├── layout/         # Header, BottomNav, MobileContainer
-│   │   ├── profile/        # Trang cá nhân & Cài đặt
-│   │   ├── quiz/           # Các màn hình Quiz (Flashcard, Multiple Choice, v.v.)
-│   │   ├── review/         # Màn hình Ôn tập SRS
-│   │   └── stats/          # Màn hình Thống kê
-│   ├── data/               # Dữ liệu mẫu (Từ vựng, Thành tích)
-│   ├── lib/                # Tiện ích (SRS, Audio, LocalStorage)
-│   └── types/              # Định nghĩa kiểu dữ liệu TypeScript
-├── public/                 # Các tài nguyên tĩnh (Images, Audio, v.v.)
+│   │   ├── profile/        # User Profile & Settings modal
+│   │   ├── quiz/           # Quiz screens (Flashcard, Multiple Choice, etc.)
+│   │   ├── review/         # SRS Review Dashboard
+│   │   └── stats/          # Statistics & Progress dashboards
+│   ├── data/               # Default Datasets (Vocabulary, Achievements)
+│   ├── lib/                # Utilities (SRS, Audio FX, LocalStorage persistence)
+│   └── types/              # TypeScript Type Definitions
+├── public/                 # Static Assets (Images, Audio)
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## 📝 Giấy phép (License)
+## 📝 License
 
-Dự án được phát triển cho mục đích học tập và cá nhân.
+This project is open-source and available for educational and personal use.
