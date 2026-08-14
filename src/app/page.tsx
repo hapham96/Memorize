@@ -31,6 +31,9 @@ import {
   QuizSessionResult,
   Word,
 } from '@/types';
+import { ReviewQuality } from '@/types/word';
+import { calculateNextSRS } from '@/lib/srs';
+import { submitReview, mapReviewResponseToSRS } from '@/lib/api/word-client';
 import {
   loadUserProgress,
   saveUserProgress,
@@ -188,7 +191,7 @@ export default function Home() {
     saveUserProgress(updatedProgress);
   };
 
-  const handleRateFlashcardWord = (word: Word, rating: 1 | 4 | 5) => {
+  const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
     // Increment daily goal progress on flashcard view
     setUserProgress((prev) => {
       const updated = {
@@ -198,6 +201,29 @@ export default function Home() {
       saveUserProgress(updated);
       return updated;
     });
+
+    const currentSRS = srsMap[word.id] || {
+      wordId: word.id,
+      interval: 0,
+      easeFactor: 2.5,
+      repetitions: 0,
+      lastReviewed: null,
+      nextReviewDate: new Date().toISOString(),
+      state: 'new',
+    };
+
+    const updated = calculateNextSRS(currentSRS, rating);
+    handleUpdateSRS(word.id, updated);
+
+    try {
+      const reviewResp = await submitReview(word.id, rating);
+      if (reviewResp) {
+        const backendSRS = mapReviewResponseToSRS(reviewResp);
+        handleUpdateSRS(word.id, backendSRS);
+      }
+    } catch (err) {
+      console.error('API submitReview error:', err);
+    }
   };
 
   const handleToggleFavorite = (wordId: string) => {

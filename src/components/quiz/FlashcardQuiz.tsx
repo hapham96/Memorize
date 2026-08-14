@@ -3,13 +3,14 @@
 import React, { useState } from 'react';
 import { Volume2, Heart, RotateCw, ArrowLeft, Sparkles } from 'lucide-react';
 import { Word } from '@/types';
+import { ReviewQuality } from '@/types/word';
 import { speakWord, soundFX } from '@/lib/audio';
 
 interface FlashcardQuizProps {
   words: Word[];
   favorites: string[];
   onToggleFavorite: (wordId: string) => void;
-  onRateWord: (word: Word, rating: 1 | 4 | 5) => void;
+  onRateWord: (word: Word, rating: ReviewQuality) => void;
   onClose: () => void;
 }
 
@@ -33,7 +34,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
     setIsFlipped(!isFlipped);
   };
 
-  const handleRating = (rating: 1 | 4 | 5) => {
+  const handleRating = (rating: ReviewQuality) => {
     onRateWord(currentWord, rating);
     setIsFlipped(false);
     if (currentIndex < words.length - 1) {
@@ -196,24 +197,36 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3 pt-2">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 pt-2">
           <button
             onClick={() => handleRating(1)}
-            className="py-3.5 rounded-2xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-sm border border-red-500/20 active:scale-95 transition-all text-center"
+            className="py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
           >
-            Chưa nhớ 🔴
+            Quên 🔴
+          </button>
+          <button
+            onClick={() => handleRating(2)}
+            className="py-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
+          >
+            Yếu 🟠
+          </button>
+          <button
+            onClick={() => handleRating(3)}
+            className="py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
+          >
+            Khó 🟡
           </button>
           <button
             onClick={() => handleRating(4)}
-            className="py-3.5 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-sm border border-blue-500/20 active:scale-95 transition-all text-center"
+            className="py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
           >
-            Nhớ vừa 🔵
+            Tốt 🔵
           </button>
           <button
             onClick={() => handleRating(5)}
-            className="py-3.5 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-sm border border-emerald-500/20 active:scale-95 transition-all text-center"
+            className="py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
           >
-            Rất tốt 🟢
+            Dễ 🟢
           </button>
         </div>
       )}

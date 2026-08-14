@@ -1,16 +1,18 @@
 import { SRSData, SRSState } from '@/types';
+import { ReviewQuality } from '@/types/word';
 
 /**
  * SuperMemo SM-2 Spaced Repetition Algorithm
- * Rating:
- * 1: Again (Forgot, reset interval)
- * 3: Hard (Difficult recall)
- * 4: Good (Normal recall)
- * 5: Easy (Perfect recall)
+ * Rating 5 levels:
+ * 1: Quên (Blackout / Again)
+ * 2: Yếu (Very Hard / Incorrect)
+ * 3: Khó (Hard / Hesitant)
+ * 4: Tốt (Good / Normal)
+ * 5: Dễ (Easy / Perfect)
  */
 export function calculateNextSRS(
   currentSRS: SRSData,
-  rating: 1 | 3 | 4 | 5
+  rating: ReviewQuality
 ): SRSData {
   let { interval, easeFactor, repetitions } = currentSRS;
 

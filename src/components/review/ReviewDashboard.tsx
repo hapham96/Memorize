@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import { Brain, CheckCircle2, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter } from 'lucide-react';
 import { Word, SRSData, WordCategory } from '@/types';
+import { ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
+import { submitReview, mapReviewResponseToSRS } from '@/lib/api/word-client';
 
 interface ReviewDashboardProps {
   allWords: Word[];
@@ -56,7 +58,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     'Emotions',
   ];
 
-  const handleRating = (rating: 1 | 3 | 4 | 5) => {
+  const handleRating = async (rating: ReviewQuality) => {
     if (!currentWord) return;
     const currentSRS = srsMap[currentWord.id] || {
       wordId: currentWord.id,
@@ -71,6 +73,16 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     const updated = calculateNextSRS(currentSRS, rating);
     onUpdateSRS(currentWord.id, updated);
     setIsFlipped(false);
+
+    try {
+      const reviewResp = await submitReview(currentWord.id, rating);
+      if (reviewResp) {
+        const backendSRS = mapReviewResponseToSRS(reviewResp);
+        onUpdateSRS(currentWord.id, backendSRS);
+      }
+    } catch (err) {
+      console.error('API submitReview error:', err);
+    }
 
     if (currentIndex < dueWords.length - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -219,32 +231,38 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             </button>
           </div>
         ) : (
-          /* BACK SIDE: SRS 4 Ratings (Again, Hard, Good, Easy) */
+          /* BACK SIDE: SRS 5 Ratings (Quên, Yếu, Khó, Tốt, Dễ) */
           <div className="space-y-2 pt-2">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               <button
                 onClick={() => handleRating(1)}
-                className="py-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-xs border border-red-500/20 active:scale-95 transition-all text-center"
+                className="py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Chưa nhớ 🔴<br /><span className="text-[10px] opacity-75">1d</span>
+                Quên 🔴<br /><span className="text-[10px] opacity-75">1d</span>
+              </button>
+              <button
+                onClick={() => handleRating(2)}
+                className="py-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
+              >
+                Yếu 🟠<br /><span className="text-[10px] opacity-75">1d</span>
               </button>
               <button
                 onClick={() => handleRating(3)}
-                className="py-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-xs border border-amber-500/20 active:scale-95 transition-all text-center"
+                className="py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Khó 🟠<br /><span className="text-[10px] opacity-75">3d</span>
+                Khó 🟡<br /><span className="text-[10px] opacity-75">3d</span>
               </button>
               <button
                 onClick={() => handleRating(4)}
-                className="py-3.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-xs border border-blue-500/20 active:scale-95 transition-all text-center"
+                className="py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Nhớ vừa 🔵<br /><span className="text-[10px] opacity-75">7d</span>
+                Tốt 🔵<br /><span className="text-[10px] opacity-75">7d</span>
               </button>
               <button
                 onClick={() => handleRating(5)}
-                className="py-3.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-xs border border-emerald-500/20 active:scale-95 transition-all text-center"
+                className="py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Rất tốt 🟢<br /><span className="text-[10px] opacity-75">14d</span>
+                Dễ 🟢<br /><span className="text-[10px] opacity-75">14d</span>
               </button>
             </div>
           </div>

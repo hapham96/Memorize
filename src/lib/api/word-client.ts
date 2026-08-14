@@ -1,9 +1,16 @@
-import { AddWordRequest, AddWordResponse } from "@/types/word";
+import { AddWordRequest, AddWordResponse, ReviewQuality, ReviewWordResponse } from "@/types/word";
 import { Word, SRSData, SRSState } from "@/types";
 import { postAsync } from "./client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   return postAsync<AddWordResponse>("/words", word, { auth: true });
+}
+
+export async function submitReview(
+  userWordId: number | string,
+  quality: ReviewQuality
+): Promise<ReviewWordResponse> {
+  return postAsync<ReviewWordResponse>(`/reviews/${userWordId}`, { quality }, { auth: true });
 }
 
 export function mapAddWordResponseToWord(
@@ -36,4 +43,17 @@ export function mapAddWordResponseToSRS(response: AddWordResponse): SRSData {
     state: (userWord.status as SRSState) || 'new',
   };
 }
+
+export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
+  return {
+    wordId: String(response.wordId),
+    interval: response.interval,
+    easeFactor: response.easinessFactor,
+    repetitions: response.repetitions,
+    lastReviewed: new Date().toISOString(),
+    nextReviewDate: response.dueAt,
+    state: (response.status as SRSState) || 'learning',
+  };
+}
+
 

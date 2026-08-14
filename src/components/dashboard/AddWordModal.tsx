@@ -325,7 +325,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       });
 
     const request: AddWordRequest = {
-      userId: 1, // Replace with actual user ID if available
+      userId: 1, // TODO: Replace with actual user ID if available
       headword: newWordItem.word,
       ipaPronunciation: newWordItem.ipa,
       definitions,
@@ -503,11 +503,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('single')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'single'
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'single'
                 ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             <Plus className="w-4 h-4" />
             <span>Thêm 1 từ thủ công</span>
@@ -515,11 +514,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('excel')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'excel'
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'excel'
                 ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
+              }`}
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
             <span>Import từ Excel / CSV</span>
@@ -895,11 +893,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 onDragLeave={() => setIsDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-6 border-2 border-dashed rounded-3xl cursor-pointer text-center transition-all flex flex-col items-center justify-center gap-3 ${
-                  isDragOver
+                className={`p-6 border-2 border-dashed rounded-3xl cursor-pointer text-center transition-all flex flex-col items-center justify-center gap-3 ${isDragOver
                     ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 scale-[0.99]'
                     : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-blue-400'
-                }`}
+                  }`}
               >
                 <div className="p-3.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm">
                   <UploadCloud className="w-8 h-8" />
@@ -1041,11 +1038,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 type="button"
                 disabled={validCount === 0}
                 onClick={handleBulkSubmit}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center justify-center gap-1.5 ${
-                  validCount > 0
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center justify-center gap-1.5 ${validCount > 0
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 active:scale-98 cursor-pointer'
                     : 'bg-slate-300 dark:bg-slate-700 opacity-60 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <UploadCloud className="w-4 h-4" />
                 <span>Import {validCount} từ hợp lệ</span>
