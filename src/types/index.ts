@@ -18,6 +18,7 @@ export interface Word {
   word: string;
   ipa: string;
   pos: string; // Part of speech: n., v., adj., adv.
+  definition?: string;
   vietnamese: string;
   example: string;
   translation: string;

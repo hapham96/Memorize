@@ -18,4 +18,31 @@ export type ExamplesRequest = {
   language: ExampleLanguage;
 };
 
-export type AddWordResponse = {};
+export type BackendWord = {
+  id: number;
+  headword: string;
+  ipaPronunciation: string | null;
+  audioUrl: string | null;
+  cefrLevel: string | null;
+  createdAt: string;
+};
+
+export type BackendUserWord = {
+  id: number;
+  userId: number;
+  wordId: number;
+  status: string;
+  learningStep: number;
+  easinessFactor: number;
+  repetitions: number;
+  interval: number;
+  dueAt: string;
+  isFavorite: boolean;
+  createdAt: string;
+};
+
+export type AddWordResponse = {
+  word: BackendWord;
+  userWord: BackendUserWord;
+};
+

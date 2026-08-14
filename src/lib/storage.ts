@@ -28,13 +28,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const DEFAULT_USER_PROGRESS: UserProgress = {
-  name: 'Hao',
+  name: 'User Name',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   level: 12,
   xp: 2840,
   streak: 28,
   lastActiveDate: new Date().toISOString(),
-  dailyGoal: 20,
+  dailyGoal: 10,
   dailyGoalProgress: 12,
   wordsLearned: 20,
   masteredCount: 14,

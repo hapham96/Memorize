@@ -154,6 +154,11 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
               <HelpCircle className="w-4 h-4" />
               <span>Explanation & Example</span>
             </div>
+            {currentWord.definition && (
+              <p className="text-xs text-blue-900 dark:text-blue-200 font-semibold">
+                📖 Definition: <span className="font-normal italic">{currentWord.definition}</span>
+              </p>
+            )}
             <p className="text-xs text-slate-700 dark:text-slate-200 font-medium">
               "{currentWord.example}"
             </p>

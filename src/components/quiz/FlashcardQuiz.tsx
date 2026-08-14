@@ -155,6 +155,12 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
                 </h3>
               </div>
 
+              {currentWord.definition && (
+                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/50 text-xs text-blue-800 dark:text-blue-200">
+                  📖 <span className="font-bold">Definition:</span> <span className="italic">{currentWord.definition}</span>
+                </div>
+              )}
+
               <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
                 <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 italic">
                   "{currentWord.example}"

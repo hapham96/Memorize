@@ -107,26 +107,30 @@ export default function Home() {
     return new Date(srs.nextReviewDate) <= now || srs.state === 'learning';
   }).length;
 
-  const handleAddWord = (newWord: Word) => {
+  const handleAddWords = (newWords: Word[]) => {
+    if (newWords.length === 0) return;
+
     const existingCustom = loadCustomWords();
-    const updatedCustom = [newWord, ...existingCustom];
+    const updatedCustom = [...newWords, ...existingCustom];
     saveCustomWords(updatedCustom);
 
-    const updatedAll = [newWord, ...allWords];
+    const updatedAll = [...newWords, ...allWords];
     setAllWords(updatedAll);
 
-    // Initialize SRS entry for new word
-    const newSRS = createInitialSRS(newWord.id);
-    const updatedSRSMap = { ...srsMap, [newWord.id]: newSRS };
+    // Initialize SRS entries for all new words
+    const updatedSRSMap = { ...srsMap };
+    newWords.forEach((w) => {
+      updatedSRSMap[w.id] = createInitialSRS(w.id);
+    });
     setSrsMap(updatedSRSMap);
     saveSRSData(updatedSRSMap);
 
-    // Reward user with 20 XP for adding a custom word
+    // Reward user with 20 XP per added custom word
     setUserProgress((prev) => {
       const updated = {
         ...prev,
-        xp: prev.xp + 20,
-        wordsLearned: prev.wordsLearned + 1,
+        xp: prev.xp + newWords.length * 20,
+        wordsLearned: prev.wordsLearned + newWords.length,
       };
       saveUserProgress(updated);
       return updated;
@@ -401,7 +405,8 @@ export default function Home() {
       <AddWordModal
         isOpen={isAddWordOpen}
         onClose={() => setIsAddWordOpen(false)}
-        onAddWord={handleAddWord}
+        onAddWord={(w) => handleAddWords([w])}
+        onAddWords={handleAddWords}
       />
     </MobileContainer>
   );

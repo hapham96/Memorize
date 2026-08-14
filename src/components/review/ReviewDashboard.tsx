@@ -180,6 +180,11 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 <h3 className="text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400">
                   {currentWord.vietnamese}
                 </h3>
+                {currentWord.definition && (
+                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border border-blue-200/50">
+                    📖 <span className="font-bold">Definition:</span> <span className="italic">{currentWord.definition}</span>
+                  </p>
+                )}
                 <p className="text-xs md:text-sm italic text-slate-600 dark:text-slate-300">
                   "{currentWord.example}"
                 </p>
