@@ -1,6 +1,6 @@
-import { AddWordRequest, AddWordResponse, ReviewQuality, ReviewWordResponse } from "@/types/word";
+import { AddWordRequest, AddWordResponse, BackendUserWord, ReviewQuality, ReviewWordResponse } from "@/types/word";
 import { Word, SRSData, SRSState } from "@/types";
-import { postAsync } from "./client";
+import { getAsync, postAsync } from "./client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   return postAsync<AddWordResponse>("/words", word, { auth: true });
@@ -11,6 +11,10 @@ export async function submitReview(
   quality: ReviewQuality
 ): Promise<ReviewWordResponse> {
   return postAsync<ReviewWordResponse>(`/reviews/${userWordId}`, { quality }, { auth: true });
+}
+
+export async function getDueReviews(userId: number | string = 1): Promise<BackendUserWord[]> {
+  return getAsync<BackendUserWord[]>(`/reviews/due?userId=${userId}`, { auth: true });
 }
 
 export function mapAddWordResponseToWord(
@@ -34,6 +38,7 @@ export function mapAddWordResponseToWord(
 export function mapAddWordResponseToSRS(response: AddWordResponse): SRSData {
   const userWord = response.userWord;
   return {
+    userWordId: userWord.id,
     wordId: String(userWord.wordId),
     interval: userWord.interval,
     easeFactor: userWord.easinessFactor,
@@ -46,6 +51,7 @@ export function mapAddWordResponseToSRS(response: AddWordResponse): SRSData {
 
 export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
   return {
+    userWordId: response.id,
     wordId: String(response.wordId),
     interval: response.interval,
     easeFactor: response.easinessFactor,
@@ -53,6 +59,19 @@ export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
     lastReviewed: new Date().toISOString(),
     nextReviewDate: response.dueAt,
     state: (response.status as SRSState) || 'learning',
+  };
+}
+
+export function mapBackendUserWordToSRS(userWord: BackendUserWord): SRSData {
+  return {
+    userWordId: userWord.id,
+    wordId: String(userWord.wordId),
+    interval: userWord.interval,
+    easeFactor: userWord.easinessFactor,
+    repetitions: userWord.repetitions,
+    lastReviewed: null,
+    nextReviewDate: userWord.dueAt,
+    state: (userWord.status as SRSState) || 'new',
   };
 }
 

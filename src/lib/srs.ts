@@ -3,12 +3,13 @@ import { ReviewQuality } from '@/types/word';
 
 /**
  * SuperMemo SM-2 Spaced Repetition Algorithm
- * Rating 5 levels:
- * 1: Quên (Blackout / Again)
- * 2: Yếu (Very Hard / Incorrect)
- * 3: Khó (Hard / Hesitant)
- * 4: Tốt (Good / Normal)
- * 5: Dễ (Easy / Perfect)
+ * Rating 6 levels (0-5 Quality Rating Scale):
+ * 0 (Complete blackout): Failure to recognize or recall item.
+ * 1 (Incorrect, remembered): Wrong response, remembered upon reveal.
+ * 2 (Incorrect, familiar): Wrong response, felt familiar upon reveal.
+ * 3 (Correct with difficulty): Correct response, but required serious effort.
+ * 4 (Correct with hesitation): Correct response, recalled after brief pause.
+ * 5 (Perfect recall): Correct response, given without hesitation.
  */
 export function calculateNextSRS(
   currentSRS: SRSData,

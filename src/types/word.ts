@@ -46,7 +46,7 @@ export type AddWordResponse = {
   userWord: BackendUserWord;
 };
 
-export type ReviewQuality = 1 | 2 | 3 | 4 | 5;
+export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type ReviewWordRequest = {
   quality: ReviewQuality;

@@ -93,9 +93,8 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
       <div className="my-auto py-3 perspective-1000">
         <div
           onClick={handleFlip}
-          className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${
-            isFlipped ? 'rotate-y-180' : ''
-          }`}
+          className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
+            }`}
         >
           {/* FRONT OF CARD */}
           <div className={`flex-1 flex flex-col justify-between backface-hidden ${isFlipped ? 'hidden' : 'flex'}`}>
@@ -132,9 +131,8 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
 
           {/* BACK OF CARD */}
           <div
-            className={`flex-1 flex flex-col justify-between rotate-y-180 backface-hidden ${
-              isFlipped ? 'flex' : 'hidden'
-            }`}
+            className={`flex-1 flex flex-col justify-between rotate-y-180 backface-hidden ${isFlipped ? 'flex' : 'hidden'
+              }`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
@@ -197,37 +195,60 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 pt-2">
-          <button
-            onClick={() => handleRating(1)}
-            className="py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
-          >
-            Again 🔴
-          </button>
-          <button
-            onClick={() => handleRating(2)}
-            className="py-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
-          >
-            Hard 🟠
-          </button>
-          <button
-            onClick={() => handleRating(3)}
-            className="py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
-          >
-            Good 🟡
-          </button>
-          <button
-            onClick={() => handleRating(4)}
-            className="py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
-          >
-            Great 🔵
-          </button>
-          <button
-            onClick={() => handleRating(5)}
-            className="py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
-          >
-            Easy 🟢
-          </button>
+        <div className="space-y-2 pt-2">
+          <div className="text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+            Đánh giá độ nhớ (Thang 0 - 5)
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
+            <button
+              onClick={() => handleRating(0)}
+              title="0: Complete blackout - Quên hoàn toàn không nhận ra"
+              className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
+            >
+              0 • Blackout 🖤<br />
+              <span className="text-[9px] opacity-80 font-normal">Quên hẳn</span>
+            </button>
+            <button
+              onClick={() => handleRating(1)}
+              title="1: Incorrect, remembered - Sai, nhưng nhớ lại khi xem đáp án"
+              className="py-2.5 px-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
+            >
+              1 • Again 🔴<br />
+              <span className="text-[9px] opacity-80 font-normal">Nhớ khi xem</span>
+            </button>
+            <button
+              onClick={() => handleRating(2)}
+              title="2: Incorrect, familiar - Sai, nhưng cảm thấy quen thuộc"
+              className="py-2.5 px-1 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
+            >
+              2 • Familiar 🟠<br />
+              <span className="text-[9px] opacity-80 font-normal">Thấy quen</span>
+            </button>
+            <button
+              onClick={() => handleRating(3)}
+              title="3: Correct with difficulty - Đúng, nhưng phải nỗ lực mới nhớ"
+              className="py-2.5 px-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
+            >
+              3 • Hard 🟡<br />
+              <span className="text-[9px] opacity-80 font-normal">Vật lộn nhớ</span>
+            </button>
+            <button
+              onClick={() => handleRating(4)}
+              title="4: Correct with hesitation - Đúng, nhớ sau một chút ngập ngừng"
+              className="py-2.5 px-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
+            >
+              4 • Good 🔵<br />
+              <span className="text-[9px] opacity-80 font-normal">Hơi đắn đo</span>
+            </button>
+            <button
+              onClick={() => handleRating(5)}
+              title="5: Perfect recall - Nhớ chính xác hoàn hảo không do dự"
+              className="py-2.5 px-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
+            >
+              5 • Easy 🟢<br />
+              <span className="text-[9px] opacity-80 font-normal">Hoàn hảo</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

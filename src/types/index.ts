@@ -30,6 +30,7 @@ export interface Word {
 export type SRSState = 'new' | 'learning' | 'review' | 'mastered';
 
 export interface SRSData {
+  userWordId?: number | string;
   wordId: string;
   interval: number; // in days
   easeFactor: number; // default 2.5
