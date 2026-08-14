@@ -231,38 +231,38 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             </button>
           </div>
         ) : (
-          /* BACK SIDE: SRS 5 Ratings (Quên, Yếu, Khó, Tốt, Dễ) */
+          /* BACK SIDE: SRS 5 Ratings (Again, Hard, Good, Great, Easy) */
           <div className="space-y-2 pt-2">
             <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               <button
                 onClick={() => handleRating(1)}
                 className="py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Quên 🔴<br /><span className="text-[10px] opacity-75">1d</span>
+                Again 🔴<br /><span className="text-[10px] opacity-75">1d</span>
               </button>
               <button
                 onClick={() => handleRating(2)}
                 className="py-3 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Yếu 🟠<br /><span className="text-[10px] opacity-75">1d</span>
+                Hard 🟠<br /><span className="text-[10px] opacity-75">1d</span>
               </button>
               <button
                 onClick={() => handleRating(3)}
                 className="py-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Khó 🟡<br /><span className="text-[10px] opacity-75">3d</span>
+                Good 🟡<br /><span className="text-[10px] opacity-75">3d</span>
               </button>
               <button
                 onClick={() => handleRating(4)}
                 className="py-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Tốt 🔵<br /><span className="text-[10px] opacity-75">7d</span>
+                Great 🔵<br /><span className="text-[10px] opacity-75">7d</span>
               </button>
               <button
                 onClick={() => handleRating(5)}
                 className="py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                Dễ 🟢<br /><span className="text-[10px] opacity-75">14d</span>
+                Easy 🟢<br /><span className="text-[10px] opacity-75">14d</span>
               </button>
             </div>
           </div>
