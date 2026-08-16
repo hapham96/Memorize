@@ -183,7 +183,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             </button>
           </div>
 
-          <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
             <div
               className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
               style={{ width: `${((currentIndex + 1) / dueWords.length) * 100}%` }}
@@ -198,13 +198,13 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               soundFX.playFlip();
               setIsFlipped(!isFlipped);
             }}
-            className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
+            className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-lg flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
               }`}
           >
             {/* FRONT */}
             <div className={`flex-1 flex flex-col justify-between backface-hidden ${isFlipped ? 'hidden' : 'flex'}`}>
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-clay border-emerald-300 dark:border-emerald-800">
                   SRS Review • {currentWord.category}
                 </span>
                 <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
@@ -240,7 +240,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 }`}
             >
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-clay border-blue-300 dark:border-blue-800">
                   Definition & Context
                 </span>
                 <button
@@ -259,7 +259,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                   {currentWord.vietnamese}
                 </h3>
                 {currentWord.definition && (
-                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border border-blue-200/50">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-clay border-blue-300">
                     📖 <span className="font-bold">Definition:</span> <span className="italic">{currentWord.definition}</span>
                   </p>
                 )}
@@ -268,7 +268,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">👉 {currentWord.translation}</p>
                 {currentWord.mnemonic && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200/50">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border-clay border-amber-300">
                     💡 Mẹo nhớ: {currentWord.mnemonic}
                   </p>
                 )}
@@ -290,7 +290,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 soundFX.playFlip();
                 setIsFlipped(true);
               }}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-xl shadow-blue-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-blue-600 border-clay border-blue-400 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-clay-lg active:scale-[0.97] active:shadow-clay-inset transition-all flex items-center justify-center gap-2"
             >
               <RotateCw className="w-4 h-4" />
               <span>Xem đáp án / Lật thẻ (Reveal Answer)</span>
@@ -306,7 +306,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               <button
                 onClick={() => handleRating(0)}
                 title="0: Complete blackout - Quên hoàn toàn không nhận ra"
-                className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
+                className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
               >
                 0 • Blackout 🖤<br />
                 <span className="text-[9px] opacity-80 font-normal">Quên hẳn</span><br />
@@ -380,7 +380,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
         {onOpenAddWord && (
           <button
             onClick={onOpenAddWord}
-            className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-md shadow-blue-500/20 flex items-center gap-1.5 active:scale-95 transition-all"
+            className="px-4 py-2.5 rounded-2xl bg-blue-600 border-clay border-blue-400 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-clay flex items-center gap-1.5 active:scale-95 transition-all"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Thêm từ mới</span>
@@ -389,8 +389,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       </div>
 
       {/* Primary Hero Review Banner */}
-      <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white rounded-[28px] p-6 shadow-xl relative overflow-hidden group">
-        <div className="absolute right-0 top-0 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
+      <div className="bg-emerald-600 border-clay border-emerald-400 text-white rounded-[28px] p-6 shadow-clay-lg relative overflow-hidden group">
 
         <div className="flex items-center justify-between">
           <div>
@@ -415,7 +414,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <button
             onClick={handleStartReview}
             disabled={isLoadingApi}
-            className="w-full mt-5 py-3.5 rounded-2xl bg-white text-emerald-800 font-extrabold text-sm shadow-md hover:bg-emerald-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full mt-5 py-3.5 rounded-2xl bg-white text-emerald-800 font-extrabold text-sm shadow-clay hover:bg-emerald-50 active:scale-[0.97] active:shadow-clay-inset transition-all flex items-center justify-center gap-2"
           >
             {isLoadingApi && <RefreshCw className="w-4 h-4 animate-spin text-emerald-700" />}
             <span>Bắt đầu ôn tập ngay ({dueWords.length} từ)</span>
@@ -425,7 +424,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
       {/* SRS Category Breakdown Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-slate-800/90 p-4 rounded-[20px] border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
             <Clock className="w-5 h-5" />
           </div>
@@ -437,7 +436,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800/90 p-4 rounded-[20px] border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center flex-shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -449,7 +448,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800/90 p-4 rounded-[20px] border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-5 h-5" />
           </div>
@@ -461,7 +460,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800/90 p-4 rounded-[20px] border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center flex-shrink-0">
             <Brain className="w-5 h-5" />
           </div>
@@ -475,7 +474,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       </div>
 
       {/* Words Queue Preview */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border border-slate-200/80 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
         <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">
           Review Queue Preview
         </h4>
@@ -493,7 +492,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             {dueWords.map((word) => (
               <div
                 key={word.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between"
+                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border-clay border-blue-200 dark:border-slate-800 flex items-center justify-between"
               >
                 <div>
                   <div className="flex items-center gap-2">

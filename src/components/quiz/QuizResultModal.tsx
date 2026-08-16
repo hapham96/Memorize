@@ -39,10 +39,10 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[28px] p-6 shadow-2xl border border-slate-200 dark:border-slate-700 text-center animate-scaleUp space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[28px] p-6 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 text-center animate-scaleUp space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
         {/* Header Badge */}
-        <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center shadow-apple-glow text-white">
+        <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-400 border-clay border-amber-200 flex items-center justify-center shadow-clay-glow text-white">
           <Trophy className="w-10 h-10 text-white fill-white" />
         </div>
 
@@ -56,7 +56,7 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-3 gap-2.5 bg-slate-50 dark:bg-slate-900 p-3.5 rounded-card border border-slate-200/60 dark:border-slate-800">
+        <div className="grid grid-cols-3 gap-2.5 bg-slate-50 dark:bg-slate-900 p-3.5 rounded-card border-clay border-blue-200 dark:border-slate-800">
           <div className="text-center">
             <span className="text-[10px] text-slate-400 font-medium">Accuracy</span>
             <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">{accuracy}%</p>
@@ -80,7 +80,7 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
 
         {/* Mistakes Alert if any */}
         {mistakes.length > 0 && (
-          <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border border-amber-200/50 flex items-center justify-between">
+          <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border-clay border-amber-300 flex items-center justify-between">
             <span>You missed {mistakes.length} word(s) in this session.</span>
             <button
               onClick={onReviewMistakes}
@@ -95,7 +95,7 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
         <div className="space-y-2.5 pt-2">
           <button
             onClick={onContinue}
-            className="w-full py-3.5 rounded-button bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-apple-card flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="w-full py-3.5 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset text-white font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all active:scale-95"
           >
             <span>Continue</span>
             <ArrowRight className="w-4 h-4" />

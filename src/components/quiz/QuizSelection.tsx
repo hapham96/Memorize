@@ -25,7 +25,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Best for learning',
       description: 'Interactive 3D card flip with IPA pronunciation, meanings, and SRS scheduling.',
       icon: Sparkles,
-      color: 'from-blue-500 to-indigo-600',
+      color: 'bg-blue-500 border-blue-300',
       badgeBg: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
       active: true,
     },
@@ -35,7 +35,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Improve recognition',
       description: 'Test your vocabulary recognition with 4 choices and immediate feedback.',
       icon: CheckSquare,
-      color: 'from-emerald-500 to-teal-600',
+      color: 'bg-emerald-500 border-emerald-300',
       badgeBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
       active: true,
     },
@@ -45,7 +45,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Practice recall',
       description: 'Complete real example sentences with the missing English vocabulary.',
       icon: FileText,
-      color: 'from-purple-500 to-pink-600',
+      color: 'bg-purple-500 border-purple-300',
       badgeBg: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
       active: true,
     },
@@ -55,7 +55,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Hard Mode',
       description: 'Translate Vietnamese prompts and type the exact English word with hints.',
       icon: Keyboard,
-      color: 'from-amber-500 to-orange-600',
+      color: 'bg-amber-500 border-amber-300',
       badgeBg: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
       active: true,
     },
@@ -65,7 +65,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Coming Soon',
       description: 'Listen to native audio pronunciations and pick the matching word.',
       icon: Headphones,
-      color: 'from-slate-400 to-slate-500',
+      color: 'bg-slate-400 border-slate-300',
       badgeBg: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
       active: false,
     },
@@ -75,7 +75,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       badge: 'Coming Soon',
       description: 'Visual association quizzes matching images to English vocabulary.',
       icon: ImageIcon,
-      color: 'from-slate-400 to-slate-500',
+      color: 'bg-slate-400 border-slate-300',
       badgeBg: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
       active: false,
     },
@@ -97,22 +97,22 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
             <div
               key={mode.id}
               onClick={() => mode.active && onSelectQuiz(mode.id)}
-              className={`bg-white dark:bg-slate-800/90 rounded-[28px] p-6 border border-slate-200/80 dark:border-slate-700/80 shadow-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+              className={`bg-white dark:bg-slate-800 rounded-[28px] p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                 mode.active
-                  ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.99] group'
+                  ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-clay-lg hover:-translate-y-0.5 active:scale-[0.99] group'
                   : 'opacity-70 cursor-not-allowed'
               }`}
             >
               <div>
                 <div className="flex items-start justify-between mb-4">
                   <div
-                    className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${mode.color} text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform`}
+                    className={`w-14 h-14 rounded-2xl border-clay ${mode.color} text-white flex items-center justify-center shadow-clay group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-200 ease-clay`}
                   >
                     <Icon className="w-7 h-7" />
                   </div>
 
                   {mode.active ? (
-                    <button className="p-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+                    <button className="p-3 rounded-full bg-blue-600 border-clay border-blue-400 text-white shadow-clay group-hover:scale-105 transition-transform">
                       <Play className="w-4 h-4 fill-white" />
                     </button>
                   ) : (

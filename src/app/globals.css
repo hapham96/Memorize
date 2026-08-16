@@ -2,30 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Claymorphism theme tokens
+   The clay look is a DOUBLE shadow: a soft outer drop shadow plus
+   an inner rim (bright highlight on top, tinted shade underneath).
+   Light mode uses a white inner highlight; dark mode swaps it for a
+   pale-indigo one, since white insets read as haze on dark surfaces.
+   ============================================================ */
 @layer base {
   :root {
-    --bg-main: #0B0F19;
-    --bg-light: #F8FAFC;
+    --bg-main: #141628;
+    --bg-light: #EEF2FF;
     --card-main: #FFFFFF;
-    --text-main: #0F172A;
-    --text-muted: #64748B;
-    --border-main: #E2E8F0;
-    --nav-bg: rgba(255, 255, 255, 0.8);
+    --text-main: #1E1B4B;
+    --text-muted: #5F6489;
+    --border-main: #C7D2FE;
+    --nav-bg: #FFFFFF;
+
+    /* slate-400 as raw RGB channels — 4.58:1 on white */
+    --slate-400: 110 115 156;
+
+    /* clay shadow stack — light */
+    --clay-sm: 0 4px 10px -2px rgba(79, 70, 229, 0.12),
+      inset 0 -3px 6px rgba(79, 70, 229, 0.07),
+      inset 0 3px 6px rgba(255, 255, 255, 0.95);
+    --clay: 0 10px 22px -6px rgba(79, 70, 229, 0.18),
+      inset 0 -5px 10px rgba(79, 70, 229, 0.09),
+      inset 0 4px 9px rgba(255, 255, 255, 0.95);
+    --clay-lg: 0 18px 36px -10px rgba(79, 70, 229, 0.24),
+      inset 0 -7px 14px rgba(79, 70, 229, 0.11),
+      inset 0 6px 12px rgba(255, 255, 255, 0.95);
+    --clay-xl: 0 28px 56px -14px rgba(79, 70, 229, 0.3),
+      inset 0 -9px 18px rgba(79, 70, 229, 0.13),
+      inset 0 8px 16px rgba(255, 255, 255, 0.95);
+    --clay-inset: inset 0 5px 11px rgba(79, 70, 229, 0.16),
+      inset 0 -2px 6px rgba(255, 255, 255, 0.7);
+    --clay-glow: 0 0 0 4px rgba(99, 102, 241, 0.2),
+      0 12px 28px -8px rgba(79, 70, 229, 0.45);
   }
 
   .dark {
-    --bg-main: #090D16;
-    --card-main: #131B2E;
-    --text-main: #F8FAFC;
-    --text-muted: #94A3B8;
-    --border-main: #1E293B;
-    --nav-bg: rgba(19, 27, 46, 0.85);
+    --bg-main: #141628;
+    --bg-light: #141628;
+    --card-main: #2C2F4C;
+    --text-main: #F1F2FB;
+    --text-muted: #A3A8CC;
+    --border-main: #3A3D5E;
+    --nav-bg: #2C2F4C;
+
+    /* slate-400 as raw RGB channels — 5.1:1 on the dark card surface */
+    --slate-400: 155 160 200;
+
+    /* clay shadow stack — dark */
+    --clay-sm: 0 4px 10px -2px rgba(0, 0, 0, 0.45),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+      inset 0 3px 6px rgba(165, 180, 252, 0.14);
+    --clay: 0 10px 22px -6px rgba(0, 0, 0, 0.5),
+      inset 0 -5px 10px rgba(0, 0, 0, 0.4),
+      inset 0 4px 9px rgba(165, 180, 252, 0.16);
+    --clay-lg: 0 18px 36px -10px rgba(0, 0, 0, 0.55),
+      inset 0 -7px 14px rgba(0, 0, 0, 0.42),
+      inset 0 6px 12px rgba(165, 180, 252, 0.18);
+    --clay-xl: 0 28px 56px -14px rgba(0, 0, 0, 0.62),
+      inset 0 -9px 18px rgba(0, 0, 0, 0.45),
+      inset 0 8px 16px rgba(165, 180, 252, 0.2);
+    --clay-inset: inset 0 5px 11px rgba(0, 0, 0, 0.5),
+      inset 0 -2px 6px rgba(165, 180, 252, 0.1);
+    --clay-glow: 0 0 0 4px rgba(129, 140, 248, 0.26),
+      0 12px 28px -8px rgba(0, 0, 0, 0.6);
   }
 
   body {
     background-color: var(--bg-light);
     color: var(--text-main);
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-nunito), 'Nunito', ui-rounded, system-ui, sans-serif;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -34,7 +84,81 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-display), 'Baloo 2', ui-rounded, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Claymorphism carries an accessibility risk flag: keyboard focus must stay
+     visible even though every surface is soft and low-contrast. */
+  :focus-visible {
+    outline: 3px solid #6366F1;
+    outline-offset: 3px;
+    border-radius: 12px;
+  }
+
+  .dark :focus-visible {
+    outline-color: #A5B4FC;
+  }
+}
+
+/* ============================================================
+   Clay component classes
+   ============================================================ */
+@layer components {
+  /* Raised clay surface — the default card body. */
+  .clay-card {
+    background: var(--card-main);
+    border: 3px solid var(--border-main);
+    border-radius: 28px;
+    box-shadow: var(--clay);
+  }
+
+  /* Pressed / recessed well — progress tracks, inputs, empty slots. */
+  .clay-well {
+    background: #E4E9FB;
+    border: 3px solid #D3DAF7;
+    border-radius: 20px;
+    box-shadow: var(--clay-inset);
+  }
+
+  .dark .clay-well {
+    background: #23263F;
+    border-color: #343757;
+  }
+
+  /* Chunky tactile button. Squishes on press rather than just scaling. */
+  .clay-btn {
+    border-radius: 22px;
+    border: 3px solid transparent;
+    box-shadow: var(--clay);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.2s ease-out;
+    cursor: pointer;
+  }
+
+  .clay-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--clay-lg);
+  }
+
+  .clay-btn:active {
+    transform: translateY(1px) scale(0.97);
+    box-shadow: var(--clay-inset);
+  }
+
+  /* Floating bottom navigation pod. */
+  .clay-nav {
+    background: var(--nav-bg);
+    border: 3px solid var(--border-main);
+    border-radius: 34px;
+    box-shadow: var(--clay-lg);
+  }
+
+  /* Small pill badge (streak, XP, tags). */
+  .clay-pill {
+    border-radius: 9999px;
+    border: 2px solid var(--border-main);
+    box-shadow: var(--clay-sm);
   }
 }
 
@@ -56,16 +180,16 @@
   transform: rotateY(180deg);
 }
 
-/* Glassmorphism Navigation */
+/* Navigation surface — clay replaces the previous glassmorphism treatment.
+   Class names kept so existing markup keeps working. */
 .glass-nav {
   background: var(--nav-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 3px solid var(--border-main);
+  box-shadow: var(--clay-lg);
 }
 
 .dark .glass-nav {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-color: var(--border-main);
 }
 
 /* Custom Soft Shimmer for Loading States */
@@ -89,10 +213,10 @@
   animation: shimmer 1.5s infinite;
 }
 
-/* Apple Smooth Scrollbar */
+/* Rounded, chunky scrollbar to match the clay surfaces */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -100,18 +224,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.3);
+  background: rgba(129, 140, 248, 0.45);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(156, 163, 175, 0.5);
+  background: rgba(99, 102, 241, 0.65);
 }
 
+/* Entrance animations — all reshaped onto the clay bounce curve
+   cubic-bezier(0.34, 1.56, 0.64, 1) */
 @keyframes scaleUp {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
@@ -122,7 +248,7 @@
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -140,27 +266,26 @@
 }
 
 .animate-scaleUp {
-  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .animate-slideUp {
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideUp 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
 }
 
+/* Clay card surface — replaces the previous frosted-glass treatment. */
 .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--card-main);
+  border: 3px solid var(--border-main);
+  box-shadow: var(--clay);
 }
 
 .dark .glass-card {
-  background: rgba(19, 27, 46, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-color: var(--border-main);
 }
 
 @keyframes popIn {
@@ -178,6 +303,23 @@
 }
 
 .animate-popIn {
-  animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: popIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+/* Claymorphism leans on bounce and squish, so honouring the OS
+   reduced-motion preference is part of the style's checklist. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .clay-btn:hover,
+  .clay-btn:active {
+    transform: none;
+  }
+}

@@ -91,7 +91,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
           </button>
         </div>
 
-        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-amber-500 h-full transition-all duration-300 rounded-full"
             style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
@@ -119,7 +119,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
             onChange={(e) => setInputVal(e.target.value)}
             disabled={isAnswered}
             autoFocus
-            className={`w-full p-4 rounded-input text-center text-lg font-bold border-2 bg-white dark:bg-slate-800 focus:outline-none transition-all shadow-apple-soft ${
+            className={`w-full p-4 rounded-input text-center text-lg font-bold border-2 bg-white dark:bg-slate-800 focus:outline-none transition-all shadow-clay-sm ${
               isAnswered
                 ? isCorrect
                   ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600'
@@ -133,7 +133,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
               <button
                 type="button"
                 onClick={() => setShowHint(true)}
-                className="flex-1 py-2.5 rounded-button bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-semibold text-xs border border-amber-200/50 flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 rounded-button bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-semibold text-xs border-clay border-amber-300 flex items-center justify-center gap-1.5"
               >
                 <Lightbulb className="w-4 h-4" />
                 <span>Hint</span>
@@ -142,7 +142,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
               <button
                 type="button"
                 onClick={handleReveal}
-                className="flex-1 py-2.5 rounded-button bg-slate-200/60 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs"
+                className="flex-1 py-2.5 rounded-button bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs"
               >
                 Reveal Answer
               </button>
@@ -159,7 +159,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
             <button
               type="submit"
               disabled={!inputVal.trim()}
-              className="w-full py-3.5 rounded-button bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-apple-card disabled:opacity-50 transition-all"
+              className="w-full py-3.5 rounded-button bg-amber-500 hover:bg-amber-600 border-clay border-amber-300 active:shadow-clay-inset text-white font-bold text-sm shadow-clay disabled:opacity-50 transition-all"
             >
               Submit Answer
             </button>
@@ -195,7 +195,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
         <div className="pt-2">
           <button
             onClick={handleNext}
-            className="w-full py-4 rounded-button bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-apple-card flex items-center justify-center gap-2 transition-all active:scale-95"
+            className="w-full py-4 rounded-button bg-amber-500 hover:bg-amber-600 border-clay border-amber-300 active:shadow-clay-inset text-white font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all active:scale-95"
           >
             <span>Continue</span>
             <ArrowRight className="w-4 h-4" />

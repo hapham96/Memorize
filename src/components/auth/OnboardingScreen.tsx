@@ -47,11 +47,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-gradient-to-b from-blue-50/50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-blue-50 dark:bg-slate-900">
       {/* Top Header */}
       <div className="flex justify-between items-center pt-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-apple-glow">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-clay-glow">
             M
           </div>
           <span className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">
@@ -69,10 +69,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
       {/* Hero Illustration & Content */}
       <div className="my-auto py-8 flex flex-col items-center text-center">
         <div className="relative mb-8">
-          <div className={`w-32 h-32 rounded-3xl ${current.color} bg-opacity-10 dark:bg-opacity-20 flex items-center justify-center border border-white/50 shadow-apple-card`}>
+          <div className={`w-32 h-32 rounded-3xl ${current.color} bg-opacity-10 dark:bg-opacity-20 flex items-center justify-center border border-white/50 shadow-clay`}>
             <Icon className={`w-16 h-16 text-blue-600 dark:text-blue-400 animate-pulse`} />
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-lg">
+          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-clay-lg">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
@@ -104,7 +104,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
         <div className="space-y-3">
           <button
             onClick={handleNext}
-            className="w-full py-4 rounded-button bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-base shadow-apple-card flex items-center justify-center gap-2 transition-all"
+            className="w-full py-4 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset active:scale-[0.97] active:shadow-clay-inset text-white font-semibold text-base shadow-clay flex items-center justify-center gap-2 transition-all"
           >
             <span>{currentPage === slides.length - 1 ? 'Get Started' : 'Continue'}</span>
             <ArrowRight className="w-5 h-5" />
@@ -112,7 +112,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
           <button
             onClick={onGoToAuth}
-            className="w-full py-3 rounded-button bg-slate-200/60 dark:bg-slate-800 hover:bg-slate-300/60 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium text-sm transition-all"
+            className="w-full py-3 rounded-button bg-slate-200 dark:bg-slate-800 hover:bg-slate-300/60 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium text-sm transition-all"
           >
             Already have an account? <span className="font-bold text-blue-600 dark:text-blue-400">Sign In</span>
           </button>

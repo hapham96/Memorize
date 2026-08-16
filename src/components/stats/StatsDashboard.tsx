@@ -35,7 +35,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
       case 3:
         return 'bg-emerald-500 dark:bg-emerald-600';
       case 4:
-        return 'bg-emerald-600 dark:bg-emerald-400 shadow-sm';
+        return 'bg-emerald-600 dark:bg-emerald-400 shadow-clay-sm';
       default:
         return 'bg-slate-200 dark:bg-slate-800';
     }
@@ -52,7 +52,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
 
       {/* 4 Stat Metric Cards */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border border-slate-200/80 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border-clay border-blue-200 dark:border-slate-700">
           <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
             <BookOpen className="w-4 h-4 text-blue-500" />
             <span>Words Learned</span>
@@ -65,7 +65,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border border-slate-200/80 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border-clay border-blue-200 dark:border-slate-700">
           <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>Accuracy</span>
@@ -78,7 +78,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border border-slate-200/80 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border-clay border-blue-200 dark:border-slate-700">
           <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
             <Flame className="w-4 h-4 text-orange-500" />
             <span>Current Streak</span>
@@ -91,7 +91,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
           </span>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border border-slate-200/80 dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-card border-clay border-blue-200 dark:border-slate-700">
           <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
             <Repeat className="w-4 h-4 text-purple-500" />
             <span>Reviews Done</span>
@@ -106,7 +106,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
       </div>
 
       {/* Heatmap Activity Grid */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border border-slate-200/80 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-emerald-500" />
@@ -148,7 +148,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
       </div>
 
       {/* Quiz History Log */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border border-slate-200/80 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
         <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">Quiz History</h4>
         {progress.history.length === 0 && (
           <p className="text-xs text-slate-400 py-4 text-center">
@@ -159,7 +159,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
           {progress.history.map((item) => (
             <div
               key={item.id}
-              className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 flex items-center justify-between"
+              className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800 flex items-center justify-between"
             >
               <div>
                 <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100">

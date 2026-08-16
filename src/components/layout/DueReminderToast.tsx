@@ -18,9 +18,9 @@ interface DueReminderToastProps {
  * does not support) system notifications.
  *
  * Portalled to `document.body` for the same reason as `ModalPortal`: the
- * `backdrop-blur` on `MobileContainer` would otherwise anchor and clip this
- * fixed element. Unlike `ModalPortal` it must not lock page scroll — the
- * banner is non-blocking.
+ * `overflow-hidden` on `MobileContainer` would otherwise clip this fixed
+ * element. Unlike `ModalPortal` it must not lock page scroll — the banner is
+ * non-blocking.
  */
 export const DueReminderToast: React.FC<DueReminderToastProps> = ({
   items,
@@ -47,7 +47,7 @@ export const DueReminderToast: React.FC<DueReminderToastProps> = ({
         // bottom-24 clears the floating BottomNav (fixed bottom-4).
         className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm sm:max-w-md"
       >
-        <div className="flex items-start gap-3 p-4 rounded-[24px] bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl border border-slate-200/80 dark:border-slate-700/80">
+        <div className="flex items-start gap-3 p-4 rounded-[24px] bg-white dark:bg-slate-800 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700">
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center">
             <Bell className="w-5 h-5 text-amber-500" />
           </div>
@@ -63,7 +63,7 @@ export const DueReminderToast: React.FC<DueReminderToastProps> = ({
 
             <button
               onClick={onReview}
-              className="mt-2.5 px-4 py-2 rounded-button bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold shadow-md shadow-blue-500/25 active:scale-95 transition-transform"
+              className="mt-2.5 px-4 py-2 rounded-button bg-blue-600 border-clay border-blue-400 text-white text-xs font-bold shadow-clay active:scale-95 transition-transform"
             >
               Ôn ngay
             </button>

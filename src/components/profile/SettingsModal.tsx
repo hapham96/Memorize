@@ -37,8 +37,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="w-full max-w-md sm:max-w-lg bg-white dark:bg-slate-800 rounded-[32px] p-6 md:p-8 shadow-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-6 animate-scaleUp max-h-[90dvh] overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+      <div className="w-full max-w-md sm:max-w-lg bg-white dark:bg-slate-800 rounded-[32px] p-6 md:p-8 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 space-y-6 animate-scaleUp max-h-[90dvh] overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
@@ -61,7 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               onClick={() => onUpdateSettings({ theme: 'light' })}
               className={`p-3 rounded-button border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${settings.theme === 'light'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
                 : 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200'
                 }`}
             >
@@ -72,7 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               onClick={() => onUpdateSettings({ theme: 'dark' })}
               className={`p-3 rounded-button border text-xs font-semibold flex items-center justify-center gap-2 transition-all ${settings.theme === 'dark'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
                 : 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200'
                 }`}
             >
@@ -83,7 +83,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Sound Effects */}
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">
           <div className="flex items-center gap-3">
             <Volume2 className="w-5 h-5 text-blue-500" />
             <div>
@@ -107,7 +107,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Due-review reminders */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <Bell className="w-5 h-5 text-amber-500" />
               <div>
@@ -137,7 +137,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {notificationPermission === 'default' && (
                 <button
                   onClick={onRequestNotificationPermission}
-                  className="w-full p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
+                  className="w-full p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-clay border-amber-300 dark:border-amber-900/50 text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center justify-center gap-2 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-colors"
                 >
                   <Bell className="w-4 h-4" />
                   <span>Bật thông báo trình duyệt</span>
@@ -145,7 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {notificationPermission === 'denied' && (
-                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
                   <span>
                     Trình duyệt đang chặn thông báo. Bạn vẫn nhận nhắc nhở ngay trong app —
@@ -155,7 +155,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {notificationPermission === 'unsupported' && (
-                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
                   <span>
                     Trình duyệt không hỗ trợ thông báo hệ thống. Nhắc nhở sẽ hiện trong app.
@@ -185,7 +185,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Quiet hours */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">
                 <div className="flex items-center gap-3">
                   <Moon className="w-5 h-5 text-indigo-400" />
                   <div>
@@ -288,7 +288,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   key={catItem.id}
                   onClick={handleToggleCat}
                   className={`p-2 rounded-xl text-xs font-bold border flex items-center justify-between transition-all ${isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
                     : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                 >

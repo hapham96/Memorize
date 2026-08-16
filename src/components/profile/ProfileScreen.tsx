@@ -57,7 +57,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5 pb-28">
       {/* Profile Header */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-6 border border-slate-200/80 dark:border-slate-700 shadow-apple-soft text-center relative">
+      <div className="bg-white dark:bg-slate-800 rounded-card p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm text-center relative">
         <button
           onClick={onOpenSettings}
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500"
@@ -87,7 +87,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <span className="text-blue-600 dark:text-blue-400">Level {progress.level}</span>
             <span className="text-slate-400">{progress.xp} / {xpForNextLevel} XP</span>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+          <div className="w-full bg-slate-200 dark:bg-slate-700 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-600">
             <div
               className="bg-blue-600 h-full rounded-full transition-all duration-500"
               style={{ width: `${currentLevelProgress}%` }}
@@ -97,7 +97,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </div>
 
       {/* Achievements Section */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border border-slate-200/80 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-3">
           <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Achievements</h4>
           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
@@ -121,7 +121,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   <div
                     className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
                       item.unlocked
-                        ? 'bg-amber-500 text-white shadow-md'
+                        ? 'bg-amber-500 text-white shadow-clay'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
                     }`}
                   >

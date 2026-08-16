@@ -81,7 +81,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-blue-600 h-full transition-all duration-300 rounded-full"
             style={{ width: `${progressPercentage}%` }}
@@ -93,13 +93,13 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
       <div className="my-auto py-3 perspective-1000">
         <div
           onClick={handleFlip}
-          className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-xl flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
+          className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-lg flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
             }`}
         >
           {/* FRONT OF CARD */}
           <div className={`flex-1 flex flex-col justify-between backface-hidden ${isFlipped ? 'hidden' : 'flex'}`}>
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border-clay border-blue-300 dark:border-blue-800">
                 {currentWord.level} • {currentWord.pos}
               </span>
               <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
@@ -135,7 +135,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
               }`}
           >
             <div className="flex justify-between items-center">
-              <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border-clay border-emerald-300 dark:border-emerald-800">
                 Meaning & Context
               </span>
               <button
@@ -155,12 +155,12 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
               </div>
 
               {currentWord.definition && (
-                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/50 text-xs text-blue-800 dark:text-blue-200">
+                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border-clay border-blue-300 text-xs text-blue-800 dark:text-blue-200">
                   📖 <span className="font-bold">Definition:</span> <span className="italic">{currentWord.definition}</span>
                 </div>
               )}
 
-              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">
                 <p className="text-xs md:text-sm font-medium text-slate-700 dark:text-slate-200 italic">
                   "{currentWord.example}"
                 </p>
@@ -170,7 +170,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
               </div>
 
               {currentWord.mnemonic && (
-                <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200/50">
+                <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border-clay border-amber-300">
                   💡 <span className="font-bold">Mnemonic:</span> {currentWord.mnemonic}
                 </div>
               )}
@@ -188,7 +188,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
         <div className="space-y-2 pt-2">
           <button
             onClick={handleFlip}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-xl shadow-blue-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl bg-blue-600 border-clay border-blue-400 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-sm shadow-clay-lg active:scale-[0.97] active:shadow-clay-inset transition-all flex items-center justify-center gap-2"
           >
             <RotateCw className="w-4 h-4" />
             <span>Xem đáp án / Lật thẻ (Reveal Answer)</span>
@@ -203,7 +203,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
             <button
               onClick={() => handleRating(0)}
               title="0: Complete blackout - Quên hoàn toàn không nhận ra"
-              className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
+              className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
             >
               0 • Blackout 🖤<br />
               <span className="text-[9px] opacity-80 font-normal">Quên hẳn</span>

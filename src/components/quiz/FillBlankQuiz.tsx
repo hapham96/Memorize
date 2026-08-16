@@ -93,7 +93,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
           </button>
         </div>
 
-        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-purple-600 h-full transition-all duration-300 rounded-full"
             style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
@@ -103,7 +103,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
 
       {/* Sentence Prompt Card */}
       <div className="my-auto py-4">
-        <div className="bg-white dark:bg-slate-800 rounded-card p-6 border border-slate-200/80 dark:border-slate-700 shadow-apple-card text-center mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-card p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay text-center mb-6">
           <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 px-2.5 py-1 rounded-full uppercase tracking-wider">
             Fill in the blank
           </span>
@@ -138,7 +138,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
                 key={idx}
                 onClick={() => handleSelectOption(option)}
                 disabled={isAnswered}
-                className={`p-4 rounded-button border-2 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-apple-soft ${btnStyle}`}
+                className={`p-4 rounded-button border-3 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-clay-sm ${btnStyle}`}
               >
                 <span>{option}</span>
                 {isAnswered && (
@@ -158,7 +158,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
         <button
           onClick={handleNext}
           disabled={!isAnswered}
-          className={`w-full py-4 rounded-button font-bold text-sm shadow-apple-card flex items-center justify-center gap-2 transition-all ${
+          className={`w-full py-4 rounded-button font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all ${
             isAnswered
               ? 'bg-purple-600 hover:bg-purple-700 text-white active:scale-95'
               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'

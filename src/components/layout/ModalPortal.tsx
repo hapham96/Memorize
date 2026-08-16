@@ -10,10 +10,9 @@ interface ModalPortalProps {
 /**
  * Renders modal content into `document.body`.
  *
- * `MobileContainer` wraps the whole app in a `backdrop-blur-xl` + `overflow-hidden`
- * card. A backdrop-filter creates a containing block for `position: fixed`
- * descendants, so a modal rendered inside it anchors to the card instead of the
- * viewport and gets clipped by `overflow-hidden`. Portalling to body escapes both.
+ * `MobileContainer` wraps the whole app in an `overflow-hidden` card, which
+ * clips any modal rendered inside it. Portalling to body escapes the clip and
+ * keeps `position: fixed` anchored to the viewport.
  *
  * Also locks background scroll while the modal is mounted.
  */

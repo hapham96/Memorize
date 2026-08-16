@@ -567,12 +567,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   return (
     <ModalPortal>
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 md:p-4">
-      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-800/95 rounded-[32px] p-5 md:p-7 shadow-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-4 animate-scaleUp max-h-[92dvh] overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-3 md:p-4">
+      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-7 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 space-y-4 animate-scaleUp max-h-[92dvh] overflow-y-auto overscroll-contain">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3.5">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3.5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
+            <div className="p-2.5 rounded-2xl bg-blue-600 border-clay border-blue-400 text-white shadow-clay">
               <Plus className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
@@ -593,12 +593,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-900/60 rounded-2xl border border-slate-200/60 dark:border-slate-700/50">
+        <div className="flex p-1 bg-slate-100 dark:bg-slate-900/60 rounded-2xl border-clay border-blue-200 dark:border-slate-700">
           <button
             type="button"
             onClick={() => setActiveTab('single')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'single'
-              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-clay-sm'
               : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
           >
@@ -609,7 +609,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             type="button"
             onClick={() => setActiveTab('excel')}
             className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === 'excel'
-              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-clay-sm'
               : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
           >
@@ -639,12 +639,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
                 placeholder="ví dụ: teacher, doctor, innovate..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
 
               {/* Datamuse API Smart Suggestions Chips */}
               {suggestions.length > 0 && (
-                <div className="p-3.5 bg-gradient-to-br from-blue-50/90 via-indigo-50/50 to-sky-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-sky-950/30 backdrop-blur-md rounded-2xl border border-blue-200/80 dark:border-blue-800/60 shadow-md shadow-blue-500/5 space-y-2.5 animate-slideUp transition-all">
+                <div className="p-3.5 bg-blue-50 dark:bg-slate-800 rounded-2xl border-clay border-blue-300 dark:border-blue-800/60 shadow-clay space-y-2.5 animate-slideUp transition-all">
                   <div className="flex items-center justify-between text-[11px] font-bold text-blue-700 dark:text-blue-300">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
@@ -667,7 +667,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         onClick={() => handleSelectSuggestion(sug)}
                         disabled={isLoadingDetails}
                         style={{ animationDelay: `${idx * 40}ms` }}
-                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 text-xs font-bold border border-blue-200/80 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-gradient-to-r hover:from-blue-600 hover:to-indigo-600 hover:text-white dark:hover:text-white transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-blue-500/20 active:scale-95 disabled:opacity-50 animate-popIn flex items-center gap-1 group"
+                        className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold border-clay border-blue-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:bg-blue-600 hover:text-white dark:hover:text-white transition-all duration-200 shadow-clay-sm hover:shadow-clay active:scale-95 disabled:opacity-50 animate-popIn flex items-center gap-1 group"
                       >
                         <span className="text-blue-500 group-hover:text-white transition-colors font-extrabold">+</span>
                         <span>{sug}</span>
@@ -676,7 +676,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </div>
 
                   {isLoadingDetails && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/40 p-2.5 rounded-xl border border-blue-200 dark:border-blue-800 animate-pulse">
+                    <div className="flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/40 p-2.5 rounded-xl border-clay border-blue-300 dark:border-blue-800 animate-pulse">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
                       <span>Đang tự động tải Phiên âm (IPA), Từ loại & Định nghĩa...</span>
                     </div>
@@ -696,7 +696,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   value={ipa}
                   onChange={(e) => setIpa(e.target.value)}
                   placeholder="/ˈtiː.tʃər/"
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -706,7 +706,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <select
                   value={pos}
                   onChange={(e) => setPos(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="n.">Danh từ (n.)</option>
                   <option value="v.">Động từ (v.)</option>
@@ -736,7 +736,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               {meanings.map((meaning, mIndex) => (
                 <div
                   key={meaning.id}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 space-y-2"
+                  className="p-3 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset space-y-2"
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
@@ -759,7 +759,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     value={meaning.definition}
                     onChange={(e) => handleMeaningDefinitionChange(meaning.id, e.target.value)}
                     placeholder="ví dụ: a person who teaches, especially in a school"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg border-clay border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
 
                   <div className="space-y-1.5">
@@ -770,7 +770,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                           value={ex}
                           onChange={(e) => handleExampleChange(meaning.id, eIndex, e.target.value)}
                           placeholder="Câu ví dụ Tiếng Anh..."
-                          className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 px-3 py-1.5 rounded-lg border-clay border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         {meaning.examples.length > 1 && (
                           <button
@@ -804,7 +804,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as WordCategory)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -821,7 +821,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <select
                   value={level}
                   onChange={(e) => setLevel(e.target.value as LevelDifficulty)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {LEVELS.map((lvl) => (
                     <option key={lvl} value={lvl}>
@@ -843,7 +843,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 value={mnemonic}
                 onChange={(e) => setMnemonic(e.target.value)}
                 placeholder="ví dụ: Tea (trà) + cher (chờ) -> vừa uống trà vừa chờ giáo viên"
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -852,14 +852,14 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <button
                 type="button"
                 onClick={handleModalClose}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                className="flex-1 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset text-white text-xs font-bold shadow-clay transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? 'Đang lưu...' : 'Lưu từ mới'}</span>
@@ -872,7 +872,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         {activeTab === 'excel' && (
           <div className="space-y-4 pt-1">
             {/* Quick Action Bar & Guide Toggle */}
-            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 rounded-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-emerald-50/80 dark:bg-emerald-950/30 border-clay border-emerald-300 dark:border-emerald-900/50 rounded-2xl">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-emerald-600 text-white">
                   <FileSpreadsheet className="w-4 h-4" />
@@ -900,7 +900,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 <button
                   type="button"
                   onClick={downloadSampleExcel}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-clay-sm transition-all flex items-center gap-1.5 active:scale-95"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Tải file mẫu Excel</span>
@@ -910,7 +910,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
             {/* Instruction Guide Accordion */}
             {showGuide && (
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-3 animate-fadeIn text-xs text-slate-700 dark:text-slate-300">
+              <div className="p-4 bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-700 rounded-2xl space-y-3 animate-fadeIn text-xs text-slate-700 dark:text-slate-300">
                 <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
                   <h5 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <FileText className="w-4 h-4 text-blue-500" />
@@ -923,63 +923,63 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                       <span className="text-red-500 font-bold">*</span> Word / Từ tiếng Anh
                     </div>
                     <p className="text-slate-500">Từ vựng cần học (Ví dụ: <code className="text-blue-600 dark:text-blue-400">opportunity</code>)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                       <span className="text-red-500 font-bold">*</span> Vietnamese / Nghĩa tiếng Việt
                     </div>
                     <p className="text-slate-500">Nghĩa tiếng Việt (Ví dụ: <code className="text-blue-600 dark:text-blue-400">cơ hội</code>)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       Definition / Định nghĩa
                     </div>
                     <p className="text-slate-500">Định nghĩa tiếng Anh (Không bắt buộc)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       IPA / Phiên âm
                     </div>
                     <p className="text-slate-500">Không bắt buộc (Tự tạo nếu trống)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       POS / Từ loại
                     </div>
                     <p className="text-slate-500"><code className="text-emerald-600">n.</code>, <code className="text-emerald-600">v.</code>, <code className="text-emerald-600">adj.</code>, <code className="text-emerald-600">adv.</code>, <code className="text-emerald-600">phrase</code> (Default: n.)</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       Example / Câu ví dụ
                     </div>
                     <p className="text-slate-500">Câu ví dụ tiếng Anh</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       Translation / Dịch câu ví dụ
                     </div>
                     <p className="text-slate-500">Bản dịch nghĩa câu ví dụ</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       Category / Bộ từ
                     </div>
                     <p className="text-slate-500">IELTS, TOEIC, Daily Life, Academic, Custom...</p>
                   </div>
 
-                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-slate-100">
                       Level / Cấp độ & Mnemonic
                     </div>
@@ -1012,7 +1012,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   : 'border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 hover:bg-slate-100 dark:hover:bg-slate-900 hover:border-blue-400'
                   }`}
               >
-                <div className="p-3.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-sm">
+                <div className="p-3.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 shadow-clay-sm">
                   <UploadCloud className="w-8 h-8" />
                 </div>
                 <div>
@@ -1023,13 +1023,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     Hoặc bấm vào để duyệt file từ máy tính của bạn
                   </p>
                 </div>
-                <div className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
+                <div className="px-3 py-1 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 shadow-clay-sm">
                   Hỗ trợ: .xlsx, .xls, .csv
                 </div>
               </div>
             ) : (
               /* Selected File Summary & Re-upload */
-              <div className="p-3.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-center justify-between">
+              <div className="p-3.5 bg-slate-100 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-700 rounded-2xl flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 rounded-xl bg-emerald-600 text-white">
                     <FileSpreadsheet className="w-5 h-5" />
@@ -1075,7 +1075,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </div>
 
                 {/* Table Box */}
-                <div className="max-h-56 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/80">
+                <div className="max-h-56 overflow-y-auto rounded-2xl border-clay border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold sticky top-0 border-b border-slate-200 dark:border-slate-700">
                       <tr>
@@ -1108,7 +1108,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                             {row.pos}
                           </td>
                           <td className="py-2 px-3">
-                            <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-semibold border border-blue-200 dark:border-blue-800">
+                            <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-semibold border-clay border-blue-300 dark:border-blue-800">
                               {row.category}
                             </span>
                           </td>
@@ -1144,7 +1144,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <button
                 type="button"
                 onClick={handleModalClose}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                className="flex-1 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
               >
                 Hủy
               </button>
@@ -1152,8 +1152,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 type="button"
                 disabled={validCount === 0}
                 onClick={handleBulkSubmit}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all flex items-center justify-center gap-1.5 ${validCount > 0
-                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20 active:scale-98 cursor-pointer'
+                className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-clay transition-all flex items-center justify-center gap-1.5 ${validCount > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 cursor-pointer'
                   : 'bg-slate-300 dark:bg-slate-700 opacity-60 cursor-not-allowed'
                   }`}
               >

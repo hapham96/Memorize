@@ -90,7 +90,7 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
           </button>
         </div>
 
-        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
             style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
@@ -120,7 +120,7 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
             if (isAnswered) {
               if (isCorrectOption) {
                 cardStyle =
-                  'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-apple-glow';
+                  'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-clay-glow';
               } else if (isSelected && !isCorrectOption) {
                 cardStyle = 'bg-red-500/10 border-red-500 text-red-600 dark:text-red-400';
               }
@@ -131,7 +131,7 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
                 key={idx}
                 onClick={() => handleSelectOption(option)}
                 disabled={isAnswered}
-                className={`w-full p-4 rounded-button border-2 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-apple-soft ${cardStyle} ${
+                className={`w-full p-4 rounded-button border-3 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-clay-sm ${cardStyle} ${
                   shakeOption === option ? 'animate-bounce' : ''
                 }`}
               >
@@ -149,7 +149,7 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
 
         {/* Explanation Reveal */}
         {isAnswered && (
-          <div className="mt-5 p-4 rounded-card bg-blue-50 dark:bg-blue-950/40 border border-blue-200/50 text-left space-y-1 animate-fadeIn">
+          <div className="mt-5 p-4 rounded-card bg-blue-50 dark:bg-blue-950/40 border-clay border-blue-300 text-left space-y-1 animate-fadeIn">
             <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
               <HelpCircle className="w-4 h-4" />
               <span>Explanation & Example</span>
@@ -172,9 +172,9 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
         <button
           onClick={handleNext}
           disabled={!isAnswered}
-          className={`w-full py-4 rounded-button font-bold text-sm shadow-apple-card flex items-center justify-center gap-2 transition-all ${
+          className={`w-full py-4 rounded-button font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all ${
             isAnswered
-              ? 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
+              ? 'bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset text-white active:scale-95'
               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
           }`}
         >

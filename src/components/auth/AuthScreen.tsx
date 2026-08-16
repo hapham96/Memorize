@@ -76,7 +76,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
       {/* Form Container */}
       <div className="my-auto py-4">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-apple-glow">
+          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-clay-glow">
             M
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -96,7 +96,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
                 placeholder="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -109,7 +109,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
               placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -121,7 +121,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
               placeholder={isRegister ? `Password (min ${MIN_PASSWORD_LENGTH} characters)` : 'Password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               minLength={isRegister ? MIN_PASSWORD_LENGTH : undefined}
               required
             />
@@ -137,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 rounded-button bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-semibold text-sm shadow-apple-card flex items-center justify-center gap-2 transition-all mt-2"
+            className="w-full py-3.5 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset active:scale-[0.97] active:shadow-clay-inset disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-semibold text-sm shadow-clay flex items-center justify-center gap-2 transition-all mt-2"
           >
             {isSubmitting ? (
               <>
@@ -156,7 +156,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
             <button
               type="button"
               onClick={() => onLoginSuccess(null, displayName())}
-              className="w-full py-3 rounded-button bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all"
+              className="w-full py-3 rounded-button bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all"
             >
               Continue offline
             </button>
@@ -174,7 +174,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
         <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
           <button
             onClick={() => onLoginSuccess(null, 'Hao')}
-            className="py-3 rounded-button bg-slate-900 text-white hover:bg-slate-800 font-medium text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="py-3 rounded-button bg-slate-900 text-white hover:bg-slate-800 font-medium text-xs flex items-center justify-center gap-2 shadow-clay-sm transition-all"
           >
             <Apple className="w-4 h-4 fill-white" />
             <span>Apple</span>
@@ -182,7 +182,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
 
           <button
             onClick={() => onLoginSuccess(null, 'Hao')}
-            className="py-3 rounded-button bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+            className="py-3 rounded-button bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-2 shadow-clay-sm transition-all"
           >
             <Globe className="w-4 h-4 text-blue-500" />
             <span>Google</span>

@@ -30,7 +30,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm sm:max-w-md md:max-w-lg z-40">
-      <div className="bg-white/80 dark:bg-slate-900/85 backdrop-blur-2xl rounded-full p-2 flex items-center justify-around shadow-2xl border border-white/40 dark:border-slate-800/80 transition-all duration-300">
+      <div className="clay-nav rounded-full p-2 flex items-center justify-around transition-all duration-300">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -38,16 +38,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`relative flex flex-col items-center justify-center py-2 px-3 sm:px-4 rounded-full transition-all duration-300 active:scale-95 ${
+              className={`relative flex flex-col items-center justify-center py-2 px-3 sm:px-4 rounded-full cursor-pointer transition-all duration-200 ease-clay active:scale-95 ${
                 isActive
-                  ? 'text-white bg-gradient-to-r from-blue-600 to-indigo-600 font-extrabold shadow-md shadow-blue-500/25'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/50 dark:hover:bg-slate-800/50'
+                  ? 'text-white bg-blue-600 font-extrabold shadow-clay border-2 border-blue-400 -translate-y-0.5'
+                  : 'text-slate-500 dark:text-slate-400 border-2 border-transparent hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'
               }`}
             >
               <div className="relative">
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                 {tab.badge !== undefined && (
-                  <span className="absolute -top-1.5 -right-2.5 bg-red-500 text-white text-[10px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center shadow-md animate-bounce">
+                  <span className="absolute -top-2 -right-3 bg-clay-cta text-white text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-clay-sm animate-bounce">
                     {tab.badge > 99 ? '99+' : tab.badge}
                   </span>
                 )}
