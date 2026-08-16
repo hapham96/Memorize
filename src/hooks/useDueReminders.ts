@@ -25,11 +25,19 @@ import {
 
 /**
  * Fallback poll, and the rate at which the backend is asked for due reviews.
- * The exact timer below fires on a locally-known due moment; this covers
- * clocks that drifted, timers a background tab throttled, and due times only
- * the backend knows about.
+ * The exact timer below fires on a locally-known due moment, so this only has
+ * to cover what that timer cannot see: clocks that drifted, timers a background
+ * tab throttled, and due times only the backend knows about. Coarse on purpose.
  */
-const POLL_MS = 60_000;
+const POLL_MS = 300_000;
+
+/**
+ * Returning to a tab fires `visibilitychange` and `focus` together, and neither
+ * alone covers every case — `visibilitychange` misses a window that stayed
+ * visible while unfocused, `focus` misses a background tab being reselected.
+ * Both stay wired up; this window collapses the pair into one refresh.
+ */
+const EVENT_REFRESH_GAP_MS = 10_000;
 
 /** `setTimeout` overflows past 2^31-1 ms; the poll covers anything longer. */
 const MAX_TIMEOUT_MS = 2_000_000_000;
@@ -122,19 +130,29 @@ export function useDueReminders({
   useEffect(() => {
     if (!isReady) return;
 
+    let lastEventRefresh = 0;
+
     const refresh = () => setClock(Date.now());
+    // Debounced: the two foreground events overlap, and a user flicking between
+    // windows should not re-tick the whole hook each time.
+    const refreshFromEvent = () => {
+      const now = Date.now();
+      if (now - lastEventRefresh < EVENT_REFRESH_GAP_MS) return;
+      lastEventRefresh = now;
+      setClock(now);
+    };
     const onVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState === 'visible') refreshFromEvent();
     };
 
     const intervalId = setInterval(refresh, POLL_MS);
     document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', refresh);
+    window.addEventListener('focus', refreshFromEvent);
 
     return () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('focus', refreshFromEvent);
     };
   }, [isReady]);
 

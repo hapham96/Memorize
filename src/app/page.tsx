@@ -35,6 +35,7 @@ import {
   submitReview,
   mapReviewResponseToSRS,
   getDueReviews,
+  invalidateDueReviews,
   mapBackendUserWordToSRS,
   resolveWordForUserWord,
 } from '@/lib/api/word-client';
@@ -89,6 +90,9 @@ export default function Home() {
   const loadAccountState = (activeSession: AuthSession | null, displayName?: string) => {
     setStorageScope(activeSession?.userId ?? null);
     setSession(activeSession);
+    // Sign-in and sign-out both land here; the previous account's due list must
+    // not answer for the new one.
+    invalidateDueReviews();
 
     const loadedSettings = loadSettings();
     const loadedSRS = loadSRSData();

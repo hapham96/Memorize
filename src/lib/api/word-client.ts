@@ -4,20 +4,84 @@ import { getAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
-  return postAsync<AddWordResponse>("/words", word, { auth: true });
+  const response = await postAsync<AddWordResponse>("/words", word, { auth: true });
+  invalidateDueReviews();
+  return response;
 }
 
 export async function submitReview(
   userWordId: number | string,
   quality: ReviewQuality
 ): Promise<ReviewWordResponse> {
-  return postAsync<ReviewWordResponse>(`/reviews/${userWordId}`, { quality }, { auth: true });
+  const response = await postAsync<ReviewWordResponse>(
+    `/reviews/${userWordId}`,
+    { quality },
+    { auth: true }
+  );
+  invalidateDueReviews();
+  return response;
 }
 
+/**
+ * How long a due list is reused. Long enough to collapse the burst that mount,
+ * a tab switch and the reminder poll produce together; short enough that a word
+ * falling due is picked up on the next poll rather than a stale one.
+ */
+const DUE_CACHE_TTL_MS = 30_000;
+
+interface DueCacheEntry {
+  fetchedAt: number;
+  data: BackendUserWord[];
+}
+
+const dueCache = new Map<string, DueCacheEntry>();
+const dueInFlight = new Map<string, Promise<BackendUserWord[]>>();
+
+/**
+ * Drops every cached due list so the next read goes to the backend. Called
+ * after anything that changes what is due, and on account changes.
+ */
+export function invalidateDueReviews(): void {
+  dueCache.clear();
+  dueInFlight.clear();
+}
+
+/**
+ * Three independent callers ask for this — mount hydration, the review tab and
+ * the reminder poll — so results are shared for `DUE_CACHE_TTL_MS` and
+ * concurrent asks collapse into a single request. Pass `force` when the answer
+ * must be fresh; failures are never cached.
+ */
 export async function getDueReviews(
-  userId: number | string = getCurrentUserId()
+  userId: number | string = getCurrentUserId(),
+  options: { force?: boolean } = {}
 ): Promise<BackendUserWord[]> {
-  return getAsync<BackendUserWord[]>(`/reviews/due?userId=${userId}`, { auth: true });
+  const key = String(userId);
+
+  if (!options.force) {
+    const cached = dueCache.get(key);
+    if (cached && Date.now() - cached.fetchedAt < DUE_CACHE_TTL_MS) return cached.data;
+
+    const pending = dueInFlight.get(key);
+    if (pending) return pending;
+  }
+
+  const request: Promise<BackendUserWord[]> = getAsync<BackendUserWord[]>(
+    `/reviews/due?userId=${key}`,
+    { auth: true }
+  )
+    .then((data) => {
+      dueCache.set(key, { fetchedAt: Date.now(), data });
+      return data;
+    })
+    .finally(() => {
+      // Only clear the slot this request owns — a later `force` call may have
+      // already replaced it.
+      if (dueInFlight.get(key) === request) dueInFlight.delete(key);
+    });
+
+  dueInFlight.set(key, request);
+  return request;
 }
 
 export function mapAddWordResponseToWord(

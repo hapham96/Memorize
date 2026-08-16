@@ -84,7 +84,12 @@ It also handles bulk Excel/CSV import and template export via `xlsx`.
 
 - **UI copy is Vietnamese**; vocabulary data is English with Vietnamese `vietnamese`/`translation` fields. Match the surrounding language when adding strings.
 - **Dark mode** is Tailwind `darkMode: 'class'`, toggled by directly adding/removing `dark` on `document.documentElement` in `page.tsx` (`handleUpdateSettings` and the mount effect). There is no theme provider. The `'system'` theme option exists in `AppSettings` but is treated as light.
-- **Styling** uses the custom `apple` color palette and `card`/`button`/`input`/`nav` border-radius tokens in [tailwind.config.ts](tailwind.config.ts) — prefer these over raw values.
+- **Styling** is a **Claymorphism** theme defined entirely in [tailwind.config.ts](tailwind.config.ts) + [src/app/globals.css](src/app/globals.css). Read the header comment in the config before touching colors.
+  - The stock `slate` (neutral) and `blue` (primary) ramps are **re-tinted**, not replaced — `slate` is a lavender-warm neutral, `blue` is indigo (`#4F46E5` at 600). Components keep using `slate-*`/`blue-*`; the theme changes from one place. `clay-*` holds the pastel accents.
+  - Surfaces are **matte**: `border-clay` (3px) + a `shadow-clay*` double shadow. No gradients, no `backdrop-blur` — both were deliberately removed. Recessed things (inputs, progress tracks) use `shadow-clay-inset`.
+  - `shadow-clay*` resolve to CSS variables so dark mode can swap the inner highlight; `slate-400` is a channel variable for the same reason (contrast). Set both in `globals.css`, never inline.
+  - Ready-made classes: `.clay-card`, `.clay-btn`, `.clay-well`, `.clay-nav`, `.clay-pill`. Motion uses `ease-clay` (`cubic-bezier(0.34, 1.56, 0.64, 1)`).
+- **Fonts must carry the `vietnamese` subset.** UI copy is Vietnamese and `ọ ợ ệ` live only in that subset — a font without it falls back mid-word. Baloo 2 (display) + Nunito (body); Fredoka was rejected for exactly this reason. See [src/app/layout.tsx](src/app/layout.tsx).
 - Every component under `src/components/` is `'use client'`. Animations are Framer Motion; icons are `lucide-react`.
 - **Audio** is fully synthesized — [src/lib/audio.ts](src/lib/audio.ts) uses Web Speech API for pronunciation and a Web Audio oscillator engine (`soundFX`) for UI sounds. No audio assets.
 - XP/leveling constants are inline in `page.tsx`: 5 XP per correct + 10 completion bonus, 20 XP per custom word, level = `floor(xp / 300) + 1`.
