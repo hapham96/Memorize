@@ -57,7 +57,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
   const progressPercentage = Math.round(((currentIndex + 1) / words.length) * 100);
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-4 md:px-8 py-5 pb-28 bg-slate-50 dark:bg-slate-900 animate-fadeIn min-h-[calc(100vh-80px)]">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-4 md:px-8 py-5 pb-8 bg-slate-50 dark:bg-slate-900 animate-fadeIn">
       {/* Top Header & Progress Bar */}
       <div>
         <div className="flex items-center justify-between mb-3">

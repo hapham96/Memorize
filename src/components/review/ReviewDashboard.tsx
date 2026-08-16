@@ -6,7 +6,13 @@ import { Word, SRSData, WordCategory } from '@/types';
 import { BackendUserWord, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
-import { submitReview, mapReviewResponseToSRS, getDueReviews, mapBackendUserWordToSRS } from '@/lib/api/word-client';
+import {
+  submitReview,
+  mapReviewResponseToSRS,
+  getDueReviews,
+  mapBackendUserWordToSRS,
+  resolveWordForUserWord,
+} from '@/lib/api/word-client';
 
 interface ReviewDashboardProps {
   allWords: Word[];
@@ -19,26 +25,6 @@ interface DueReviewItem {
   userWordId: number | string;
   word: Word;
   userWord?: BackendUserWord;
-}
-
-function resolveWordForUserWord(userWord: BackendUserWord, allWords: Word[]): Word {
-  const targetId = String(userWord.wordId);
-  const match = allWords.find(
-    (w) => String(w.id) === targetId || w.id === `w${targetId}`
-  );
-  if (match) return match;
-
-  return {
-    id: targetId,
-    word: `Word #${targetId}`,
-    ipa: `/#${targetId}/`,
-    pos: 'n.',
-    vietnamese: `Từ vựng #${targetId}`,
-    example: `Example sentence for word #${targetId}.`,
-    translation: `Ví dụ minh họa cho từ #${targetId}.`,
-    level: 'B1',
-    category: 'Custom',
-  };
 }
 
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
@@ -57,7 +43,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   const fetchDueFromApi = async () => {
     setIsLoadingApi(true);
     try {
-      const data = await getDueReviews(1);
+      const data = await getDueReviews();
       if (Array.isArray(data)) {
         const items: DueReviewItem[] = data.map((userWord) => ({
           userWordId: userWord.id,
@@ -177,7 +163,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   // If in active review mode (Screen 11)
   if (isReviewing && currentWord) {
     return (
-      <div className="flex-1 flex flex-col justify-between px-4 md:px-8 py-5 pb-28 bg-slate-50 dark:bg-slate-900 animate-fadeIn min-h-[calc(100vh-80px)]">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-4 md:px-8 py-5 pb-28 bg-slate-50 dark:bg-slate-900 animate-fadeIn">
         <div>
           <div className="flex items-center justify-between mb-3">
             <button
@@ -385,7 +371,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
   // Dashboard Overview (Screen 10)
   return (
-    <div className="flex-1 overflow-y-auto px-4 md:px-8 py-5 space-y-5 pb-28 animate-fadeIn">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-5 pb-28 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Review Dashboard</h2>

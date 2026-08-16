@@ -51,10 +51,15 @@ export interface QuizHistoryItem {
 
 export interface UserProgress {
   name: string;
+  /** Account email from the API session; empty for the signed-out demo profile. */
+  email: string;
+  /** Numeric user id from the JWT `sub` claim; null when signed out. */
+  userId: number | null;
   avatar: string;
   level: number;
   xp: number;
   streak: number;
+  bestStreak: number;
   lastActiveDate: string;
   dailyGoal: number; // e.g. 20 words
   dailyGoalProgress: number; // e.g. 12 words today

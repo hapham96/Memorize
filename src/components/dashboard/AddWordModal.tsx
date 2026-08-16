@@ -19,17 +19,21 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { Word, WordCategory, LevelDifficulty } from '@/types';
+import { SRSData, Word, WordCategory, LevelDifficulty } from '@/types';
 import { getRelatedWordSuggestions, getWordDetails } from '@/data/relatedWords';
 import { soundFX } from '@/lib/audio';
 import { addWord, mapAddWordResponseToWord, mapAddWordResponseToSRS } from '@/lib/api/word-client';
+import { getCurrentUserId } from '@/lib/api/auth-client';
 import { AddWordRequest } from '@/types/word';
+import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface AddWordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddWord: (word: Word) => void;
   onAddWords?: (words: Word[]) => void;
+  /** Replaces the optimistic local entry once the backend assigns a real id. */
+  onWordSynced?: (localId: string, word: Word, srs: SRSData) => void;
 }
 
 const CATEGORIES: WordCategory[] = [
@@ -175,6 +179,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   onClose,
   onAddWord,
   onAddWords,
+  onWordSynced,
 }) => {
   const [activeTab, setActiveTab] = useState<'single' | 'excel'>('single');
 
@@ -407,7 +412,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       });
 
     const request: AddWordRequest = {
-      userId: 1, // TODO: Replace with actual user ID if available
+      userId: getCurrentUserId(),
       headword: newWordItem.word,
       ipaPronunciation: newWordItem.ipa,
       definitions,
@@ -416,9 +421,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     try {
       const addWordResponse = await addWord(request);
       if (addWordResponse?.word && addWordResponse?.userWord) {
-        const mappedWord = mapAddWordResponseToWord(addWordResponse, newWordItem);
-        const mappedSRS = mapAddWordResponseToSRS(addWordResponse);
-        console.log('Successfully added word to backend:', mappedWord, mappedSRS);
+        // The optimistic entry above carries a local-only id, so the backend's
+        // id and `dueAt` have to replace it — otherwise the same word exists
+        // twice (locally as `custom_…`, remotely as a number) and nothing that
+        // keys off the backend id, review reminders included, can find it.
+        onWordSynced?.(
+          newWordItem.id,
+          mapAddWordResponseToWord(addWordResponse, newWordItem),
+          mapAddWordResponseToSRS(addWordResponse)
+        );
       }
     } catch (err) {
       console.error('API addWord error:', err);
@@ -555,8 +566,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const invalidCount = parsedRows.length - validCount;
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-3 md:p-4">
-      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-800/95 rounded-[32px] p-5 md:p-7 shadow-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-4 animate-scaleUp max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-800/95 rounded-[32px] p-5 md:p-7 shadow-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-4 animate-scaleUp max-h-[92dvh] overflow-y-auto overscroll-contain">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3.5">
           <div className="flex items-center gap-3">
@@ -1153,5 +1165,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 };
