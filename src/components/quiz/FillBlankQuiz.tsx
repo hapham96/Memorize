@@ -72,7 +72,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between px-5 py-4 bg-slate-50 dark:bg-slate-900">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-5 py-4 bg-slate-50 dark:bg-slate-900">
       {/* Top Header */}
       <div>
         <div className="flex items-center justify-between mb-3">

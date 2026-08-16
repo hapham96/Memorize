@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MobileContainer } from '@/components/layout/MobileContainer';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -17,44 +17,55 @@ import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
 import { ProfileScreen } from '@/components/profile/ProfileScreen';
 import { SettingsModal } from '@/components/profile/SettingsModal';
+import { DueReminderToast } from '@/components/layout/DueReminderToast';
 
 import { AddWordModal } from '@/components/dashboard/AddWordModal';
 
-import { VOCABULARY_DATASET } from '@/data/vocabulary';
-import { INITIAL_ACHIEVEMENTS } from '@/data/achievements';
 import {
   ActiveTab,
   QuizType,
   UserProgress,
   SRSData,
-  Achievement,
   QuizSessionResult,
   Word,
 } from '@/types';
 import { ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
-import { submitReview, mapReviewResponseToSRS } from '@/lib/api/word-client';
+import {
+  submitReview,
+  mapReviewResponseToSRS,
+  getDueReviews,
+  mapBackendUserWordToSRS,
+  resolveWordForUserWord,
+} from '@/lib/api/word-client';
+import { getCurrentSession, getDisplayName, logout } from '@/lib/api/auth-client';
+import { AuthSession } from '@/types/auth';
 import {
   loadUserProgress,
   saveUserProgress,
   loadSRSData,
   saveSRSData,
-  loadAchievements,
-  saveAchievements,
   loadSettings,
   saveSettings,
   loadAllWords,
   loadCustomWords,
   saveCustomWords,
+  setStorageScope,
+  clearScopedData,
   AppSettings,
   DEFAULT_SETTINGS,
   DEFAULT_USER_PROGRESS,
 } from '@/lib/storage';
 import { createInitialSRS } from '@/lib/srs';
 import { soundFX } from '@/lib/audio';
+import { generateAvatar } from '@/lib/avatar';
+import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
+import { computeAchievements } from '@/lib/achievements';
+import { useDueReminders } from '@/hooks/useDueReminders';
 
 export default function Home() {
-  const [isOnboarding, setIsOnboarding] = useState(true);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isOnboarding, setIsOnboarding] = useState(false);
   const [isAuth, setIsAuth] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
@@ -67,26 +78,52 @@ export default function Home() {
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress>(DEFAULT_USER_PROGRESS);
   const [srsMap, setSrsMap] = useState<Record<string, SRSData>>({});
-  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-    // Load local storage on mount
-    const loadedProgress = loadUserProgress();
-    const loadedSRS = loadSRSData();
-    const loadedAchievements = loadAchievements();
+  /**
+   * Loads the state belonging to `activeSession`. Storage is scoped by user id
+   * first, so one account never reads another's progress, and identity fields
+   * always come from the API session rather than whatever was stored earlier.
+   */
+  const loadAccountState = (activeSession: AuthSession | null, displayName?: string) => {
+    setStorageScope(activeSession?.userId ?? null);
+    setSession(activeSession);
+
     const loadedSettings = loadSettings();
+    const loadedSRS = loadSRSData();
     const loadedWords = loadAllWords();
+    let loadedProgress = applyDailyRollover(loadUserProgress());
+
+    if (activeSession) {
+      const name =
+        displayName?.trim() ||
+        (loadedProgress.name && loadedProgress.name !== DEFAULT_USER_PROGRESS.name
+          ? loadedProgress.name
+          : getDisplayName(activeSession));
+
+      loadedProgress = {
+        ...loadedProgress,
+        name,
+        email: activeSession.email,
+        userId: activeSession.userId,
+        avatar: generateAvatar(name || activeSession.email),
+      };
+    } else if (displayName?.trim()) {
+      // Continuing without an account still keeps the name the user typed.
+      loadedProgress = {
+        ...loadedProgress,
+        name: displayName.trim(),
+        avatar: generateAvatar(displayName.trim()),
+      };
+    }
 
     setUserProgress(loadedProgress);
+    saveUserProgress(loadedProgress);
     setSrsMap(loadedSRS);
-    setAchievements(loadedAchievements);
     setSettings(loadedSettings);
     setAllWords(loadedWords);
 
-    // Apply dark mode class
     if (loadedSettings.theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -94,13 +131,76 @@ export default function Home() {
     }
 
     soundFX.setEnabled(loadedSettings.soundEnabled);
+
+    if (activeSession) {
+      hydrateFromApi(loadedWords);
+    }
+  };
+
+  /**
+   * Pulls the account's real word state from the backend and folds it into the
+   * local SRS map. Failure is non-fatal — local data stays authoritative.
+   */
+  const hydrateFromApi = async (words: Word[]) => {
+    try {
+      const userWords = await getDueReviews();
+      if (!Array.isArray(userWords) || userWords.length === 0) return;
+
+      setSrsMap((prev) => {
+        const merged = { ...prev };
+        userWords.forEach((userWord) => {
+          const word = resolveWordForUserWord(userWord, words);
+          merged[word.id] = mapBackendUserWordToSRS(userWord);
+        });
+        saveSRSData(merged);
+        return merged;
+      });
+
+      const favorites = userWords
+        .filter((userWord) => userWord.isFavorite)
+        .map((userWord) => resolveWordForUserWord(userWord, words).id);
+
+      if (favorites.length > 0) {
+        setUserProgress((prev) => {
+          const updated = {
+            ...prev,
+            favorites: Array.from(new Set([...prev.favorites, ...favorites])),
+          };
+          saveUserProgress(updated);
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn('Could not hydrate progress from API, using local data:', err);
+    }
+  };
+
+  useEffect(() => {
+    const existingSession = getCurrentSession();
+    // Onboarding is for people who have not signed in yet.
+    setIsOnboarding(!existingSession);
+    loadAccountState(existingSession);
+    setIsMounted(true);
   }, []);
 
-  // Filter word dataset according to user's focusCategories setting
-  const focusCategories = settings.focusCategories || [];
-  const activePool = (focusCategories.length > 0)
-    ? allWords.filter((w) => focusCategories.includes(w.category))
-    : allWords;
+  // Everything derivable is recomputed here, so the UI can never render a
+  // counter that drifted away from the SRS map, the XP total or the settings.
+  const displayProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
+  const displayAchievements = computeAchievements(displayProgress, srsMap);
+
+  // Filter word dataset according to user's focusCategories setting. Memoised
+  // because `useDueReminders` scans this list on every identity change.
+  const focusCategories = useMemo(
+    () => settings.focusCategories || [],
+    [settings.focusCategories]
+  );
+  const activePool = useMemo(
+    () =>
+      focusCategories.length > 0
+        ? allWords.filter((w) => focusCategories.includes(w.category))
+        : allWords,
+    [allWords, focusCategories]
+  );
 
   // Calculate Due Words Count for Review Badge
   const now = new Date();
@@ -109,6 +209,13 @@ export default function Home() {
     if (!srs) return true;
     return new Date(srs.nextReviewDate) <= now || srs.state === 'learning';
   }).length;
+
+  const openReview = () => {
+    setActiveQuizMode(null);
+    setSessionResult(null);
+    setIsSettingsOpen(false);
+    setActiveTab('review');
+  };
 
   const handleAddWords = (newWords: Word[]) => {
     if (newWords.length === 0) return;
@@ -128,13 +235,11 @@ export default function Home() {
     setSrsMap(updatedSRSMap);
     saveSRSData(updatedSRSMap);
 
-    // Reward user with 20 XP per added custom word
+    // Reward user with 20 XP per added custom word. wordsLearned is derived
+    // from the SRS map, so it is not incremented by hand here.
     setUserProgress((prev) => {
-      const updated = {
-        ...prev,
-        xp: prev.xp + newWords.length * 20,
-        wordsLearned: prev.wordsLearned + newWords.length,
-      };
+      const xp = prev.xp + newWords.length * 20;
+      const updated = recordActivity({ ...prev, xp, level: levelFromXp(xp) });
       saveUserProgress(updated);
       return updated;
     });
@@ -162,18 +267,17 @@ export default function Home() {
 
     setSessionResult(newResult);
 
-    // Update User Progress
+    // Update User Progress. wordsLearned/masteredCount/level are derived at
+    // render time from the SRS map and XP, so only real events are stored.
+    const active = recordActivity(userProgress);
+    const xp = active.xp + xpEarned;
     const updatedProgress: UserProgress = {
-      ...userProgress,
-      xp: userProgress.xp + xpEarned,
-      level: Math.floor((userProgress.xp + xpEarned) / 300) + 1,
-      dailyGoalProgress: Math.min(
-        userProgress.dailyGoal,
-        userProgress.dailyGoalProgress + total
-      ),
-      wordsLearned: userProgress.wordsLearned + total,
-      totalCorrect: userProgress.totalCorrect + correctCount,
-      totalAttempted: userProgress.totalAttempted + total,
+      ...active,
+      xp,
+      level: levelFromXp(xp),
+      dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + total),
+      totalCorrect: active.totalCorrect + correctCount,
+      totalAttempted: active.totalAttempted + total,
       history: [
         {
           id: `h_${Date.now()}`,
@@ -183,7 +287,7 @@ export default function Home() {
           correctCount,
           xpEarned,
         },
-        ...userProgress.history,
+        ...active.history,
       ],
     };
 
@@ -194,9 +298,12 @@ export default function Home() {
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
     // Increment daily goal progress on flashcard view
     setUserProgress((prev) => {
+      const active = recordActivity(prev);
       const updated = {
-        ...prev,
-        dailyGoalProgress: Math.min(prev.dailyGoal, prev.dailyGoalProgress + 1),
+        ...active,
+        dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + 1),
+        totalAttempted: active.totalAttempted + 1,
+        totalCorrect: active.totalCorrect + (rating >= 3 ? 1 : 0),
       };
       saveUserProgress(updated);
       return updated;
@@ -246,6 +353,42 @@ export default function Home() {
     });
   };
 
+  /**
+   * Re-keys a word from its optimistic local id to the id the backend assigned.
+   * Without this the app holds two identities for one word and anything driven
+   * by the backend — `dueAt`, review reminders — cannot match it locally.
+   */
+  const handleWordSynced = (localId: string, syncedWord: Word, syncedSRS: SRSData) => {
+    if (syncedWord.id === localId) return;
+
+    setAllWords((prev) => prev.map((w) => (w.id === localId ? syncedWord : w)));
+    saveCustomWords(loadCustomWords().map((w) => (w.id === localId ? syncedWord : w)));
+
+    setSrsMap((prev) => {
+      const updatedMap = { ...prev };
+      delete updatedMap[localId];
+      updatedMap[syncedWord.id] = syncedSRS;
+      saveSRSData(updatedMap);
+      return updatedMap;
+    });
+  };
+
+  const {
+    permission: notificationPermission,
+    requestPermission: requestNotificationPermission,
+    activeReminder,
+    dismissReminder,
+  } = useDueReminders({
+    allWords,
+    focusCategories,
+    srsMap,
+    settings,
+    isReady: isMounted,
+    userId: session?.userId ?? null,
+    onOpenReview: openReview,
+    onSyncSRS: handleUpdateSRS,
+  });
+
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -261,15 +404,20 @@ export default function Home() {
   };
 
   const handleResetProgress = () => {
-    localStorage.clear();
-    setUserProgress(DEFAULT_USER_PROGRESS);
-    setSrsMap({});
+    // Only wipes the signed-in account's data — other accounts and the session stay put.
+    clearScopedData();
     setIsSettingsOpen(false);
     window.location.reload();
   };
 
-  // Render Onboarding
-  if (isOnboarding) {
+  // Hold the first paint until the session is known, otherwise a signed-in user
+  // sees a flash of the onboarding screen.
+  if (!isMounted) {
+    return <MobileContainer><div className="flex-1 bg-slate-50 dark:bg-slate-900" /></MobileContainer>;
+  }
+
+  // Render Onboarding — only for visitors who have not signed in yet
+  if (isOnboarding && !session) {
     return (
       <MobileContainer>
         <OnboardingScreen
@@ -288,9 +436,12 @@ export default function Home() {
     return (
       <MobileContainer>
         <AuthScreen
-          onLoginSuccess={(userName) => {
-            setUserProgress((prev) => ({ ...prev, name: userName }));
+          onLoginSuccess={(newSession, displayName) => {
+            // Swap to the account's own scoped state before rendering anything.
+            loadAccountState(newSession, displayName);
+            setIsOnboarding(false);
             setIsAuth(false);
+            setActiveTab('home');
           }}
           onBack={() => setIsAuth(false)}
         />
@@ -371,14 +522,14 @@ export default function Home() {
   return (
     <MobileContainer>
       <HeaderBar
-        progress={userProgress}
+        progress={displayProgress}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAddWord={() => setIsAddWordOpen(true)}
       />
 
       {activeTab === 'home' && (
         <HomeDashboard
-          progress={userProgress}
+          progress={displayProgress}
           reviewDueCount={dueCount}
           focusCategories={settings.focusCategories}
           onStartQuiz={handleStartQuiz}
@@ -401,15 +552,20 @@ export default function Home() {
       )}
 
       {activeTab === 'stats' && (
-        <StatsDashboard progress={userProgress} />
+        <StatsDashboard progress={displayProgress} />
       )}
 
       {activeTab === 'profile' && (
         <ProfileScreen
-          progress={userProgress}
-          achievements={achievements}
+          progress={displayProgress}
+          achievements={displayAchievements}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onLogout={() => setIsAuth(true)}
+          onLogout={() => {
+            logout();
+            // Drop back to the signed-out demo scope so no account data lingers on screen.
+            loadAccountState(null);
+            setIsAuth(true);
+          }}
         />
       )}
 
@@ -425,6 +581,10 @@ export default function Home() {
           onUpdateSettings={handleUpdateSettings}
           onResetProgress={handleResetProgress}
           onClose={() => setIsSettingsOpen(false)}
+          notificationPermission={notificationPermission}
+          onRequestNotificationPermission={() => {
+            void requestNotificationPermission();
+          }}
         />
       )}
 
@@ -433,7 +593,20 @@ export default function Home() {
         onClose={() => setIsAddWordOpen(false)}
         onAddWord={(w) => handleAddWords([w])}
         onAddWords={handleAddWords}
+        onWordSynced={handleWordSynced}
       />
+
+      {/* Hidden while the review tab is already open — the user is there. */}
+      {activeReminder && activeTab !== 'review' && (
+        <DueReminderToast
+          items={activeReminder.items}
+          onReview={() => {
+            dismissReminder();
+            openReview();
+          }}
+          onDismiss={dismissReminder}
+        />
+      )}
     </MobileContainer>
   );
 }

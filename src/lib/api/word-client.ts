@@ -1,6 +1,7 @@
 import { AddWordRequest, AddWordResponse, BackendUserWord, ReviewQuality, ReviewWordResponse } from "@/types/word";
 import { Word, SRSData, SRSState } from "@/types";
 import { getAsync, postAsync } from "./client";
+import { getCurrentUserId } from "./auth-client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   return postAsync<AddWordResponse>("/words", word, { auth: true });
@@ -13,7 +14,9 @@ export async function submitReview(
   return postAsync<ReviewWordResponse>(`/reviews/${userWordId}`, { quality }, { auth: true });
 }
 
-export async function getDueReviews(userId: number | string = 1): Promise<BackendUserWord[]> {
+export async function getDueReviews(
+  userId: number | string = getCurrentUserId()
+): Promise<BackendUserWord[]> {
   return getAsync<BackendUserWord[]>(`/reviews/due?userId=${userId}`, { auth: true });
 }
 
@@ -60,6 +63,36 @@ export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
     nextReviewDate: response.dueAt,
     state: (response.status as SRSState) || 'learning',
   };
+}
+
+/**
+ * Local ids are strings (`w1`), backend ids are numeric, so both forms are
+ * tried before giving up.
+ */
+export function findWordById(wordId: string | number, allWords: Word[]): Word | undefined {
+  const targetId = String(wordId);
+  return allWords.find((w) => String(w.id) === targetId || w.id === `w${targetId}`);
+}
+
+/** Stand-in for a backend word this client has no local copy of. */
+export function createPlaceholderWord(wordId: string | number): Word {
+  const targetId = String(wordId);
+  return {
+    id: targetId,
+    word: `Word #${targetId}`,
+    ipa: `/#${targetId}/`,
+    pos: 'n.',
+    vietnamese: `Từ vựng #${targetId}`,
+    example: `Example sentence for word #${targetId}.`,
+    translation: `Ví dụ minh họa cho từ #${targetId}.`,
+    level: 'B1',
+    category: 'Custom',
+  };
+}
+
+/** Reconciles a backend user-word with the local dataset. */
+export function resolveWordForUserWord(userWord: BackendUserWord, allWords: Word[]): Word {
+  return findWordById(userWord.wordId, allWords) ?? createPlaceholderWord(userWord.wordId);
 }
 
 export function mapBackendUserWordToSRS(userWord: BackendUserWord): SRSData {

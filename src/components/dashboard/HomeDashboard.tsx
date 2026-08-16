@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { UserProgress, QuizType, WordCategory } from '@/types';
+import { buildActivitySeries } from '@/lib/progress';
 import { Plus } from 'lucide-react';
 
 interface HomeDashboardProps {
@@ -41,19 +42,13 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (goalPercentage / 100) * circumference;
 
-  // Weekly Activity Mock Data (Mon - Sun)
-  const weeklyActivity = [
-    { day: 'M', count: 18 },
-    { day: 'T', count: 24 },
-    { day: 'W', count: 20 },
-    { day: 'T', count: 15 },
-    { day: 'F', count: 28 },
-    { day: 'S', count: 12 },
-    { day: 'S', count: 20 },
-  ];
+  // Weekly activity from the user's real quiz history (last 7 days)
+  const weeklyActivity = buildActivitySeries(progress, 7);
+  const weeklyTotal = weeklyActivity.reduce((sum, item) => sum + item.count, 0);
+  const weeklyMax = Math.max(...weeklyActivity.map((item) => item.count), 1);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
       {/* Top Banner: Daily Goal & Focus Categories */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Daily Goal Progress Card */}
@@ -239,10 +234,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <span>ĐỘ CHÍNH XÁC (ACCURACY)</span>
           </div>
           <p className="text-3xl font-black text-slate-900 dark:text-slate-100">
-            {Math.round((progress.totalCorrect / Math.max(1, progress.totalAttempted)) * 100)}%
+            {progress.totalAttempted > 0
+              ? `${Math.round((progress.totalCorrect / progress.totalAttempted) * 100)}%`
+              : '—'}
           </p>
-          <p className="text-xs text-emerald-500 font-bold mt-2 flex items-center gap-1">
-            <span>↑ +4% tuần này</span>
+          <p className="text-xs text-slate-400 font-bold mt-2 flex items-center gap-1">
+            <span>{progress.totalCorrect}/{progress.totalAttempted} câu đúng</span>
           </p>
         </div>
 
@@ -265,14 +262,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               <p className="text-[11px] text-slate-400">Số từ ôn luyện theo ngày</p>
             </div>
             <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-full">
-              137 Từ
+              {weeklyTotal} Từ
             </span>
           </div>
 
           <div className="flex items-end justify-between h-20 gap-1.5 pt-2">
             {weeklyActivity.map((item, idx) => {
-              const height = (item.count / 30) * 100;
-              const isToday = idx === 4;
+              const height = (item.count / weeklyMax) * 100;
+              const isToday = item.isToday;
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
                   <div className="w-full bg-slate-100 dark:bg-slate-700/50 rounded-lg h-full flex items-end overflow-hidden">
@@ -288,7 +285,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                       isToday ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
                     }`}
                   >
-                    {item.day}
+                    {item.dayLabel}
                   </span>
                 </div>
               );

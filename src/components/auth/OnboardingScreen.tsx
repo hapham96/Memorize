@@ -47,7 +47,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-6 bg-gradient-to-b from-blue-50/50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-gradient-to-b from-blue-50/50 via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
       {/* Top Header */}
       <div className="flex justify-between items-center pt-2">
         <div className="flex items-center gap-2">

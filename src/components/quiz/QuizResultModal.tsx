@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import { Trophy, Zap, CheckCircle2, RotateCcw, ArrowRight } from 'lucide-react';
 import { Word, QuizType } from '@/types';
 import { soundFX } from '@/lib/audio';
+import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface QuizResultModalProps {
   quizType: QuizType;
@@ -37,8 +38,9 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
   }, []);
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[28px] p-6 shadow-2xl border border-slate-200 dark:border-slate-700 text-center animate-scaleUp space-y-5">
+      <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[28px] p-6 shadow-2xl border border-slate-200 dark:border-slate-700 text-center animate-scaleUp space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
         {/* Header Badge */}
         <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center shadow-apple-glow text-white">
           <Trophy className="w-10 h-10 text-white fill-white" />
@@ -111,5 +113,6 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
         </div>
       </div>
     </div>
+    </ModalPortal>
   );
 };

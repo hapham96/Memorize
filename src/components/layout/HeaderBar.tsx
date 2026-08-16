@@ -12,7 +12,7 @@ interface HeaderBarProps {
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({ progress, onOpenSettings, onOpenAddWord }) => {
   return (
-    <header className="px-4 md:px-8 py-3.5 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-30 border-b border-slate-200/60 dark:border-slate-800/60 transition-all duration-300">
+    <header className="shrink-0 px-4 md:px-8 py-3.5 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl z-30 border-b border-slate-200/60 dark:border-slate-800/60 transition-all duration-300">
       {/* User Greeting & Level */}
       <div className="flex items-center gap-3">
         <div className="relative group cursor-pointer">
@@ -26,7 +26,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ progress, onOpenSettings, 
           </span>
         </div>
         <div>
-          <h2 className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-400 font-bold">Welcome back</h2>
+          <h2 className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-400 font-bold">Welcome!</h2>
           <p className="text-sm md:text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1">
             <span>{progress.name}</span>
             <span className="inline-block animate-bounce">👋</span>
@@ -46,15 +46,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ progress, onOpenSettings, 
           <span>{progress.xp} <span className="hidden sm:inline">XP</span></span>
         </div>
 
-        {onOpenAddWord && (
-          <button
-            onClick={onOpenAddWord}
-            className="p-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/25 active:scale-95 flex items-center justify-center"
-            title="Thêm từ mới"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-          </button>
-        )}
 
         <button
           onClick={onOpenSettings}

@@ -55,7 +55,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   );
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5 pb-24">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-5 pb-28">
       {/* Profile Header */}
       <div className="bg-white dark:bg-slate-800 rounded-card p-6 border border-slate-200/80 dark:border-slate-700 shadow-apple-soft text-center relative">
         <button
@@ -78,7 +78,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">{progress.name}</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Advanced Vocabulary Learner
+          {progress.email || 'Not signed in — progress stays on this device'}
         </p>
 
         {/* Level XP Progress Bar */}
