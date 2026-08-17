@@ -64,6 +64,15 @@ import { generateAvatar } from '@/lib/avatar';
 import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
 import { computeAchievements } from '@/lib/achievements';
 import { useDueReminders } from '@/hooks/useDueReminders';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
+import { unsubscribeFromPush } from '@/lib/push';
+
+/**
+ * How long sign-out holds the auth token open so the push endpoint can be
+ * deregistered. Past this the token is cleared anyway — a stale endpoint on the
+ * backend is a smaller problem than a token that outlives the sign-out.
+ */
+const LOGOUT_UNSUBSCRIBE_TIMEOUT_MS = 3000;
 
 /** Which signed-out screen to show. The app itself is unreachable without a session. */
 type AuthView = 'onboarding' | 'login' | 'register';
@@ -436,6 +445,40 @@ export default function Home() {
     onSyncSRS: handleUpdateSRS,
   });
 
+  const { pushStatus } = usePushSubscription({
+    isReady: isMounted,
+    enabled: settings.notifications,
+    permission: notificationPermission,
+    userId: session?.userId ?? null,
+  });
+
+  /**
+   * Signs out, and takes the push endpoint with it.
+   *
+   * `/notification/unsubscribe` is authenticated and `unsubscribeFromPush`
+   * only reaches for the token after awaiting the service worker, so clearing
+   * the session first would send the request unauthenticated and leave the
+   * backend pushing review reminders at a device nobody is signed in on.
+   *
+   * The screen flips right away regardless — only `clearAuthSession` waits, and
+   * only until `LOGOUT_UNSUBSCRIBE_TIMEOUT_MS`, so a hung request can never
+   * strand a live token in localStorage.
+   */
+  const handleLogout = () => {
+    // Drop back to the signed-out demo scope so no account data lingers on screen.
+    loadAccountState(null);
+    setIsAuth(true);
+
+    const deregistered = unsubscribeFromPush().catch((e) => {
+      console.warn('Push unsubscribe on sign-out failed:', e);
+    });
+    const deadline = new Promise((resolve) =>
+      setTimeout(resolve, LOGOUT_UNSUBSCRIBE_TIMEOUT_MS)
+    );
+
+    void Promise.race([deregistered, deadline]).then(() => logout());
+  };
+
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -623,6 +666,7 @@ export default function Home() {
           onRequestNotificationPermission={() => {
             void requestNotificationPermission();
           }}
+          pushStatus={pushStatus}
         />
       )}
 

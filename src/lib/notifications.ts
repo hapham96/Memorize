@@ -2,11 +2,13 @@ import { SRSData, Word } from '@/types';
 
 /**
  * Review reminders driven by the SRS due time (`dueAt` on the backend,
- * `nextReviewDate` locally). Two channels, one decision:
+ * `nextReviewDate` locally). Three channels, one decision:
  *
  * - a browser `Notification`, which reaches the user even when the tab is in
- *   the background — but only while the tab is still open, since there is no
- *   service worker / Web Push endpoint in this app
+ *   the background — but only while the tab is still open
+ * - a Web Push notification raised by the service worker (`public/sw.js`),
+ *   which also reaches a closed tab; it reuses `REMINDER_TAG` so the two never
+ *   double up on the same due batch
  * - an in-app banner, which always shows so the feature still works when the
  *   user never granted notification permission
  */
