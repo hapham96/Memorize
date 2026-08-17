@@ -4,6 +4,7 @@ import React from 'react';
 import { X, Sun, Moon, Volume2, Bell, Target, Trash2, Check, AlertCircle } from 'lucide-react';
 import { AppSettings } from '@/lib/storage';
 import { NotificationPermissionState } from '@/lib/notifications';
+import { PushSubscriptionStatus } from '@/hooks/usePushSubscription';
 import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface SettingsModalProps {
@@ -14,6 +15,8 @@ interface SettingsModalProps {
   notificationPermission?: NotificationPermissionState;
   /** Must be triggered by this click — browsers reject the prompt otherwise. */
   onRequestNotificationPermission?: () => void;
+  /** Drives the push-subscribe status hint below the toggle; owned by usePushSubscription. */
+  pushStatus?: PushSubscriptionStatus;
 }
 
 const REMINDER_INTERVALS = [30, 60, 180, 360];
@@ -25,6 +28,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   notificationPermission = 'unsupported',
   onRequestNotificationPermission,
+  pushStatus = 'idle',
 }) => {
   const handleToggleNotifications = () => {
     const next = !settings.notifications;
@@ -159,6 +163,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
                   <span>
                     Trình duyệt không hỗ trợ thông báo hệ thống. Nhắc nhở sẽ hiện trong app.
+                  </span>
+                </div>
+              )}
+
+              {/* Push subscribe status — silent on success, since the toggle already shows on. */}
+              {pushStatus === 'subscribing' && (
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                  <Bell className="w-4 h-4 flex-shrink-0 mt-px" />
+                  <span>Đang bật thông báo đẩy…</span>
+                </div>
+              )}
+
+              {pushStatus === 'error' && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-clay border-amber-300 dark:border-amber-900/50 text-[11px] text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
+                  <span>
+                    Không thể đăng ký thông báo đẩy từ máy chủ. Nhắc nhở vẫn hiện khi ứng dụng đang mở.
                   </span>
                 </div>
               )}

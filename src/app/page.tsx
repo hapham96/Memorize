@@ -63,6 +63,7 @@ import { generateAvatar } from '@/lib/avatar';
 import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
 import { computeAchievements } from '@/lib/achievements';
 import { useDueReminders } from '@/hooks/useDueReminders';
+import { usePushSubscription } from '@/hooks/usePushSubscription';
 
 export default function Home() {
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -393,6 +394,12 @@ export default function Home() {
     onSyncSRS: handleUpdateSRS,
   });
 
+  const { pushStatus } = usePushSubscription({
+    isReady: isMounted,
+    enabled: settings.notifications,
+    permission: notificationPermission,
+  });
+
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -589,6 +596,7 @@ export default function Home() {
           onRequestNotificationPermission={() => {
             void requestNotificationPermission();
           }}
+          pushStatus={pushStatus}
         />
       )}
 
