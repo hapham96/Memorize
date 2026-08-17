@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SRSData, Word, WordCategory } from '@/types';
 import { AppSettings, loadReminderState, saveReminderState } from '@/lib/storage';
+import { BackendDueReview } from '@/types/word';
 import {
   createPlaceholderWord,
   findWordById,
   getDueReviews,
   mapBackendUserWordToSRS,
+  resolveWordForUserWord,
 } from '@/lib/api/word-client';
 import {
   DueReminderItem,
@@ -176,6 +178,22 @@ export function useDueReminders({
     [allWords, inFocus]
   );
 
+  /**
+   * Names a word the backend reports as due. The row's embedded word is the
+   * best source — it reads correctly even on a device that never added it —
+   * and the local copy fills what the backend has no column for. The focus
+   * filter can only judge a word this device knows; a backend-only word has no
+   * real category, so it is let through rather than silently dropped.
+   */
+  const resolveDueWord = useCallback(
+    (userWord: BackendDueReview): Word | null => {
+      const local = findWordById(userWord.wordId, allWords);
+      if (local && !inFocus(local)) return null;
+      return resolveWordForUserWord(userWord, allWords);
+    },
+    [allWords, inFocus]
+  );
+
   const localSnapshot = useMemo(
     () => collectDueWords(srsMap, resolveWord, new Date(clock ?? Date.now())),
     [srsMap, resolveWord, clock]
@@ -195,7 +213,7 @@ export function useDueReminders({
         const items: DueReminderItem[] = [];
         userWords.forEach((userWord) => {
           const srs = mapBackendUserWordToSRS(userWord);
-          const word = resolveWord(srs.wordId);
+          const word = resolveDueWord(userWord);
           if (!word) return;
 
           items.push({ word, srs, key: reminderKey(srs) });
@@ -223,7 +241,7 @@ export function useDueReminders({
     return () => {
       cancelled = true;
     };
-  }, [isReady, isSignedIn, clock, resolveWord]);
+  }, [isReady, isSignedIn, clock, resolveDueWord]);
 
   // Backend entries win on conflict; local-only words still count, so words
   // reviewed offline are not dropped from reminders.

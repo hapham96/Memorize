@@ -1,32 +1,35 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Lock, User, ArrowRight, Apple, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { login, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
 
 interface AuthScreenProps {
-  /** `session` is null when continuing without a backend account. */
-  onLoginSuccess: (session: AuthSession | null, displayName: string) => void;
+  /** Only ever called with a real session — the app has no signed-out mode. */
+  onLoginSuccess: (session: AuthSession, displayName: string) => void;
   onBack: () => void;
+  initialMode?: 'login' | 'register';
 }
 
-export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }) => {
-  const [isRegister, setIsRegister] = useState(false);
+export const AuthScreen: React.FC<AuthScreenProps> = ({
+  onLoginSuccess,
+  onBack,
+  initialMode = 'login',
+}) => {
+  const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(false);
 
-  const displayName = () => name.trim() || email.split('@')[0] || 'Hao';
+  const displayName = () => name.trim() || email.split('@')[0] || 'Bạn';
 
   const switchMode = () => {
     setIsRegister((prev) => !prev);
     setError(null);
-    setIsOffline(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,11 +37,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
     if (isSubmitting) return;
 
     setError(null);
-    setIsOffline(false);
 
     const trimmedEmail = email.trim();
     if (isRegister && password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
       return;
     }
 
@@ -49,12 +51,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
       onLoginSuccess(session, displayName());
     } catch (err) {
       if (err instanceof ApiError && err.isNetworkError) {
-        setIsOffline(true);
-        setError("Can't reach the server. Check your connection or continue offline.");
+        // No offline bypass: every feature needs the account, so the only way
+        // forward is to retry once the server is reachable.
+        setError('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
       } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
-        setError('Something went wrong. Please try again.');
+        setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
       }
     } finally {
       setIsSubmitting(false);
@@ -69,7 +72,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
           onClick={onBack}
           className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
         >
-          ← Back
+          ← Quay lại
         </button>
       </div>
 
@@ -80,10 +83,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
             M
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
+            {isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại'}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {isRegister ? 'Start your vocabulary journey today' : 'Sign in to sync your English progress'}
+            {isRegister
+              ? 'Tạo tài khoản để bắt đầu xây dựng kho từ của riêng bạn'
+              : 'Đăng nhập để tiếp tục kho từ và tiến độ ôn tập của bạn'}
           </p>
         </div>
 
@@ -93,7 +98,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
               <User className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Full Name"
+                placeholder="Họ và tên"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -106,7 +111,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
             <Mail className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
             <input
               type="email"
-              placeholder="Email address"
+              placeholder="Địa chỉ email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -118,7 +123,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
             <Lock className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
             <input
               type="password"
-              placeholder={isRegister ? `Password (min ${MIN_PASSWORD_LENGTH} characters)` : 'Password'}
+              placeholder={isRegister ? `Mật khẩu (tối thiểu ${MIN_PASSWORD_LENGTH} ký tự)` : 'Mật khẩu'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -142,52 +147,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>{isRegister ? 'Creating account…' : 'Signing in…'}</span>
+                <span>{isRegister ? 'Đang tạo tài khoản…' : 'Đang đăng nhập…'}</span>
               </>
             ) : (
               <>
-                <span>{isRegister ? 'Create Account' : 'Sign In'}</span>
+                <span>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
 
-          {isOffline && (
-            <button
-              type="button"
-              onClick={() => onLoginSuccess(null, displayName())}
-              className="w-full py-3 rounded-button bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs transition-all"
-            >
-              Continue offline
-            </button>
-          )}
         </form>
 
-        {/* Divider */}
-        <div className="my-6 flex items-center gap-3">
-          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-          <span className="text-xs text-slate-400 font-medium">Or continue with</span>
-          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-        </div>
-
-        {/* Social Logins */}
-        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
-          <button
-            onClick={() => onLoginSuccess(null, 'Hao')}
-            className="py-3 rounded-button bg-slate-900 text-white hover:bg-slate-800 font-medium text-xs flex items-center justify-center gap-2 shadow-clay-sm transition-all"
-          >
-            <Apple className="w-4 h-4 fill-white" />
-            <span>Apple</span>
-          </button>
-
-          <button
-            onClick={() => onLoginSuccess(null, 'Hao')}
-            className="py-3 rounded-button bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-2 shadow-clay-sm transition-all"
-          >
-            <Globe className="w-4 h-4 text-blue-500" />
-            <span>Google</span>
-          </button>
-        </div>
+        <p className="text-[11px] text-center text-slate-400 mt-5 max-w-sm mx-auto leading-relaxed">
+          Kho từ và tiến độ ôn tập được lưu theo tài khoản, nên bạn cần đăng nhập
+          để sử dụng ứng dụng.
+        </p>
       </div>
 
       {/* Footer Toggle */}
@@ -197,9 +172,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess, onBack }
           className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
         >
           {isRegister ? (
-            <>Already have an account? <span className="font-bold underline">Sign In</span></>
+            <>Đã có tài khoản? <span className="font-bold underline">Đăng nhập</span></>
           ) : (
-            <>Don't have an account? <span className="font-bold underline">Create one</span></>
+            <>Chưa có tài khoản? <span className="font-bold underline">Đăng ký ngay</span></>
           )}
         </button>
       </div>

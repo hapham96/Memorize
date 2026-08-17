@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import { Sparkles, Brain, Flame, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface OnboardingScreenProps {
-  onComplete: () => void;
-  onGoToAuth: () => void;
+  /** Both exits lead to the auth screen — the app cannot be used signed out. */
+  onGetStarted: () => void;
+  onSignIn: () => void;
 }
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
-  onComplete,
-  onGoToAuth,
+  onGetStarted,
+  onSignIn,
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -42,7 +43,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     if (currentPage < slides.length - 1) {
       setCurrentPage((prev) => prev + 1);
     } else {
-      onComplete();
+      onGetStarted();
     }
   };
 
@@ -59,7 +60,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           </span>
         </div>
         <button
-          onClick={onComplete}
+          onClick={onSignIn}
           className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
         >
           Skip
@@ -106,12 +107,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
             onClick={handleNext}
             className="w-full py-4 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset active:scale-[0.97] active:shadow-clay-inset text-white font-semibold text-base shadow-clay flex items-center justify-center gap-2 transition-all"
           >
-            <span>{currentPage === slides.length - 1 ? 'Get Started' : 'Continue'}</span>
+            <span>{currentPage === slides.length - 1 ? 'Create Account' : 'Continue'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
 
           <button
-            onClick={onGoToAuth}
+            onClick={onSignIn}
             className="w-full py-3 rounded-button bg-slate-200 dark:bg-slate-800 hover:bg-slate-300/60 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium text-sm transition-all"
           >
             Already have an account? <span className="font-bold text-blue-600 dark:text-blue-400">Sign In</span>

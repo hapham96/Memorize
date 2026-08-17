@@ -12,6 +12,8 @@ export interface SuggestedWordDetails {
   category: WordCategory;
 }
 
+const USE_SMART_WORDS_DATABASE = false;
+
 // Semantic Dictionary & Lookup Database for Smart Suggestions
 export const SMART_WORDS_DATABASE: Record<string, SuggestedWordDetails> = {
   // Occupations & Professions
@@ -302,20 +304,22 @@ export function getRelatedWordSuggestions(input: string): string[] {
     }
   }
 
-  // If input matches an item in SMART_WORDS_DATABASE (e.g. "teacher"), add occupation peers
-  if (SMART_WORDS_DATABASE[query]) {
-    const defaultPeers = ['doctor', 'tailor', 'engineer', 'professor', 'lawyer', 'architect', 'nurse'];
-    defaultPeers.forEach((peer) => {
-      if (peer !== query) suggestionsSet.add(peer);
+  if (USE_SMART_WORDS_DATABASE) {
+    // If input matches an item in SMART_WORDS_DATABASE (e.g. "teacher"), add occupation peers
+    if (SMART_WORDS_DATABASE[query]) {
+      const defaultPeers = ['doctor', 'tailor', 'engineer', 'professor', 'lawyer', 'architect', 'nurse'];
+      defaultPeers.forEach((peer) => {
+        if (peer !== query) suggestionsSet.add(peer);
+      });
+    }
+
+    // Prefix matching across database keys
+    Object.keys(SMART_WORDS_DATABASE).forEach((dbKey) => {
+      if (dbKey.startsWith(query) && dbKey !== query) {
+        suggestionsSet.add(dbKey);
+      }
     });
   }
-
-  // Prefix matching across database keys
-  Object.keys(SMART_WORDS_DATABASE).forEach((dbKey) => {
-    if (dbKey.startsWith(query) && dbKey !== query) {
-      suggestionsSet.add(dbKey);
-    }
-  });
 
   // Fallback default suggestions if empty
   if (suggestionsSet.size === 0) {
@@ -327,6 +331,7 @@ export function getRelatedWordSuggestions(input: string): string[] {
 }
 
 export function getWordDetails(wordName: string): SuggestedWordDetails | null {
+  if (!USE_SMART_WORDS_DATABASE) return null;
   const normalized = wordName.trim().toLowerCase();
   return SMART_WORDS_DATABASE[normalized] || null;
 }

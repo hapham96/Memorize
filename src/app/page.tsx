@@ -39,6 +39,7 @@ import {
   mapBackendUserWordToSRS,
   resolveWordForUserWord,
 } from '@/lib/api/word-client';
+import { ApiError } from '@/lib/api/client';
 import { getCurrentSession, getDisplayName, logout } from '@/lib/api/auth-client';
 import { AuthSession } from '@/types/auth';
 import {
@@ -64,10 +65,12 @@ import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from 
 import { computeAchievements } from '@/lib/achievements';
 import { useDueReminders } from '@/hooks/useDueReminders';
 
+/** Which signed-out screen to show. The app itself is unreachable without a session. */
+type AuthView = 'onboarding' | 'login' | 'register';
+
 export default function Home() {
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [isOnboarding, setIsOnboarding] = useState(false);
-  const [isAuth, setIsAuth] = useState(false);
+  const [authView, setAuthView] = useState<AuthView>('onboarding');
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
   const [quizSessionWords, setQuizSessionWords] = useState<Word[]>([]);
@@ -86,6 +89,9 @@ export default function Home() {
    * Loads the state belonging to `activeSession`. Storage is scoped by user id
    * first, so one account never reads another's progress, and identity fields
    * always come from the API session rather than whatever was stored earlier.
+   *
+   * Called with `null` on sign-out, which resets every in-memory slice back to
+   * its empty default so the next account never inherits a stale screen.
    */
   const loadAccountState = (activeSession: AuthSession | null, displayName?: string) => {
     setStorageScope(activeSession?.userId ?? null);
@@ -95,50 +101,57 @@ export default function Home() {
     invalidateDueReviews();
 
     const loadedSettings = loadSettings();
-    const loadedSRS = loadSRSData();
-    const loadedWords = loadAllWords();
-    let loadedProgress = applyDailyRollover(loadUserProgress());
-
-    if (activeSession) {
-      const name =
-        displayName?.trim() ||
-        (loadedProgress.name && loadedProgress.name !== DEFAULT_USER_PROGRESS.name
-          ? loadedProgress.name
-          : getDisplayName(activeSession));
-
-      loadedProgress = {
-        ...loadedProgress,
-        name,
-        email: activeSession.email,
-        userId: activeSession.userId,
-        avatar: generateAvatar(name || activeSession.email),
-      };
-    } else if (displayName?.trim()) {
-      // Continuing without an account still keeps the name the user typed.
-      loadedProgress = {
-        ...loadedProgress,
-        name: displayName.trim(),
-        avatar: generateAvatar(displayName.trim()),
-      };
-    }
-
-    setUserProgress(loadedProgress);
-    saveUserProgress(loadedProgress);
-    setSrsMap(loadedSRS);
-    setSettings(loadedSettings);
-    setAllWords(loadedWords);
 
     if (loadedSettings.theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-
     soundFX.setEnabled(loadedSettings.soundEnabled);
+    setSettings(loadedSettings);
 
-    if (activeSession) {
-      hydrateFromApi(loadedWords);
+    if (!activeSession) {
+      setUserProgress(DEFAULT_USER_PROGRESS);
+      setSrsMap({});
+      setAllWords([]);
+      return;
     }
+
+    const loadedSRS = loadSRSData();
+    const loadedWords = loadAllWords();
+    const rolledOver = applyDailyRollover(loadUserProgress());
+
+    const name = displayName?.trim() || rolledOver.name || getDisplayName(activeSession);
+    const loadedProgress = {
+      ...rolledOver,
+      name,
+      email: activeSession.email,
+      userId: activeSession.userId,
+      avatar: generateAvatar(name || activeSession.email),
+    };
+
+    setUserProgress(loadedProgress);
+    saveUserProgress(loadedProgress);
+    setSrsMap(loadedSRS);
+    setAllWords(loadedWords);
+
+    hydrateFromApi(loadedWords);
+  };
+
+  /**
+   * Drops the session and returns to the sign-in screen. Used both for an
+   * explicit sign-out and for a token the backend rejected — either way nothing
+   * account-specific may stay on screen.
+   */
+  const signOut = (view: AuthView = 'login') => {
+    logout();
+    loadAccountState(null);
+    setActiveQuizMode(null);
+    setSessionResult(null);
+    setIsSettingsOpen(false);
+    setIsAddWordOpen(false);
+    setActiveTab('home');
+    setAuthView(view);
   };
 
   /**
@@ -149,6 +162,25 @@ export default function Home() {
     try {
       const userWords = await getDueReviews();
       if (!Array.isArray(userWords) || userWords.length === 0) return;
+
+      // A due row now carries the word itself, so one added on another device
+      // can join this device's library instead of showing as a placeholder.
+      const knownIds = new Set(words.map((w) => String(w.id)));
+      const adopted = userWords
+        .filter((userWord) => userWord.word && !knownIds.has(String(userWord.wordId)))
+        .map((userWord) => resolveWordForUserWord(userWord, words));
+
+      if (adopted.length > 0) {
+        setAllWords((prev) => {
+          const existing = new Set(prev.map((w) => String(w.id)));
+          const additions = adopted.filter((w) => !existing.has(String(w.id)));
+          if (additions.length === 0) return prev;
+
+          const next = [...additions, ...prev];
+          saveCustomWords(next);
+          return next;
+        });
+      }
 
       setSrsMap((prev) => {
         const merged = { ...prev };
@@ -175,14 +207,19 @@ export default function Home() {
         });
       }
     } catch (err) {
+      // A rejected token means the stored session is dead — the app has no
+      // signed-out mode, so send the user back to sign in rather than showing
+      // an account view backed by nothing.
+      if (err instanceof ApiError && err.status === 401) {
+        signOut();
+        return;
+      }
       console.warn('Could not hydrate progress from API, using local data:', err);
     }
   };
 
   useEffect(() => {
     const existingSession = getCurrentSession();
-    // Onboarding is for people who have not signed in yet.
-    setIsOnboarding(!existingSession);
     loadAccountState(existingSession);
     setIsMounted(true);
   }, []);
@@ -252,6 +289,12 @@ export default function Home() {
   const handleStartQuiz = (type: QuizType) => {
     // Pick up to 10 random words from activePool for the session
     const pool = activePool.length > 0 ? activePool : allWords;
+    // Nothing to quiz on yet — every word in the library is one the user added,
+    // so send them to add some instead of opening an empty session.
+    if (pool.length === 0) {
+      setIsAddWordOpen(true);
+      return;
+    }
     const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, 10);
     setQuizSessionWords(shuffled);
     setActiveQuizMode(type);
@@ -420,34 +463,30 @@ export default function Home() {
     return <MobileContainer><div className="flex-1 bg-slate-50 dark:bg-slate-900" /></MobileContainer>;
   }
 
-  // Render Onboarding — only for visitors who have not signed in yet
-  if (isOnboarding && !session) {
-    return (
-      <MobileContainer>
-        <OnboardingScreen
-          onComplete={() => setIsOnboarding(false)}
-          onGoToAuth={() => {
-            setIsOnboarding(false);
-            setIsAuth(true);
-          }}
-        />
-      </MobileContainer>
-    );
-  }
+  // Auth gate: without a session there is no app, only onboarding and the
+  // sign-in form. Every feature below reads account-scoped data.
+  if (!session) {
+    if (authView === 'onboarding') {
+      return (
+        <MobileContainer>
+          <OnboardingScreen
+            onGetStarted={() => setAuthView('register')}
+            onSignIn={() => setAuthView('login')}
+          />
+        </MobileContainer>
+      );
+    }
 
-  // Render Auth Screen
-  if (isAuth) {
     return (
       <MobileContainer>
         <AuthScreen
+          initialMode={authView}
           onLoginSuccess={(newSession, displayName) => {
             // Swap to the account's own scoped state before rendering anything.
             loadAccountState(newSession, displayName);
-            setIsOnboarding(false);
-            setIsAuth(false);
             setActiveTab('home');
           }}
-          onBack={() => setIsAuth(false)}
+          onBack={() => setAuthView('onboarding')}
         />
       </MobileContainer>
     );
@@ -564,12 +603,7 @@ export default function Home() {
           progress={displayProgress}
           achievements={displayAchievements}
           onOpenSettings={() => setIsSettingsOpen(true)}
-          onLogout={() => {
-            logout();
-            // Drop back to the signed-out demo scope so no account data lingers on screen.
-            loadAccountState(null);
-            setIsAuth(true);
-          }}
+          onLogout={() => signOut()}
         />
       )}
 

@@ -18,6 +18,19 @@ export type ExamplesRequest = {
   language: ExampleLanguage;
 };
 
+export type BackendExample = {
+  id?: number;
+  example: string;
+  language: ExampleLanguage;
+};
+
+export type BackendDefinition = {
+  id?: number;
+  definition: string;
+  partOfSpeech: string | null;
+  examples?: BackendExample[] | null;
+};
+
 export type BackendWord = {
   id: number;
   headword: string;
@@ -25,6 +38,8 @@ export type BackendWord = {
   audioUrl: string | null;
   cefrLevel: string | null;
   createdAt: string;
+  /** Only present on endpoints that embed the word's content. */
+  definitions?: BackendDefinition[] | null;
 };
 
 export type BackendUserWord = {
@@ -39,6 +54,16 @@ export type BackendUserWord = {
   dueAt: string;
   isFavorite: boolean;
   createdAt: string;
+};
+
+/**
+ * A `/reviews/due` row. The account comes from the bearer token, so the request
+ * carries no `userId`. `word` is what lets a due item render on a device that
+ * never added it locally — treated as optional so a backend that still answers
+ * with the bare user-word keeps working (the UI falls back to the local copy).
+ */
+export type BackendDueReview = BackendUserWord & {
+  word?: BackendWord | null;
 };
 
 export type AddWordResponse = {

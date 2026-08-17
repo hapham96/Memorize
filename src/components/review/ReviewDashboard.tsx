@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, CheckCircle2, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
 import { Word, SRSData, WordCategory } from '@/types';
-import { BackendUserWord, ReviewQuality } from '@/types/word';
+import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
 import {
@@ -24,7 +24,7 @@ interface ReviewDashboardProps {
 interface DueReviewItem {
   userWordId: number | string;
   word: Word;
-  userWord?: BackendUserWord;
+  userWord?: BackendDueReview;
 }
 
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
@@ -92,6 +92,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     }));
 
   const dueWords = dueItems.map((item) => item.word);
+
+  // "Nothing due" and "no words at all" look the same in the numbers but need
+  // different copy — a new account has an empty library by design.
+  const isLibraryEmpty = allWords.length === 0 && dueItems.length === 0;
 
   const learningCount = Object.values(srsMap).filter((s) => s.state === 'learning').length;
   const masteredCount = Object.values(srsMap).filter((s) => s.state === 'mastered').length;
@@ -403,7 +407,9 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             <p className="text-xs md:text-sm text-emerald-100 mt-2 font-medium">
               {dueWords.length > 0
                 ? 'Sẵn sàng cho phiên ôn luyện duy trì trí nhớ hôm nay!'
-                : "🎉 Bạn đã hoàn thành tất cả từ hôm nay! Hãy quay lại vào ngày mai."}
+                : isLibraryEmpty
+                  ? 'Kho từ của bạn đang trống. Thêm từ đầu tiên để bắt đầu ôn tập.'
+                  : '🎉 Bạn đã hoàn thành tất cả từ hôm nay! Hãy quay lại vào ngày mai.'}
             </p>
           </div>
 
@@ -479,7 +485,26 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           Review Queue Preview
         </h4>
 
-        {dueWords.length === 0 ? (
+        {isLibraryEmpty ? (
+          <div className="text-center py-6">
+            <span className="text-3xl">📚</span>
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">
+              Chưa có từ nào trong kho
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Toàn bộ kho từ là do bạn tự thêm — hãy thêm từ đầu tiên để bắt đầu.
+            </p>
+            {onOpenAddWord && (
+              <button
+                onClick={onOpenAddWord}
+                className="mt-4 px-4 py-2.5 rounded-2xl bg-blue-600 border-clay border-blue-400 text-white font-extrabold text-xs shadow-clay inline-flex items-center gap-1.5 active:scale-95 transition-all"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Thêm từ mới</span>
+              </button>
+            )}
+          </div>
+        ) : dueWords.length === 0 ? (
           <div className="text-center py-6">
             <span className="text-3xl">🎉</span>
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">
