@@ -24,6 +24,7 @@ import { getRelatedWordSuggestions, getWordDetails } from '@/data/relatedWords';
 import { soundFX } from '@/lib/audio';
 import { addWord, mapAddWordResponseToWord, mapAddWordResponseToSRS } from '@/lib/api/word-client';
 import { FALLBACK_CATEGORY, categoryNames } from '@/lib/api/category-client';
+import { searchWordSuggestions, fetchWordDictionary, WordSuggestion } from '@/lib/api/dictionary-client';
 import { getCurrentUserId } from '@/lib/api/auth-client';
 import { AddWordRequest } from '@/types/word';
 import { ModalPortal } from '@/components/layout/ModalPortal';
@@ -45,13 +46,6 @@ interface MeaningDraft {
   id: string;
   definition: string;
   examples: string[];
-}
-
-/** Datamuse trả thêm `tags` / `defs` khi query có `md=dp`. */
-interface DatamuseWord {
-  word: string;
-  tags?: string[];
-  defs?: string[];
 }
 
 /** Datamuse gắn nhãn POS ở đầu mỗi def, phân tách bằng tab: `"v\tTo bar someone..."`. */
@@ -238,7 +232,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   }, [isOpen]);
 
-  const cacheDatamuseDefs = (items: DatamuseWord[]) => {
+  const cacheDatamuseDefs = (items: WordSuggestion[]) => {
     items.forEach((item) => {
       if (item.defs?.length) {
         datamuseDefsRef.current[item.word.toLowerCase()] = item.defs;
@@ -252,22 +246,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (cached?.length) return cached;
 
     try {
-      const res = await fetch(
-        `https://api.datamuse.com/words?sp=${encodeURIComponent(target)}&md=d&max=1`
-      );
-      if (!res.ok) return [];
-      const data: DatamuseWord[] = await res.json();
+      const data = await searchWordSuggestions(target);
       if (!Array.isArray(data)) return [];
       cacheDatamuseDefs(data);
       const hit = data.find((item) => item.word.toLowerCase() === target.toLowerCase());
       return hit?.defs ?? [];
     } catch (err) {
-      console.warn('Datamuse defs fetch error:', err);
+      console.warn('Word search defs fetch error:', err);
       return [];
     }
   };
 
-  // Fetch Datamuse API suggestions when user types prefix (e.g. "bea" -> "bea", "bean", "beautiful")
+  // Fetch word suggestions (backend proxy of Datamuse) when user types prefix (e.g. "bea" -> "bea", "bean", "beautiful")
   useEffect(() => {
     const trimmed = word.trim();
     if (!trimmed) {
@@ -278,22 +268,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     const timer = setTimeout(async () => {
       setIsLoadingSuggestions(true);
       try {
-        const res = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(trimmed)}*&max=8&md=d`);
-        if (res.ok) {
-          const data: DatamuseWord[] = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            cacheDatamuseDefs(data);
-            // Put exact prefix first if present, followed by suggestions
-            const wordsList = data.map((item) => item.word);
-            setSuggestions(Array.from(new Set(wordsList)));
-          } else {
-            setSuggestions(getRelatedWordSuggestions(trimmed));
-          }
+        const data = await searchWordSuggestions(trimmed);
+        if (Array.isArray(data) && data.length > 0) {
+          cacheDatamuseDefs(data);
+          // Put exact prefix first if present, followed by suggestions
+          const wordsList = data.map((item) => item.word);
+          setSuggestions(Array.from(new Set(wordsList)));
         } else {
           setSuggestions(getRelatedWordSuggestions(trimmed));
         }
       } catch (err) {
-        console.warn('Datamuse API error:', err);
+        console.warn('Word search API error:', err);
         setSuggestions(getRelatedWordSuggestions(trimmed));
       } finally {
         setIsLoadingSuggestions(false);
@@ -334,30 +319,27 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     let fetchedLevel = localDetails?.level || 'B1';
 
     try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(suggestedWord)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          const entry = data[0];
+      const data = await fetchWordDictionary(suggestedWord);
+      if (Array.isArray(data) && data.length > 0) {
+        const entry = data[0];
 
-          if (!fetchedIpa) {
-            fetchedIpa = entry.phonetic || entry.phonetics?.find((p: any) => p.text)?.text || `/${suggestedWord}/`;
+        if (!fetchedIpa) {
+          fetchedIpa = entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || `/${suggestedWord}/`;
+        }
+
+        if (entry.meanings && entry.meanings.length > 0) {
+          const firstMeaning = entry.meanings[0];
+          if (!localDetails) {
+            fetchedPos = mapPartOfSpeech(firstMeaning.partOfSpeech);
           }
 
-          if (entry.meanings && entry.meanings.length > 0) {
-            const firstMeaning = entry.meanings[0];
-            if (!localDetails) {
-              fetchedPos = mapPartOfSpeech(firstMeaning.partOfSpeech);
+          if (firstMeaning.definitions && firstMeaning.definitions.length > 0) {
+            const firstDef = firstMeaning.definitions[0];
+            if (!fetchedDef) {
+              fetchedDef = firstDef.definition || '';
             }
-
-            if (firstMeaning.definitions && firstMeaning.definitions.length > 0) {
-              const firstDef = firstMeaning.definitions[0];
-              if (!fetchedDef) {
-                fetchedDef = firstDef.definition || '';
-              }
-              if (!fetchedExample && firstDef.example) {
-                fetchedExample = firstDef.example;
-              }
+            if (!fetchedExample && firstDef.example) {
+              fetchedExample = firstDef.example;
             }
           }
         }
@@ -366,7 +348,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       console.warn('Dictionary API fetch error:', err);
     }
 
-    // dictionaryapi.dev hay fail (CORS / rate-limit) — Datamuse đã có sẵn defs + POS
+    // Backend dictionary lookup hay fail (rate-limit) — word search đã có sẵn defs + POS
     if (!fetchedDef) {
       const defs = await fetchDatamuseDefs(suggestedWord);
       if (defs.length > 0) {
