@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Brain, CheckCircle2, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
-import { Word, SRSData, WordCategory } from '@/types';
+import { Category, Word, SRSData, WordCategory } from '@/types';
 import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
+import { categoryNames } from '@/lib/api/category-client';
 import {
   submitReview,
   mapReviewResponseToSRS,
@@ -16,6 +17,8 @@ import {
 
 interface ReviewDashboardProps {
   allWords: Word[];
+  /** The account's `/categories` list; drives the filter chips. */
+  categories?: Category[];
   srsMap: Record<string, SRSData>;
   onUpdateSRS: (wordId: string, updatedSRS: SRSData) => void;
   onOpenAddWord?: () => void;
@@ -29,6 +32,7 @@ interface DueReviewItem {
 
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   allWords,
+  categories = [],
   srsMap,
   onUpdateSRS,
   onOpenAddWord,
@@ -104,18 +108,17 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   const currentItem = dueItems[currentIndex];
   const currentWord = currentItem?.word;
 
-  const CATEGORIES: (WordCategory | 'All')[] = [
-    'All',
-    'IELTS',
-    'TOEIC',
-    'Custom',
-    'Daily Life',
-    'Business',
-    'Academic',
-    'Travel',
-    'Technology',
-    'Emotions',
-  ];
+  // The chips come from the account's `/categories` list, so a category the
+  // backend added shows up without a release. A category nothing is filed under
+  // would only ever filter to an empty queue, so it is left out.
+  const CATEGORIES: (WordCategory | 'All')[] = useMemo(() => {
+    const used = new Set(allWords.map((w) => w.category));
+    const known = categoryNames(categories).filter((name) => used.has(name));
+    // Whatever the current filter is must stay clickable, or it cannot be undone.
+    const extra =
+      selectedCategory !== 'All' && !known.includes(selectedCategory) ? [selectedCategory] : [];
+    return ['All', ...known, ...extra];
+  }, [allWords, categories, selectedCategory]);
 
   const handleRating = async (rating: ReviewQuality) => {
     if (!currentItem || !currentWord) return;
@@ -485,6 +488,30 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           Review Queue Preview
         </h4>
 
+        {/* One chip per category the library actually uses — hidden while there
+            is only "All" to choose from. */}
+        {CATEGORIES.length > 1 && (
+          <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1 -mx-1 px-1">
+            <Filter className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => {
+                  soundFX.playPop();
+                  setSelectedCategory(cat);
+                }}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold whitespace-nowrap transition-all active:scale-95 ${
+                  selectedCategory === cat
+                    ? 'bg-blue-600 text-white shadow-clay-sm'
+                    : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                {cat === 'All' ? 'Tất cả' : cat}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isLibraryEmpty ? (
           <div className="text-center py-6">
             <span className="text-3xl">📚</span>
@@ -506,11 +533,17 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         ) : dueWords.length === 0 ? (
           <div className="text-center py-6">
-            <span className="text-3xl">🎉</span>
+            <span className="text-3xl">{selectedCategory === 'All' ? '🎉' : '🔍'}</span>
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">
-              You're all caught up!
+              {selectedCategory === 'All'
+                ? "You're all caught up!"
+                : `Không có từ nào đến hạn trong bộ "${selectedCategory}"`}
             </p>
-            <p className="text-xs text-slate-400 mt-1">Come back tomorrow for your next SRS review.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              {selectedCategory === 'All'
+                ? 'Come back tomorrow for your next SRS review.'
+                : 'Chọn "Tất cả" để xem toàn bộ hàng đợi ôn tập.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">

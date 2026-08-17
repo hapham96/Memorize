@@ -31,6 +31,13 @@ export type BackendDefinition = {
   examples?: BackendExample[] | null;
 };
 
+export type BackendCategory = {
+  id: number;
+  name: string;
+  description?: string | null;
+  createdAt?: string | null;
+};
+
 export type BackendWord = {
   id: number;
   headword: string;
@@ -40,6 +47,8 @@ export type BackendWord = {
   createdAt: string;
   /** Only present on endpoints that embed the word's content. */
   definitions?: BackendDefinition[] | null;
+  /** A word may belong to several categories; the card shows the newest one. */
+  categories?: BackendCategory[] | null;
 };
 
 export type BackendUserWord = {

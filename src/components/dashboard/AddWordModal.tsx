@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Sparkles,
@@ -19,36 +19,25 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { SRSData, Word, WordCategory, LevelDifficulty } from '@/types';
+import { Category, SRSData, Word, WordCategory, LevelDifficulty } from '@/types';
 import { getRelatedWordSuggestions, getWordDetails } from '@/data/relatedWords';
 import { soundFX } from '@/lib/audio';
 import { addWord, mapAddWordResponseToWord, mapAddWordResponseToSRS } from '@/lib/api/word-client';
+import { FALLBACK_CATEGORY, categoryNames } from '@/lib/api/category-client';
 import { getCurrentUserId } from '@/lib/api/auth-client';
 import { AddWordRequest } from '@/types/word';
 import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface AddWordModalProps {
   isOpen: boolean;
+  /** The account's `/categories` list; fills the category picker and validates Excel rows. */
+  categories?: Category[];
   onClose: () => void;
   onAddWord: (word: Word) => void;
   onAddWords?: (words: Word[]) => void;
   /** Replaces the optimistic local entry once the backend assigns a real id. */
   onWordSynced?: (localId: string, word: Word, srs: SRSData) => void;
 }
-
-const CATEGORIES: WordCategory[] = [
-  'Custom',
-  'IELTS',
-  'TOEIC',
-  'TOEFL',
-  'Daily Life',
-  'Business',
-  'Academic',
-  'Travel',
-  'Technology',
-  'Emotions',
-  'Idioms & Phrasal Verbs',
-];
 
 const LEVELS: LevelDifficulty[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
 
@@ -199,6 +188,7 @@ const getRowVal = (row: Record<string, any>, possibleKeys: string[]): string => 
 
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
+  categories = [],
   onClose,
   onAddWord,
   onAddWords,
@@ -206,12 +196,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'single' | 'excel'>('single');
 
+  // The backend list when it has loaded, the shipped names until then.
+  const CATEGORIES: WordCategory[] = useMemo(() => categoryNames(categories), [categories]);
+
   // Single word form state
   const [word, setWord] = useState('');
   const [ipa, setIpa] = useState('');
   const [pos, setPos] = useState('n.');
   const [meanings, setMeanings] = useState<MeaningDraft[]>([createMeaning()]);
-  const [category, setCategory] = useState<WordCategory>('Custom');
+  const [category, setCategory] = useState<WordCategory>(FALLBACK_CATEGORY);
   const [level, setLevel] = useState<LevelDifficulty>('B1');
   const [mnemonic, setMnemonic] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -516,7 +509,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setWord('');
     setIpa('');
     setMeanings([createMeaning()]);
-    setCategory('Custom');
+    setCategory(FALLBACK_CATEGORY);
     setMnemonic('');
     handleModalClose();
   };
@@ -556,8 +549,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           errorReason = 'Thiếu Nghĩa tiếng Việt';
         }
 
-        // Validate Category
-        let finalCat: WordCategory = 'Custom';
+        // Validate Category — a name the account does not have falls back to Custom.
+        let finalCat: WordCategory = FALLBACK_CATEGORY;
         const matchedCat = CATEGORIES.find(
           (c) => c.toLowerCase() === catVal.toLowerCase()
         );
@@ -881,7 +874,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 >
                   {CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
-                      {cat} {cat === 'Custom' ? '(Tự chọn)' : ''}
+                      {cat} {cat === FALLBACK_CATEGORY ? '(Tự chọn)' : ''}
                     </option>
                   ))}
                 </select>

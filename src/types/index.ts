@@ -1,5 +1,10 @@
 export type LevelDifficulty = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
+/**
+ * The set is open: names come from `GET /categories`, so the app cannot close
+ * it. The listed members are only the names the app ships copy and decoration
+ * for (and `Custom`, the local bucket) — any other string is equally valid.
+ */
 export type WordCategory =
   | 'IELTS'
   | 'TOEIC'
@@ -11,7 +16,16 @@ export type WordCategory =
   | 'Technology'
   | 'Emotions'
   | 'Idioms & Phrasal Verbs'
-  | 'Custom';
+  | 'Custom'
+  | (string & {});
+
+/** A row of `GET /categories`, fetched once per sign-in and cached locally. */
+export interface Category {
+  id: number;
+  name: string;
+  /** Present only when the backend sends it; used to pick a word's newest category. */
+  createdAt?: string;
+}
 
 export interface Word {
   id: string;

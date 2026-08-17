@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { X, Sun, Moon, Volume2, Bell, Target, Trash2, Check, AlertCircle } from 'lucide-react';
+import { Category, WordCategory } from '@/types';
+import { categoryNames } from '@/lib/api/category-client';
 import { AppSettings } from '@/lib/storage';
 import { NotificationPermissionState } from '@/lib/notifications';
 import { PushSubscriptionStatus } from '@/hooks/usePushSubscription';
@@ -9,6 +11,8 @@ import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface SettingsModalProps {
   settings: AppSettings;
+  /** The account's `/categories` list; the focus picker is built from it. */
+  categories?: Category[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetProgress: () => void;
   onClose: () => void;
@@ -21,8 +25,33 @@ interface SettingsModalProps {
 
 const REMINDER_INTERVALS = [30, 60, 180, 360];
 
+/**
+ * Emoji per category name — decoration only. The list itself comes from
+ * `/categories`, so a name that is not here still renders, just without an icon.
+ */
+const CATEGORY_EMOJI: Record<string, string> = {
+  IELTS: '🎓',
+  TOEIC: '💼',
+  TOEFL: '🏫',
+  Custom: '✏️',
+  'Daily Life': '💬',
+  Business: '📊',
+  Academic: '📚',
+  Travel: '✈️',
+  Technology: '💻',
+  Emotions: '❤️',
+  'Idioms & Phrasal Verbs': '🗣️',
+};
+
+const categoryLabel = (name: WordCategory): string => {
+  const emoji = CATEGORY_EMOJI[name];
+  const suffix = name === 'Custom' ? ' (Tự thêm)' : '';
+  return `${emoji ? `${emoji} ` : ''}${name}${suffix}`;
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
+  categories = [],
   onUpdateSettings,
   onResetProgress,
   onClose,
@@ -290,19 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </p>
 
           <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-            {[
-              { id: 'IELTS', label: '🎓 IELTS', color: 'border-purple-300 bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300' },
-              { id: 'TOEIC', label: '💼 TOEIC', color: 'border-blue-300 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' },
-              { id: 'TOEFL', label: '🏫 TOEFL', color: 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300' },
-              { id: 'Custom', label: '✏️ Custom (Tự thêm)', color: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' },
-              { id: 'Daily Life', label: '💬 Daily Life', color: 'border-slate-300 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200' },
-              { id: 'Business', label: '📊 Business', color: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' },
-              { id: 'Academic', label: '📚 Academic', color: 'border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300' },
-              { id: 'Travel', label: '✈️ Travel', color: 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300' },
-              { id: 'Technology', label: '💻 Technology', color: 'border-teal-300 bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300' },
-              { id: 'Emotions', label: '❤️ Emotions', color: 'border-pink-300 bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300' },
-            ].map((catItem) => {
-              const cat = catItem.id as any;
+            {categoryNames(categories).map((cat) => {
               const isSelected = settings.focusCategories?.includes(cat);
 
               const handleToggleCat = () => {
@@ -318,14 +335,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               return (
                 <button
-                  key={catItem.id}
+                  key={cat}
                   onClick={handleToggleCat}
                   className={`p-2 rounded-xl text-xs font-bold border flex items-center justify-between transition-all ${isSelected
                     ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
                     : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                 >
-                  <span className="truncate">{catItem.label}</span>
+                  <span className="truncate">{categoryLabel(cat)}</span>
                   {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
                 </button>
               );

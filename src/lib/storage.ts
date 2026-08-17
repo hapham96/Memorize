@@ -1,4 +1,4 @@
-import { UserProgress, SRSData, Word, WordCategory } from '@/types';
+import { Category, UserProgress, SRSData, Word, WordCategory } from '@/types';
 import { AuthSession } from '@/types/auth';
 import { generateAvatar } from '@/lib/avatar';
 import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   CUSTOM_WORDS: 'memorize_custom_words',
   AUTH: 'memorize_auth',
   REMINDERS: 'memorize_reminder_state',
+  CATEGORIES: 'memorize_categories',
 };
 
 /** Keys holding per-account data — scoped by user id, unlike AUTH and SETTINGS. */
@@ -20,6 +21,9 @@ const SCOPED_KEYS = [
   STORAGE_KEYS.ACHIEVEMENTS,
   STORAGE_KEYS.CUSTOM_WORDS,
   STORAGE_KEYS.REMINDERS,
+  // `/categories` is authenticated, so the list may well be the account's own —
+  // scoping costs one duplicated copy and rules out showing another user's.
+  STORAGE_KEYS.CATEGORIES,
 ];
 
 /**
@@ -238,6 +242,33 @@ export function saveCustomWords(customWords: Word[]): void {
     writeScoped(STORAGE_KEYS.CUSTOM_WORDS, JSON.stringify(customWords));
   } catch (e) {
     console.error('Failed to save custom words', e);
+  }
+}
+
+/**
+ * The category list from `GET /categories`. Fetched once per sign-in and read
+ * from here on every later render, so a category chip never waits on the
+ * network — and an offline session still filters and labels words.
+ */
+export function loadCategories(): Category[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const data = readScoped(STORAGE_KEYS.CATEGORIES);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCategories(categories: Category[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    writeScoped(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  } catch (e) {
+    console.error('Failed to save categories', e);
   }
 }
 

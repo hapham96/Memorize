@@ -23,6 +23,7 @@ import { AddWordModal } from '@/components/dashboard/AddWordModal';
 
 import {
   ActiveTab,
+  Category,
   QuizType,
   UserProgress,
   SRSData,
@@ -39,10 +40,12 @@ import {
   mapBackendUserWordToSRS,
   resolveWordForUserWord,
 } from '@/lib/api/word-client';
+import { syncCategories } from '@/lib/api/category-client';
 import { ApiError } from '@/lib/api/client';
 import { getCurrentSession, getDisplayName, logout } from '@/lib/api/auth-client';
 import { AuthSession } from '@/types/auth';
 import {
+  loadCategories,
   loadUserProgress,
   saveUserProgress,
   loadSRSData,
@@ -92,7 +95,24 @@ export default function Home() {
   const [userProgress, setUserProgress] = useState<UserProgress>(DEFAULT_USER_PROGRESS);
   const [srsMap, setSrsMap] = useState<Record<string, SRSData>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+
+  /**
+   * Refreshes the cached `/categories` list. Only sign-in passes `force` — the
+   * list barely changes, so every other entry into the app reads the copy in
+   * localStorage and never touches the network.
+   *
+   * Failure is silent: `syncCategories` returns the cached list when it has
+   * one, and the pickers fall back to their shipped names when it does not.
+   */
+  const hydrateCategories = async (force: boolean) => {
+    try {
+      setCategories(await syncCategories({ force }));
+    } catch (err) {
+      console.warn('Could not load categories from API:', err);
+    }
+  };
 
   /**
    * Loads the state belonging to `activeSession`. Storage is scoped by user id
@@ -101,8 +121,15 @@ export default function Home() {
    *
    * Called with `null` on sign-out, which resets every in-memory slice back to
    * its empty default so the next account never inherits a stale screen.
+   *
+   * `isFreshLogin` marks the one entry point that just authenticated — the
+   * moment the category list is pulled from the backend.
    */
-  const loadAccountState = (activeSession: AuthSession | null, displayName?: string) => {
+  const loadAccountState = (
+    activeSession: AuthSession | null,
+    displayName?: string,
+    isFreshLogin = false
+  ) => {
     setStorageScope(activeSession?.userId ?? null);
     setSession(activeSession);
     // Sign-in and sign-out both land here; the previous account's due list must
@@ -123,8 +150,14 @@ export default function Home() {
       setUserProgress(DEFAULT_USER_PROGRESS);
       setSrsMap({});
       setAllWords([]);
+      setCategories([]);
       return;
     }
+
+    // Render from the stored list first, then let the login fetch replace it —
+    // the pickers must never wait on the network.
+    setCategories(loadCategories());
+    void hydrateCategories(isFreshLogin);
 
     const loadedSRS = loadSRSData();
     const loadedWords = loadAllWords();
@@ -523,7 +556,7 @@ export default function Home() {
           initialMode={authView}
           onLoginSuccess={(newSession, displayName) => {
             // Swap to the account's own scoped state before rendering anything.
-            loadAccountState(newSession, displayName);
+            loadAccountState(newSession, displayName, true);
             setActiveTab('home');
           }}
           onBack={() => setAuthView('onboarding')}
@@ -628,6 +661,7 @@ export default function Home() {
       {activeTab === 'review' && (
         <ReviewDashboard
           allWords={allWords}
+          categories={categories}
           srsMap={srsMap}
           onUpdateSRS={handleUpdateSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
@@ -656,6 +690,7 @@ export default function Home() {
       {isSettingsOpen && (
         <SettingsModal
           settings={settings}
+          categories={categories}
           onUpdateSettings={handleUpdateSettings}
           onResetProgress={handleResetProgress}
           onClose={() => setIsSettingsOpen(false)}
@@ -669,6 +704,7 @@ export default function Home() {
 
       <AddWordModal
         isOpen={isAddWordOpen}
+        categories={categories}
         onClose={() => setIsAddWordOpen(false)}
         onAddWord={(w) => handleAddWords([w])}
         onAddWords={handleAddWords}

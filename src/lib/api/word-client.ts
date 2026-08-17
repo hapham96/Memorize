@@ -10,6 +10,7 @@ import {
 import { Word, SRSData, SRSState, LevelDifficulty } from "@/types";
 import { getAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
+import { FALLBACK_CATEGORY, pickLatestCategoryName } from "./category-client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   const response = await postAsync<AddWordResponse>("/words", word, { auth: true });
@@ -134,10 +135,11 @@ const trimmed = (value?: string | null): string | undefined => {
  * Builds an app `Word` out of a backend word, using its embedded definitions
  * when the endpoint sends them.
  *
- * The backend stores strictly less than the card shows — no category, no
- * mnemonic, and a Vietnamese sentence translation only if one was saved as a
- * `vi` example — so every gap is filled from `fallback`, i.e. the locally
- * entered copy, before the generated placeholder text is used.
+ * The backend stores less than the card shows — no mnemonic, and a Vietnamese
+ * sentence translation only if one was saved as a `vi` example — so every gap
+ * is filled from `fallback`, i.e. the locally entered copy, before the
+ * generated placeholder text is used. A word with no backend category keeps
+ * whatever the local copy was filed under rather than being re-filed.
  */
 export function mapBackendWordToWord(
   backendWord: BackendWord,
@@ -166,7 +168,10 @@ export function mapBackendWordToWord(
     translation:
       trimmed(vietnameseExample?.example) ?? fallback?.translation ?? `Ví dụ với ${headword}.`,
     level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? 'B1',
-    category: fallback?.category ?? 'Custom',
+    category:
+      pickLatestCategoryName(backendWord.categories) ??
+      fallback?.category ??
+      FALLBACK_CATEGORY,
     mnemonic: fallback?.mnemonic,
   };
 }
@@ -226,7 +231,7 @@ export function createPlaceholderWord(wordId: string | number): Word {
     example: `Example sentence for word #${targetId}.`,
     translation: `Ví dụ minh họa cho từ #${targetId}.`,
     level: 'B1',
-    category: 'Custom',
+    category: FALLBACK_CATEGORY,
   };
 }
 
