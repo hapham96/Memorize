@@ -27,7 +27,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 
 async function getRegistration(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration(SW_URL);
-  return existing ?? navigator.serviceWorker.register(SW_URL);
+  if (existing?.active) return existing;
+
+  // `pushManager.subscribe()` needs an *active* worker, but `register()`
+  // resolves as soon as the registration exists — on a first visit that worker
+  // is still installing, and subscribing there throws InvalidStateError.
+  await navigator.serviceWorker.register(SW_URL);
+  return navigator.serviceWorker.ready;
 }
 
 export async function subscribeToPush(): Promise<void> {
@@ -56,7 +62,9 @@ export async function unsubscribeFromPush(): Promise<void> {
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
 
-  const endpoint = subscription.endpoint;
+  // Server first: dropping the browser subscription is irreversible, so doing it
+  // before the backend knows would strand an endpoint that nothing can ever
+  // unregister — the server would keep pushing into it forever.
+  await unsubscribePush(subscription.endpoint);
   await subscription.unsubscribe();
-  await unsubscribePush(endpoint);
 }

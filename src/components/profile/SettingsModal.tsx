@@ -168,6 +168,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
 
               {/* Push subscribe status — silent on success, since the toggle already shows on. */}
+              {/* Only when notifications themselves work: a browser with no
+                  Notification API already said so above, and two hints for the
+                  same limitation read as two separate problems. */}
+              {pushStatus === 'unsupported' && notificationPermission !== 'unsupported' && (
+                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-px" />
+                  <span>
+                    Trình duyệt không hỗ trợ thông báo đẩy. Nhắc nhở vẫn hiện khi ứng dụng đang mở.
+                  </span>
+                </div>
+              )}
+
               {pushStatus === 'subscribing' && (
                 <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-2">
                   <Bell className="w-4 h-4 flex-shrink-0 mt-px" />
