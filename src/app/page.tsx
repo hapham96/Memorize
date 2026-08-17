@@ -151,9 +151,27 @@ export default function Home() {
    * Drops the session and returns to the sign-in screen. Used both for an
    * explicit sign-out and for a token the backend rejected — either way nothing
    * account-specific may stay on screen.
+   *
+   * The push endpoint goes with it, and the order matters:
+   * `/notification/unsubscribe` is authenticated and `unsubscribeFromPush` only
+   * reaches for the token after awaiting the service worker, so clearing the
+   * session first would send the request unauthenticated and leave the backend
+   * pushing review reminders at a device nobody is signed in on.
+   *
+   * The screen flips right away regardless — only `logout` waits, and only
+   * until `LOGOUT_UNSUBSCRIBE_TIMEOUT_MS`, so a hung request can never strand a
+   * live token in localStorage.
    */
   const signOut = (view: AuthView = 'login') => {
-    logout();
+    const previousToken = getCurrentSession()?.accessToken;
+
+    const deregistered = unsubscribeFromPush().catch((e) => {
+      console.warn('Push unsubscribe on sign-out failed:', e);
+    });
+    const deadline = new Promise((resolve) =>
+      setTimeout(resolve, LOGOUT_UNSUBSCRIBE_TIMEOUT_MS)
+    );
+
     loadAccountState(null);
     setActiveQuizMode(null);
     setSessionResult(null);
@@ -161,6 +179,12 @@ export default function Home() {
     setIsAddWordOpen(false);
     setActiveTab('home');
     setAuthView(view);
+
+    void Promise.race([deregistered, deadline]).then(() => {
+      // Signing back in while the unsubscribe was still in flight leaves a fresh
+      // token in localStorage — this stale sign-out must not clear it.
+      if (getCurrentSession()?.accessToken === previousToken) logout();
+    });
   };
 
   /**
@@ -451,33 +475,6 @@ export default function Home() {
     permission: notificationPermission,
     userId: session?.userId ?? null,
   });
-
-  /**
-   * Signs out, and takes the push endpoint with it.
-   *
-   * `/notification/unsubscribe` is authenticated and `unsubscribeFromPush`
-   * only reaches for the token after awaiting the service worker, so clearing
-   * the session first would send the request unauthenticated and leave the
-   * backend pushing review reminders at a device nobody is signed in on.
-   *
-   * The screen flips right away regardless — only `clearAuthSession` waits, and
-   * only until `LOGOUT_UNSUBSCRIBE_TIMEOUT_MS`, so a hung request can never
-   * strand a live token in localStorage.
-   */
-  const handleLogout = () => {
-    // Drop back to the signed-out demo scope so no account data lingers on screen.
-    loadAccountState(null);
-    setIsAuth(true);
-
-    const deregistered = unsubscribeFromPush().catch((e) => {
-      console.warn('Push unsubscribe on sign-out failed:', e);
-    });
-    const deadline = new Promise((resolve) =>
-      setTimeout(resolve, LOGOUT_UNSUBSCRIBE_TIMEOUT_MS)
-    );
-
-    void Promise.race([deregistered, deadline]).then(() => logout());
-  };
 
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
