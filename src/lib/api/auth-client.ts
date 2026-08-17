@@ -66,11 +66,12 @@ export function isAuthenticated(): boolean {
 }
 
 /**
- * Numeric user id for endpoints that still take one explicitly.
- * Falls back to 1 so the app keeps working in the signed-out demo state.
+ * Numeric user id for endpoints that still take one explicitly. Null when there
+ * is no session, or when the token carried no numeric `sub` — callers must not
+ * invent an id, or one account would write against another's data.
  */
-export function getCurrentUserId(): number {
-  return loadAuthSession()?.userId ?? 1;
+export function getCurrentUserId(): number | null {
+  return loadAuthSession()?.userId ?? null;
 }
 
 /** Display name derived from the account email (the backend stores no name). */

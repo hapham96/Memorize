@@ -58,6 +58,29 @@ interface MeaningDraft {
   examples: string[];
 }
 
+/** Datamuse trả thêm `tags` / `defs` khi query có `md=dp`. */
+interface DatamuseWord {
+  word: string;
+  tags?: string[];
+  defs?: string[];
+}
+
+/** Datamuse gắn nhãn POS ở đầu mỗi def, phân tách bằng tab: `"v\tTo bar someone..."`. */
+const DATAMUSE_POS: Record<string, string> = {
+  n: 'n.',
+  v: 'v.',
+  adj: 'adj.',
+  adv: 'adv.',
+  u: '',
+};
+
+const parseDatamuseDef = (raw: string): { pos: string; definition: string } => {
+  const [tag, ...rest] = raw.split('\t');
+  const text = rest.join(' ').trim();
+  if (!text) return { pos: '', definition: raw.trim() };
+  return { pos: DATAMUSE_POS[tag.trim()] ?? '', definition: text };
+};
+
 const createMeaning = (): MeaningDraft => ({
   id: `meaning_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
   definition: '',
@@ -192,6 +215,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [level, setLevel] = useState<LevelDifficulty>('B1');
   const [mnemonic, setMnemonic] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  // Datamuse trả kèm `defs` khi có `md=d` — cache lại để auto-fill khi dictionaryapi.dev fail
+  const datamuseDefsRef = useRef<Record<string, string[]>>({});
   const [autoFilled, setAutoFilled] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -220,6 +245,35 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   }, [isOpen]);
 
+  const cacheDatamuseDefs = (items: DatamuseWord[]) => {
+    items.forEach((item) => {
+      if (item.defs?.length) {
+        datamuseDefsRef.current[item.word.toLowerCase()] = item.defs;
+      }
+    });
+  };
+
+  /** Lấy defs của đúng 1 từ — dùng khi cache chưa có (user tự gõ, không chọn từ gợi ý). */
+  const fetchDatamuseDefs = async (target: string): Promise<string[]> => {
+    const cached = datamuseDefsRef.current[target.toLowerCase()];
+    if (cached?.length) return cached;
+
+    try {
+      const res = await fetch(
+        `https://api.datamuse.com/words?sp=${encodeURIComponent(target)}&md=d&max=1`
+      );
+      if (!res.ok) return [];
+      const data: DatamuseWord[] = await res.json();
+      if (!Array.isArray(data)) return [];
+      cacheDatamuseDefs(data);
+      const hit = data.find((item) => item.word.toLowerCase() === target.toLowerCase());
+      return hit?.defs ?? [];
+    } catch (err) {
+      console.warn('Datamuse defs fetch error:', err);
+      return [];
+    }
+  };
+
   // Fetch Datamuse API suggestions when user types prefix (e.g. "bea" -> "bea", "bean", "beautiful")
   useEffect(() => {
     const trimmed = word.trim();
@@ -233,8 +287,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       try {
         const res = await fetch(`https://api.datamuse.com/words?sp=${encodeURIComponent(trimmed)}*&max=8&md=d`);
         if (res.ok) {
-          const data: { word: string }[] = await res.json();
+          const data: DatamuseWord[] = await res.json();
           if (Array.isArray(data) && data.length > 0) {
+            cacheDatamuseDefs(data);
             // Put exact prefix first if present, followed by suggestions
             const wordsList = data.map((item) => item.word);
             setSuggestions(Array.from(new Set(wordsList)));
@@ -316,9 +371,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     } catch (err) {
       console.warn('Dictionary API fetch error:', err);
-    } finally {
-      setIsLoadingDetails(false);
     }
+
+    // dictionaryapi.dev hay fail (CORS / rate-limit) — Datamuse đã có sẵn defs + POS
+    if (!fetchedDef) {
+      const defs = await fetchDatamuseDefs(suggestedWord);
+      if (defs.length > 0) {
+        const { pos: datamusePos, definition } = parseDatamuseDef(defs[0]);
+        fetchedDef = definition;
+        if (!localDetails && datamusePos) {
+          fetchedPos = datamusePos;
+        }
+      }
+    }
+
+    setIsLoadingDetails(false);
 
     setIpa(fetchedIpa || `/${suggestedWord}/`);
     setPos(fetchedPos);
@@ -411,14 +478,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         };
       });
 
-    const request: AddWordRequest = {
-      userId: getCurrentUserId(),
-      headword: newWordItem.word,
-      ipaPronunciation: newWordItem.ipa,
-      definitions,
-    };
+    const userId = getCurrentUserId();
 
     try {
+      // Without a numeric account id the word can only live locally — sending
+      // the request anyway would file it under someone else's account.
+      if (userId === null) throw new Error('No signed-in user id available');
+
+      const request: AddWordRequest = {
+        userId,
+        headword: newWordItem.word,
+        ipaPronunciation: newWordItem.ipa,
+        definitions,
+      };
+
       const addWordResponse = await addWord(request);
       if (addWordResponse?.word && addWordResponse?.userWord) {
         // The optimistic entry above carries a local-only id, so the backend's

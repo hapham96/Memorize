@@ -21,7 +21,7 @@ Env: copy `.env.example` → `.env`. Only `NEXT_PUBLIC_API_URL` exists (defaults
 
 Despite being Next.js 14 App Router, the entire app is one client component: [src/app/page.tsx](src/app/page.tsx). There is exactly one route. Navigation is `useState` in that file:
 
-- `isOnboarding` / `isAuth` → early returns render onboarding/auth screens
+- `session` is `null` → early return renders onboarding or the auth screen (`authView`); **nothing below is reachable signed out**
 - `activeQuizMode` → early return renders the active quiz
 - `activeTab` (`home | learn | review | stats | profile`) → renders the corresponding dashboard
 
@@ -31,7 +31,9 @@ All persistent app state (`allWords`, `userProgress`, `srsMap`, `achievements`, 
 
 [src/lib/storage.ts](src/lib/storage.ts) is the only persistence layer (`memorize_*` keys). Every `load*` returns a default when `typeof window === 'undefined'`, and loading happens in a `useEffect` in `page.tsx` — never at render time. Preserve this pattern or SSR/hydration breaks.
 
-`loadSRSData()` seeds a fake starting state on first run (first 5 words `mastered`, next 7 `learning`), and `DEFAULT_USER_PROGRESS` is prefilled demo data (level 12, 2840 XP, fake history). This is intentional demo seeding, not real state.
+Nothing is seeded. `loadSRSData()` returns `{}` and `loadUserProgress()` returns `createEmptyUserProgress()` on first run — every number the UI shows comes from something the user did. `DEFAULT_USER_PROGRESS` is only a typed placeholder for the tick before `loadAccountState()` runs.
+
+Per-account keys (progress, SRS, custom words, reminders) are suffixed `__u<userId>` via `setStorageScope()`; `AUTH` and `SETTINGS` are global. `loadSRSData()`/`normalizeProgress()` also prune ids matching `/^w\d+$/` — leftovers from the removed bundled dataset.
 
 ### SRS: local-first, backend-overwrites
 
@@ -42,7 +44,7 @@ Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([sr
 3. On success, the mapped backend response **overwrites** the local result
 4. On failure, the error is caught and logged — the local result stands
 
-**The backend is optional everywhere.** Every API call site wraps in try/catch and degrades to local data. Do not make backend availability a hard requirement.
+**The backend is optional for reads/writes, not for entry.** Sign-in and registration must succeed against the API — there is no offline bypass. Once signed in, every API call site wraps in try/catch and degrades to local data, so a request that fails mid-session never blocks the UI. A 401 clears the session (`client.ts`) and `hydrateFromApi` signs the user out back to the auth screen.
 
 Rating scale is SM-2 quality 0–5 (`ReviewQuality`); `q < 3` resets repetitions. State derives from interval/reps: `interval >= 21` → `mastered`, `repetitions > 1` → `review`.
 
@@ -63,13 +65,23 @@ Rating scale is SM-2 quality 0–5 (`ReviewQuality`); `q < 3` resets repetitions
 
 Backend responses are sparse relative to `Word`, so mappers take a `fallback?: Partial<Word>` and fill gaps with locally-entered values.
 
+`GET /reviews/due` sends no `userId` — the account comes from the bearer token. Each row is a `BackendDueReview` (`BackendUserWord` + an optional embedded `word` carrying `definitions[].examples[]`); `mapBackendWordToWord` turns that into a full `Word`, and `resolveWordForUserWord` prefers it over the local copy, falling back to `createPlaceholderWord` only when the row has no embed and the device has never seen the word. `hydrateFromApi` adopts embedded words the local library is missing.
+
+### Auth is mandatory
+
+There is no demo mode, no guest mode and no bundled vocabulary. A user must log in or register before any feature is reachable, and the whole word library is what that account added.
+
+- `AuthScreen` only ever calls `onLoginSuccess` with a real `AuthSession` from `/auth/login` or `/auth/register`.
+- `getCurrentUserId()` returns `number | null` — **never invent an id**. `getDueReviews()` returns `[]` and `AddWordModal` skips the POST when it is null, because a fabricated id writes into someone else's account.
+- A new account legitimately has zero words. Guard anything that assumes a non-empty library (`handleStartQuiz` opens `AddWordModal` instead of an empty session; `ReviewDashboard` shows an empty-library state).
+
 ### Known incomplete integration points
 
 These are stubs, not bugs to "fix" incidentally — check before changing:
 
-- **Auth**: [src/lib/api/client.ts](src/lib/api/client.ts) hardcodes `const token = "empty token"` for the `Bearer` header. `AuthScreen` only sets a display name; there is no real session.
-- **User ID**: `getDueReviews(userId = 1)` and `AddWordRequest.userId` are hardcoded to `1`.
-- **Word IDs**: local dataset uses string ids (`w1`, `w2`…), backend uses numeric. `resolveWordForUserWord()` in [src/components/review/ReviewDashboard.tsx](src/components/review/ReviewDashboard.tsx) reconciles both forms and synthesizes a placeholder `Word` when no local match exists.
+- **Social login**: removed, not implemented. There is no OAuth backend, so the Apple/Google buttons were deleted rather than left as fake sign-ins.
+- **Display name**: the backend stores none; it is derived from the email local-part (`getDisplayName`) or what the user typed at registration, and kept only in local progress.
+- **Word IDs**: locally added words get an optimistic `custom_…` id and are re-keyed to the backend's numeric id by `handleWordSynced` once `/words` answers. `resolveWordForUserWord()` synthesizes a placeholder `Word` for a backend word with no local copy.
 
 ### Third-party lookups in AddWordModal
 

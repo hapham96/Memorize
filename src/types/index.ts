@@ -51,9 +51,9 @@ export interface QuizHistoryItem {
 
 export interface UserProgress {
   name: string;
-  /** Account email from the API session; empty for the signed-out demo profile. */
+  /** Account email from the API session. */
   email: string;
-  /** Numeric user id from the JWT `sub` claim; null when signed out. */
+  /** Numeric user id from the JWT `sub` claim; null if the token carried none. */
   userId: number | null;
   avatar: string;
   level: number;

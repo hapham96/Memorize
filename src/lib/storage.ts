@@ -1,7 +1,5 @@
 import { UserProgress, SRSData, Word, WordCategory } from '@/types';
 import { AuthSession } from '@/types/auth';
-import { VOCABULARY_DATASET } from '@/data/vocabulary';
-import { createInitialSRS } from '@/lib/srs';
 import { generateAvatar } from '@/lib/avatar';
 import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
 
@@ -39,7 +37,10 @@ export function getStorageScope(): number | null {
   return activeUserId;
 }
 
-/** Signed-out demo data keeps the original unsuffixed keys. */
+/**
+ * Falls back to the unsuffixed key when the scope is unknown — a session whose
+ * JWT carried no numeric `sub` still needs somewhere to store its data.
+ */
 function scopedKey(key: string): string {
   if (!SCOPED_KEYS.includes(key) || activeUserId === null) return key;
   return `${key}__u${activeUserId}`;
@@ -53,11 +54,6 @@ function readScoped(key: string): string | null {
 function writeScoped(key: string, value: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(scopedKey(key), value);
-}
-
-/** True while no account is signed in — the only state that gets demo seeding. */
-function isDemoScope(): boolean {
-  return activeUserId === null;
 }
 
 export interface AppSettings {
@@ -86,47 +82,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   focusCategories: [],
 };
 
-/** Demo profile shown only when signed out — deliberately pre-filled. */
-export const DEFAULT_USER_PROGRESS: UserProgress = {
-  name: 'User Name',
-  email: '',
-  userId: null,
-  avatar: generateAvatar('User Name'),
-  level: 12,
-  xp: 2840,
-  streak: 28,
-  bestStreak: 28,
-  lastActiveDate: new Date().toISOString(),
-  dailyGoal: 10,
-  dailyGoalProgress: 12,
-  wordsLearned: 20,
-  masteredCount: 14,
-  totalCorrect: 184,
-  totalAttempted: 200,
-  favorites: ['w1', 'w3', 'w7'],
-  history: [
-    {
-      id: 'h1',
-      timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-      quizType: 'Flashcards',
-      totalQuestions: 10,
-      correctCount: 9,
-      xpEarned: 45,
-    },
-    {
-      id: 'h2',
-      timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-      quizType: 'Multiple Choice',
-      totalQuestions: 10,
-      correctCount: 10,
-      xpEarned: 50,
-    },
-  ],
-};
-
 /**
- * A real account starts empty — every number it shows must come from something
- * the user actually did.
+ * Every account starts empty — every number the UI shows must come from
+ * something the user actually did.
  */
 export function createEmptyUserProgress(
   userId: number | null,
@@ -154,6 +112,20 @@ export function createEmptyUserProgress(
   };
 }
 
+/**
+ * Placeholder profile for the moment before an account's own data is read.
+ * Nothing signed-in is ever rendered from it — it only keeps React state typed
+ * and non-null until `loadAccountState` runs.
+ */
+export const DEFAULT_USER_PROGRESS: UserProgress = createEmptyUserProgress(null, '', '');
+
+/**
+ * Ids of the vocabulary set that used to ship with the app (`w1`, `w2`, …).
+ * Custom words are keyed `custom_…` and backend words numerically, so this
+ * shape can only have come from the removed dataset.
+ */
+const LEGACY_DATASET_ID = /^w\d+$/;
+
 /** Fills in fields added after a profile was first written. */
 function normalizeProgress(progress: UserProgress): UserProgress {
   return {
@@ -161,7 +133,8 @@ function normalizeProgress(progress: UserProgress): UserProgress {
     email: progress.email ?? '',
     userId: progress.userId ?? null,
     bestStreak: progress.bestStreak ?? progress.streak ?? 0,
-    favorites: progress.favorites ?? [],
+    // Favourites pointing at the removed dataset can never resolve to a word.
+    favorites: (progress.favorites ?? []).filter((id) => !LEGACY_DATASET_ID.test(id)),
     history: progress.history ?? [],
   };
 }
@@ -170,19 +143,11 @@ export function loadUserProgress(): UserProgress {
   if (typeof window === 'undefined') return DEFAULT_USER_PROGRESS;
   try {
     const data = readScoped(STORAGE_KEYS.PROGRESS);
-    if (!data) {
-      if (isDemoScope()) {
-        saveUserProgress(DEFAULT_USER_PROGRESS);
-        return DEFAULT_USER_PROGRESS;
-      }
-      // A signed-in account with no local history starts from zero, not demo data.
-      return createEmptyUserProgress(activeUserId, '', '');
-    }
+    // An account with no local history starts from zero.
+    if (!data) return createEmptyUserProgress(activeUserId, '', '');
     return normalizeProgress(JSON.parse(data));
   } catch {
-    return isDemoScope()
-      ? DEFAULT_USER_PROGRESS
-      : createEmptyUserProgress(activeUserId, '', '');
+    return createEmptyUserProgress(activeUserId, '', '');
   }
 }
 
@@ -195,32 +160,31 @@ export function saveUserProgress(progress: UserProgress): void {
   }
 }
 
+/**
+ * Drops SRS entries left over from the bundled dataset. Without this, an
+ * account that ran an older build keeps counting words it no longer has —
+ * inflating "mastered"/"learning" totals and raising reminders for words the
+ * review screen cannot show.
+ */
+function pruneLegacyDatasetEntries(
+  srsMap: Record<string, SRSData>
+): { map: Record<string, SRSData>; pruned: boolean } {
+  const entries = Object.entries(srsMap);
+  const kept = entries.filter(([wordId]) => !LEGACY_DATASET_ID.test(wordId));
+  if (kept.length === entries.length) return { map: srsMap, pruned: false };
+  return { map: Object.fromEntries(kept), pruned: true };
+}
+
 export function loadSRSData(): Record<string, SRSData> {
   if (typeof window === 'undefined') return {};
   try {
     const data = readScoped(STORAGE_KEYS.SRS);
-    if (!data) {
-      const initialMap: Record<string, SRSData> = {};
-      VOCABULARY_DATASET.forEach((word, index) => {
-        const srs = createInitialSRS(word.id);
-        // Pre-studied words are demo dressing; a real account starts all-new.
-        if (isDemoScope()) {
-          if (index < 5) {
-            srs.state = 'mastered';
-            srs.repetitions = 5;
-            srs.interval = 30;
-          } else if (index < 12) {
-            srs.state = 'learning';
-            srs.repetitions = 2;
-            srs.interval = 3;
-          }
-        }
-        initialMap[word.id] = srs;
-      });
-      saveSRSData(initialMap);
-      return initialMap;
-    }
-    return JSON.parse(data);
+    // No seeding: an account only has SRS entries for words it actually added.
+    if (!data) return {};
+
+    const { map, pruned } = pruneLegacyDatasetEntries(JSON.parse(data));
+    if (pruned) saveSRSData(map);
+    return map;
   } catch {
     return {};
   }
@@ -311,9 +275,12 @@ export function clearScopedData(): void {
   }
 }
 
+/**
+ * The whole library is the account's own words — there is no bundled dataset,
+ * so a new account legitimately starts with nothing.
+ */
 export function loadAllWords(): Word[] {
-  const customWords = loadCustomWords();
-  return [...VOCABULARY_DATASET, ...customWords];
+  return loadCustomWords();
 }
 
 /**
