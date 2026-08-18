@@ -7,8 +7,12 @@ import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
 
 interface AuthScreenProps {
-  /** Only ever called with a real session — the app has no signed-out mode. */
-  onLoginSuccess: (session: AuthSession, displayName: string) => void;
+  /**
+   * Only ever called with a real session — the app has no signed-out mode.
+   * `isNewAccount` is true only for `/auth/register`, which is what triggers the
+   * one-time CEFR level question.
+   */
+  onLoginSuccess: (session: AuthSession, displayName: string, isNewAccount: boolean) => void;
   onBack: () => void;
   initialMode?: 'login' | 'register';
 }
@@ -48,7 +52,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     try {
       const credentials = { email: trimmedEmail, password };
       const session = isRegister ? await register(credentials) : await login(credentials);
-      onLoginSuccess(session, displayName());
+      onLoginSuccess(session, displayName(), isRegister);
     } catch (err) {
       if (err instanceof ApiError && err.isNetworkError) {
         // No offline bypass: every feature needs the account, so the only way

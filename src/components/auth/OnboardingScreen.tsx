@@ -30,7 +30,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     },
     {
       title: 'Build Your English Habit',
-      subtitle: 'Track daily streaks, earn XP, unlock achievements, and reach your goals in just 5 minutes a day.',
+      subtitle: 'Track daily streaks, earn XP, and reach your goals in just 5 minutes a day.',
       icon: Flame,
       color: 'bg-amber-500',
     },

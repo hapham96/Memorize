@@ -1,4 +1,4 @@
-import { Category, UserProgress, SRSData, Word, WordCategory } from '@/types';
+import { Category, CEFRLevel, UserProgress, SRSData, Word, WordCategory } from '@/types';
 import { AuthSession } from '@/types/auth';
 import { generateAvatar } from '@/lib/avatar';
 import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
@@ -6,7 +6,6 @@ import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
 const STORAGE_KEYS = {
   PROGRESS: 'memorize_user_progress',
   SRS: 'memorize_srs_data',
-  ACHIEVEMENTS: 'memorize_achievements',
   SETTINGS: 'memorize_settings',
   CUSTOM_WORDS: 'memorize_custom_words',
   AUTH: 'memorize_auth',
@@ -18,7 +17,6 @@ const STORAGE_KEYS = {
 const SCOPED_KEYS = [
   STORAGE_KEYS.PROGRESS,
   STORAGE_KEYS.SRS,
-  STORAGE_KEYS.ACHIEVEMENTS,
   STORAGE_KEYS.CUSTOM_WORDS,
   STORAGE_KEYS.REMINDERS,
   // `/categories` is authenticated, so the list may well be the account's own —
@@ -27,9 +25,9 @@ const SCOPED_KEYS = [
 ];
 
 /**
- * Active account for reads/writes. Progress, SRS, custom words and achievements
- * belong to one account — without this every account would inherit whatever the
- * previously signed-in user left in localStorage.
+ * Active account for reads/writes. Progress, SRS and custom words belong to one
+ * account — without this every account would inherit whatever the previously
+ * signed-in user left in localStorage.
  */
 let activeUserId: number | null = null;
 
@@ -63,6 +61,12 @@ function writeScoped(key: string, value: string): void {
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   soundEnabled: boolean;
+  /**
+   * The learner's self-declared CEFR level, asked right after sign-up and
+   * changeable in settings. `null` means the question has not been answered —
+   * the app never guesses a level on the user's behalf.
+   */
+  cefrLevel: CEFRLevel | null;
   dailyGoal: number; // 5, 10, 20, 30
   /** Master switch for due-review reminders (in-app banner + browser notification). */
   notifications: boolean;
@@ -77,6 +81,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   soundEnabled: true,
+  cefrLevel: null,
   dailyGoal: 20,
   notifications: true,
   reminderIntervalMinutes: 60,

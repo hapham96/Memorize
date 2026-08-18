@@ -1,6 +1,13 @@
 export type LevelDifficulty = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
 /**
+ * The learner's own CEFR proficiency, asked once after sign-up and editable in
+ * settings. Distinct from `LevelDifficulty`, which grades a *word* and stops at
+ * C1 because that is all `GET /words` ever returns.
+ */
+export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+
+/**
  * The set is open: names come from `GET /categories`, so the app cannot close
  * it. The listed members are only the names the app ships copy and decoration
  * for (and `Custom`, the local bucket) — any other string is equally valid.
@@ -85,14 +92,16 @@ export interface UserProgress {
   history: QuizHistoryItem[];
 }
 
-export interface Achievement {
-  id: string;
-  title: string;
-  description: string;
-  iconName: string;
-  unlocked: boolean;
-  progress: number;
-  maxProgress: number;
+/**
+ * One row of the "top learners" board on the stats screen. `rank` is assigned by
+ * the app from the sorted order, not read off the wire.
+ */
+export interface LeaderboardEntry {
+  userId: number;
+  rank: number;
+  name: string;
+  wordsLearned: number;
+  masteredCount?: number;
 }
 
 export type ActiveTab = 'home' | 'learn' | 'review' | 'stats' | 'profile';

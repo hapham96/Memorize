@@ -22,6 +22,8 @@ interface ReviewDashboardProps {
   srsMap: Record<string, SRSData>;
   onUpdateSRS: (wordId: string, updatedSRS: SRSData) => void;
   onOpenAddWord?: () => void;
+  /** Fired after the backend due list is re-read, so the nav badge can follow. */
+  onDueListChanged?: () => void;
 }
 
 interface DueReviewItem {
@@ -36,6 +38,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   srsMap,
   onUpdateSRS,
   onOpenAddWord,
+  onDueListChanged,
 }) => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -62,6 +65,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             onUpdateSRS(String(item.word.id), mapBackendUserWordToSRS(item.userWord));
           }
         });
+
+        // The nav badge reads the same endpoint; tell it to catch up rather than
+        // letting it sit on a stale number until its own poll comes round.
+        onDueListChanged?.();
       }
     } catch (err) {
       console.warn('Could not fetch due reviews from API, using local SRS data:', err);
@@ -74,32 +81,23 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     fetchDueFromApi();
   }, [allWords]);
 
-  // Compute effective due list
-  const now = new Date();
-  const filteredWords = selectedCategory === 'All'
-    ? allWords
-    : allWords.filter((w) => w.category === selectedCategory);
+  // The backend owns what is due. A local guess would only ever disagree with
+  // it — that disagreement is what put a badge of 2 next to a queue of 0 — so
+  // until the first answer arrives the queue is *unknown*, not empty, and the
+  // copy below says so rather than claiming the day is done.
+  const hasLoadedDue = apiDueItems !== null;
 
-  const localDueWords = filteredWords.filter((w) => {
-    const srs = srsMap[w.id];
-    if (!srs) return true;
-    return new Date(srs.nextReviewDate) <= now || srs.state === 'learning';
-  });
-
-  const dueItems: DueReviewItem[] = apiDueItems !== null
-    ? (selectedCategory === 'All'
+  const dueItems: DueReviewItem[] = !hasLoadedDue
+    ? []
+    : selectedCategory === 'All'
       ? apiDueItems
-      : apiDueItems.filter((item) => item.word.category === selectedCategory))
-    : localDueWords.map((w) => ({
-      userWordId: srsMap[w.id]?.userWordId || w.id,
-      word: w,
-    }));
+      : apiDueItems.filter((item) => item.word.category === selectedCategory);
 
   const dueWords = dueItems.map((item) => item.word);
 
   // "Nothing due" and "no words at all" look the same in the numbers but need
   // different copy — a new account has an empty library by design.
-  const isLibraryEmpty = allWords.length === 0 && dueItems.length === 0;
+  const isLibraryEmpty = hasLoadedDue && allWords.length === 0 && dueItems.length === 0;
 
   const learningCount = Object.values(srsMap).filter((s) => s.state === 'learning').length;
   const masteredCount = Object.values(srsMap).filter((s) => s.state === 'mastered').length;
@@ -404,15 +402,17 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               ⚡ Spaced Repetition SRS
             </span>
             <h3 className="text-3xl md:text-4xl font-black mt-2">
-              {dueWords.length}{' '}
+              {hasLoadedDue ? dueWords.length : '—'}{' '}
               <span className="text-base font-normal text-emerald-100">từ đến lịch ôn tập</span>
             </h3>
             <p className="text-xs md:text-sm text-emerald-100 mt-2 font-medium">
-              {dueWords.length > 0
-                ? 'Sẵn sàng cho phiên ôn luyện duy trì trí nhớ hôm nay!'
-                : isLibraryEmpty
-                  ? 'Kho từ của bạn đang trống. Thêm từ đầu tiên để bắt đầu ôn tập.'
-                  : '🎉 Bạn đã hoàn thành tất cả từ hôm nay! Hãy quay lại vào ngày mai.'}
+              {!hasLoadedDue
+                ? 'Đang tải hàng đợi ôn tập…'
+                : dueWords.length > 0
+                  ? 'Sẵn sàng cho phiên ôn luyện duy trì trí nhớ hôm nay!'
+                  : isLibraryEmpty
+                    ? 'Kho từ của bạn đang trống. Thêm từ đầu tiên để bắt đầu ôn tập.'
+                    : '🎉 Bạn đã hoàn thành tất cả từ hôm nay! Hãy quay lại vào ngày mai.'}
             </p>
           </div>
 
@@ -512,7 +512,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         )}
 
-        {isLibraryEmpty ? (
+        {!hasLoadedDue ? (
+          <div className="text-center py-6">
+            <RefreshCw className="w-6 h-6 animate-spin text-slate-400 mx-auto" />
+            <p className="text-xs text-slate-400 mt-2">Đang tải hàng đợi ôn tập…</p>
+          </div>
+        ) : isLibraryEmpty ? (
           <div className="text-center py-6">
             <span className="text-3xl">📚</span>
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">

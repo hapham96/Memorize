@@ -6,6 +6,7 @@ import { HeaderBar } from '@/components/layout/HeaderBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { OnboardingScreen } from '@/components/auth/OnboardingScreen';
 import { AuthScreen } from '@/components/auth/AuthScreen';
+import { LevelSelectModal } from '@/components/auth/LevelSelectModal';
 import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
 import { QuizSelection } from '@/components/quiz/QuizSelection';
 import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
@@ -65,7 +66,6 @@ import { createInitialSRS } from '@/lib/srs';
 import { soundFX } from '@/lib/audio';
 import { generateAvatar } from '@/lib/avatar';
 import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
-import { computeAchievements } from '@/lib/achievements';
 import { useDueReminders } from '@/hooks/useDueReminders';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { unsubscribeFromPush } from '@/lib/push';
@@ -89,6 +89,12 @@ export default function Home() {
   const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddWordOpen, setIsAddWordOpen] = useState(false);
+  /**
+   * The one-time CEFR question. Opened by a successful registration only — a
+   * returning sign-in must not be interrogated again, whether or not the answer
+   * was ever given (it can be set any time from settings).
+   */
+  const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
 
   // App Persistent State
   const [allWords, setAllWords] = useState<Word[]>([]);
@@ -210,6 +216,7 @@ export default function Home() {
     setSessionResult(null);
     setIsSettingsOpen(false);
     setIsAddWordOpen(false);
+    setIsLevelPickerOpen(false);
     setActiveTab('home');
     setAuthView(view);
 
@@ -293,7 +300,6 @@ export default function Home() {
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
   const displayProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
-  const displayAchievements = computeAchievements(displayProgress, srsMap);
 
   // Filter word dataset according to user's focusCategories setting. Memoised
   // because `useDueReminders` scans this list on every identity change.
@@ -308,14 +314,6 @@ export default function Home() {
         : allWords,
     [allWords, focusCategories]
   );
-
-  // Calculate Due Words Count for Review Badge
-  const now = new Date();
-  const dueCount = activePool.filter((w) => {
-    const srs = srsMap[w.id];
-    if (!srs) return true;
-    return new Date(srs.nextReviewDate) <= now || srs.state === 'learning';
-  }).length;
 
   const openReview = () => {
     setActiveQuizMode(null);
@@ -491,6 +489,8 @@ export default function Home() {
     requestPermission: requestNotificationPermission,
     activeReminder,
     dismissReminder,
+    apiDueCount,
+    refreshDue,
   } = useDueReminders({
     allWords,
     focusCategories,
@@ -501,6 +501,21 @@ export default function Home() {
     onOpenReview: openReview,
     onSyncSRS: handleUpdateSRS,
   });
+
+  // The review badge is whatever `/reviews/due` last answered, so it can never
+  // disagree with the review tab's own count. There is no local fallback on
+  // purpose: a due date only the backend knows is the one that matters, and
+  // "not asked yet" reads as zero rather than as a guess.
+  const dueCount = apiDueCount ?? 0;
+
+  // A tab change is the cheapest honest moment to re-ask. `getDueReviews` serves
+  // a 30s cache, so an idle switch costs nothing; after a review session
+  // `submitReview` has already dropped that cache, so this is the fetch that
+  // clears the badge.
+  useEffect(() => {
+    if (!isMounted) return;
+    refreshDue();
+  }, [activeTab, isMounted, refreshDue]);
 
   const { pushStatus } = usePushSubscription({
     isReady: isMounted,
@@ -554,10 +569,13 @@ export default function Home() {
       <MobileContainer>
         <AuthScreen
           initialMode={authView}
-          onLoginSuccess={(newSession, displayName) => {
+          onLoginSuccess={(newSession, displayName, isNewAccount) => {
             // Swap to the account's own scoped state before rendering anything.
             loadAccountState(newSession, displayName, true);
             setActiveTab('home');
+            // A brand-new account is asked for its CEFR level once, on top of
+            // the home screen it just landed on.
+            setIsLevelPickerOpen(isNewAccount);
           }}
           onBack={() => setAuthView('onboarding')}
         />
@@ -665,6 +683,7 @@ export default function Home() {
           srsMap={srsMap}
           onUpdateSRS={handleUpdateSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
+          onDueListChanged={refreshDue}
         />
       )}
 
@@ -675,7 +694,6 @@ export default function Home() {
       {activeTab === 'profile' && (
         <ProfileScreen
           progress={displayProgress}
-          achievements={displayAchievements}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onLogout={() => signOut()}
         />
@@ -699,6 +717,17 @@ export default function Home() {
             void requestNotificationPermission();
           }}
           pushStatus={pushStatus}
+        />
+      )}
+
+      {isLevelPickerOpen && (
+        <LevelSelectModal
+          initialLevel={settings.cefrLevel}
+          onConfirm={(level) => {
+            handleUpdateSettings({ cefrLevel: level });
+            setIsLevelPickerOpen(false);
+          }}
+          onSkip={() => setIsLevelPickerOpen(false)}
         />
       )}
 

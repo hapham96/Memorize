@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Flame, BookOpen, Repeat, Calendar, CheckCircle2, Zap } from 'lucide-react';
+import { Flame, BookOpen, Repeat, Calendar, CheckCircle2 } from 'lucide-react';
 import { UserProgress } from '@/types';
 import { buildActivitySeries } from '@/lib/progress';
+import { LeaderboardCard } from './LeaderboardCard';
 
 interface StatsDashboardProps {
   progress: UserProgress;
@@ -46,7 +47,7 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
       <div>
         <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Learning Statistics</h2>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Track your English growth, streak consistency, and quiz performance.
+          Track your English growth.
         </p>
       </div>
 
@@ -147,44 +148,8 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
         </div>
       </div>
 
-      {/* Quiz History Log */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
-        <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">Quiz History</h4>
-        {progress.history.length === 0 && (
-          <p className="text-xs text-slate-400 py-4 text-center">
-            No quiz sessions yet. Finish a quiz to start tracking your progress.
-          </p>
-        )}
-        <div className="space-y-2.5">
-          {progress.history.map((item) => (
-            <div
-              key={item.id}
-              className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800 flex items-center justify-between"
-            >
-              <div>
-                <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                  {item.quizType}
-                </h5>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  {new Date(item.timestamp).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  {item.correctCount}/{item.totalQuestions}
-                </span>
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full flex items-center gap-0.5">
-                  <Zap className="w-3 h-3 fill-blue-500" />+{item.xpEarned}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Ranking — top learners across all accounts */}
+      <LeaderboardCard currentUserId={progress.userId} currentUserName={progress.name} />
     </div>
   );
 };

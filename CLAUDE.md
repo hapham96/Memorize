@@ -25,7 +25,7 @@ Despite being Next.js 14 App Router, the entire app is one client component: [sr
 - `activeQuizMode` → early return renders the active quiz
 - `activeTab` (`home | learn | review | stats | profile`) → renders the corresponding dashboard
 
-All persistent app state (`allWords`, `userProgress`, `srsMap`, `achievements`, `settings`) is owned by `page.tsx` and threaded to children as props. There is no Context, reducer, or store — new shared state goes in `page.tsx` and gets passed down.
+All persistent app state (`allWords`, `userProgress`, `srsMap`, `settings`) is owned by `page.tsx` and threaded to children as props. There is no Context, reducer, or store — new shared state goes in `page.tsx` and gets passed down.
 
 ### Persistence: localStorage, hydration-safe
 

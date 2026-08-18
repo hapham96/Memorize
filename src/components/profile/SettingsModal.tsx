@@ -1,8 +1,20 @@
 'use client';
 
 import React from 'react';
-import { X, Sun, Moon, Volume2, Bell, Target, Trash2, Check, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Sun,
+  Moon,
+  Volume2,
+  Bell,
+  Target,
+  Trash2,
+  Check,
+  AlertCircle,
+  GraduationCap,
+} from 'lucide-react';
 import { Category, WordCategory } from '@/types';
+import { CEFR_LEVELS, cefrLevelInfo } from '@/data/cefrLevels';
 import { categoryNames } from '@/lib/api/category-client';
 import { AppSettings } from '@/lib/storage';
 import { NotificationPermissionState } from '@/lib/notifications';
@@ -59,6 +71,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRequestNotificationPermission,
   pushStatus = 'idle',
 }) => {
+  const selectedLevel = cefrLevelInfo(settings.cefrLevel);
+
   const handleToggleNotifications = () => {
     const next = !settings.notifications;
     onUpdateSettings({ notifications: next });
@@ -274,6 +288,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* CEFR proficiency — the answer to the question asked after sign-up. */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <GraduationCap className="w-4 h-4 text-blue-500" />
+            <span>Trình độ của bạn (CEFR)</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {CEFR_LEVELS.map((level) => (
+              <button
+                key={level.id}
+                onClick={() => onUpdateSettings({ cefrLevel: level.id })}
+                title={`${level.name} — ${level.description}`}
+                className={`py-2.5 rounded-button text-xs font-bold border transition-all ${settings.cefrLevel === level.id
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
+                  : 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200'
+                  }`}
+              >
+                {level.emoji} {level.id}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            {selectedLevel
+              ? `${selectedLevel.name} (${selectedLevel.tier}) — ${selectedLevel.description}`
+              : 'Chưa chọn trình độ. Chọn mức gần nhất để app gợi ý từ vựng phù hợp hơn.'}
+          </p>
         </div>
 
         {/* Daily Word Goal */}

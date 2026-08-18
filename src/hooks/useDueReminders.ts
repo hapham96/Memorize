@@ -73,6 +73,13 @@ export interface UseDueRemindersResult {
   requestPermission: () => Promise<NotificationPermissionState>;
   activeReminder: ActiveReminder | null;
   dismissReminder: () => void;
+  /**
+   * How many rows `/reviews/due` last returned, before the focus filter — the
+   * same number the review tab shows. `null` until a fetch has ever resolved.
+   */
+  apiDueCount: number | null;
+  /** Re-asks the backend for the due list without disturbing the reminder clock. */
+  refreshDue: () => void;
 }
 
 /**
@@ -100,6 +107,10 @@ export function useDueReminders({
   const [permission, setPermission] = useState<NotificationPermissionState>('unsupported');
   const [activeReminder, setActiveReminder] = useState<ActiveReminder | null>(null);
   const [apiItems, setApiItems] = useState<DueReminderItem[] | null>(null);
+  const [apiDueCount, setApiDueCount] = useState<number | null>(null);
+  // Only re-runs the backend fetch. `clock` also feeds the reminder throttle, so
+  // bumping that from the outside could pop a notification nobody asked for.
+  const [dueTick, setDueTick] = useState(0);
 
   const stateRef = useRef<ReminderState>(EMPTY_REMINDER_STATE);
   const stateLoadedRef = useRef(false);
@@ -122,6 +133,7 @@ export function useDueReminders({
     stateLoadedRef.current = false;
     setActiveReminder(null);
     setApiItems(null);
+    setApiDueCount(null);
     setPermission(getNotificationPermission());
     stateRef.current = loadReminderState();
     stateLoadedRef.current = true;
@@ -210,6 +222,10 @@ export function useDueReminders({
       .then((userWords) => {
         if (cancelled || !Array.isArray(userWords)) return;
 
+        // The raw row count, deliberately taken before the focus filter below —
+        // this is the number the review tab shows, and the badge has to match it.
+        setApiDueCount(userWords.length);
+
         const items: DueReminderItem[] = [];
         userWords.forEach((userWord) => {
           const srs = mapBackendUserWordToSRS(userWord);
@@ -235,13 +251,16 @@ export function useDueReminders({
       })
       .catch((err) => {
         // Backend is optional everywhere — the local SRS map still drives reminders.
+        // `apiDueCount` deliberately keeps its last value: the review tab keeps its
+        // list on a failed poll too, and blanking one but not the other would put
+        // the badge and that screen back out of step.
         if (!cancelled) console.warn('Could not poll due reviews for reminders:', err);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isReady, isSignedIn, clock, resolveDueWord]);
+  }, [isReady, isSignedIn, clock, dueTick, resolveDueWord]);
 
   // Backend entries win on conflict; local-only words still count, so words
   // reviewed offline are not dropped from reminders.
@@ -302,6 +321,8 @@ export function useDueReminders({
 
   const dismissReminder = useCallback(() => setActiveReminder(null), []);
 
+  const refreshDue = useCallback(() => setDueTick((n) => n + 1), []);
+
   return {
     dueItems,
     nextDueAt: localSnapshot.nextDueAt,
@@ -309,5 +330,7 @@ export function useDueReminders({
     requestPermission,
     activeReminder,
     dismissReminder,
+    apiDueCount,
+    refreshDue,
   };
 }
