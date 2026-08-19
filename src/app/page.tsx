@@ -33,6 +33,14 @@ import {
   Word,
 } from '@/types';
 import { ReviewQuality } from '@/types/word';
+import {
+  AutoGradedExercise,
+  isFlashcardExercise,
+  isMultipleChoiceExercise,
+  isFillInBlankExercise,
+  isTypeMissingWordExercise,
+  isListeningExercise,
+} from '@/types/exercise';
 import { calculateNextSRS } from '@/lib/srs';
 import {
   submitReview,
@@ -42,6 +50,13 @@ import {
   mapBackendUserWordToSRS,
   resolveWordForUserWord,
 } from '@/lib/api/word-client';
+import {
+  getDueExercises,
+  submitExercise,
+  isExerciseAnswerCorrect,
+  mapFlashcardExerciseToWord,
+  QUIZ_TYPE_TO_EXERCISE_TYPE,
+} from '@/lib/api/exercise-client';
 import { syncCategories } from '@/lib/api/category-client';
 import {
   fetchSettings,
@@ -92,6 +107,13 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
   const [quizSessionWords, setQuizSessionWords] = useState<Word[]>([]);
+  // Backend-driven exercise modes (multiple-choice, fill-blank, type-word,
+  // listening) get their question data from `/exercises/due` instead of the
+  // local pool — flashcards are the only mode still using `quizSessionWords`.
+  const [exerciseSessionItems, setExerciseSessionItems] = useState<AutoGradedExercise[]>([]);
+  const [exerciseMistakes, setExerciseMistakes] = useState<AutoGradedExercise[]>([]);
+  const [loadingQuizType, setLoadingQuizType] = useState<QuizType | null>(null);
+  const [quizStartError, setQuizStartError] = useState<string | null>(null);
   const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddWordOpen, setIsAddWordOpen] = useState(false);
@@ -408,13 +430,6 @@ export default function Home() {
     () => settings.focusCategories || [],
     [settings.focusCategories]
   );
-  const activePool = useMemo(
-    () =>
-      focusCategories.length > 0
-        ? allWords.filter((w) => focusCategories.includes(w.category))
-        : allWords,
-    [allWords, focusCategories]
-  );
 
   const openReview = () => {
     setActiveQuizMode(null);
@@ -451,33 +466,55 @@ export default function Home() {
     });
   };
 
-  const handleStartQuiz = (type: QuizType) => {
-    // Pick up to 10 random words from activePool for the session
-    const pool = activePool.length > 0 ? activePool : allWords;
-    // Nothing to quiz on yet — every word in the library is one the user added,
-    // so send them to add some instead of opening an empty session.
-    if (pool.length === 0) {
+  const handleStartQuiz = async (type: QuizType) => {
+    // Nothing to quiz on yet — every word in the library is one the user
+    // added, so send them to add some instead of opening an empty session.
+    if (allWords.length === 0) {
       setIsAddWordOpen(true);
       return;
     }
-    const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, 10);
-    setQuizSessionWords(shuffled);
-    setActiveQuizMode(type);
+
+    const exerciseType = QUIZ_TYPE_TO_EXERCISE_TYPE[type];
+    // 'image' (and any other not-yet-implemented mode) has no backend flow.
+    if (!exerciseType) return;
+
+    setQuizStartError(null);
+    setLoadingQuizType(type);
+    try {
+      const items = await getDueExercises(exerciseType);
+      if (items.length === 0) {
+        setQuizStartError('Không có từ nào cần luyện tập cho chế độ này ngay bây giờ.');
+        return;
+      }
+
+      if (type === 'flashcards') {
+        setQuizSessionWords(
+          items.filter(isFlashcardExercise).map((item) => mapFlashcardExerciseToWord(item, allWords))
+        );
+      } else {
+        setExerciseSessionItems(items as AutoGradedExercise[]);
+      }
+      setActiveQuizMode(type);
+    } catch (err) {
+      console.error('getDueExercises error:', err);
+      setQuizStartError('Không thể tải bài tập. Vui lòng thử lại sau.');
+    } finally {
+      setLoadingQuizType(null);
+    }
   };
 
-  const handleQuizComplete = (correctCount: number, mistakes: Word[]) => {
-    const total = quizSessionWords.length;
+  const handleExerciseQuizComplete = (correctCount: number, mistakes: AutoGradedExercise[]) => {
+    const total = exerciseSessionItems.length;
     const xpEarned = correctCount * 5 + 10; // 5 XP per correct + 10 completion bonus
 
-    const newResult: QuizSessionResult = {
-      quizType: activeQuizMode || 'flashcards',
+    setExerciseMistakes(mistakes);
+    setSessionResult({
+      quizType: activeQuizMode || 'multiple-choice',
       total,
       correct: correctCount,
       xpEarned,
-      mistakes,
-    };
-
-    setSessionResult(newResult);
+      mistakeCount: mistakes.length,
+    });
 
     // Update User Progress. wordsLearned/masteredCount/level are derived at
     // render time from the SRS map and XP, so only real events are stored.
@@ -505,6 +542,32 @@ export default function Home() {
 
     setUserProgress(updatedProgress);
     saveUserProgress(updatedProgress);
+  };
+
+  /**
+   * Grades one exercise answer against the backend, which is the only source
+   * of truth for `multiple_choice` (the payload never reveals which option is
+   * correct). For the other exercise types the caller already graded locally
+   * against the known headword — this call exists mainly to sync the SRS
+   * schedule, and its resolved value is unused by those callers.
+   */
+  const handleSubmitExerciseAnswer = async (
+    exercise: AutoGradedExercise,
+    answer: string
+  ): Promise<boolean> => {
+    try {
+      const response = await submitExercise(exercise.userWordId, exercise.exerciseType, answer);
+      handleUpdateSRS(String(response.wordId), mapReviewResponseToSRS(response));
+      return isExerciseAnswerCorrect(response);
+    } catch (err) {
+      console.error('API submitExercise error:', err);
+      // No server verdict to trust. For the free-answer modes the headword IS
+      // the answer, so grade locally rather than blocking the session — but
+      // multiple_choice has no local fallback, so it counts as a miss.
+      return exercise.exerciseType !== 'multiple_choice'
+        ? answer.trim().toLowerCase() === exercise.headword.trim().toLowerCase()
+        : false;
+    }
   };
 
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
@@ -700,42 +763,36 @@ export default function Home() {
 
         {activeQuizMode === 'multiple-choice' && (
           <MultipleChoiceQuiz
-            words={quizSessionWords}
-            allWords={allWords}
-            onComplete={(correctCount, mistakes) => {
-              handleQuizComplete(correctCount, mistakes);
-            }}
+            exercises={exerciseSessionItems.filter(isMultipleChoiceExercise)}
+            onSubmitAnswer={handleSubmitExerciseAnswer}
+            onComplete={handleExerciseQuizComplete}
             onClose={() => setActiveQuizMode(null)}
           />
         )}
 
         {activeQuizMode === 'fill-blank' && (
           <FillBlankQuiz
-            words={quizSessionWords}
-            allWords={allWords}
-            onComplete={(correctCount, mistakes) => {
-              handleQuizComplete(correctCount, mistakes);
-            }}
+            exercises={exerciseSessionItems.filter(isFillInBlankExercise)}
+            onSubmitAnswer={handleSubmitExerciseAnswer}
+            onComplete={handleExerciseQuizComplete}
             onClose={() => setActiveQuizMode(null)}
           />
         )}
 
         {activeQuizMode === 'type-word' && (
           <TypeWordQuiz
-            words={quizSessionWords}
-            onComplete={(correctCount, mistakes) => {
-              handleQuizComplete(correctCount, mistakes);
-            }}
+            exercises={exerciseSessionItems.filter(isTypeMissingWordExercise)}
+            onSubmitAnswer={handleSubmitExerciseAnswer}
+            onComplete={handleExerciseQuizComplete}
             onClose={() => setActiveQuizMode(null)}
           />
         )}
 
         {activeQuizMode === 'listening' && (
           <ListeningQuiz
-            words={quizSessionWords}
-            onComplete={(correctCount, mistakes) => {
-              handleQuizComplete(correctCount, mistakes);
-            }}
+            exercises={exerciseSessionItems.filter(isListeningExercise)}
+            onSubmitAnswer={handleSubmitExerciseAnswer}
+            onComplete={handleExerciseQuizComplete}
             onClose={() => setActiveQuizMode(null)}
           />
         )}
@@ -746,14 +803,15 @@ export default function Home() {
             totalQuestions={sessionResult.total}
             correctCount={sessionResult.correct}
             xpEarned={sessionResult.xpEarned}
-            mistakes={sessionResult.mistakes}
+            mistakeCount={sessionResult.mistakeCount}
             onContinue={() => {
               setSessionResult(null);
               setActiveQuizMode(null);
             }}
             onReviewMistakes={() => {
-              if (sessionResult.mistakes.length > 0) {
-                setQuizSessionWords(sessionResult.mistakes);
+              if (exerciseMistakes.length > 0) {
+                setExerciseSessionItems(exerciseMistakes);
+                setExerciseMistakes([]);
                 setSessionResult(null);
               }
             }}
@@ -784,7 +842,11 @@ export default function Home() {
       )}
 
       {activeTab === 'learn' && (
-        <QuizSelection onSelectQuiz={handleStartQuiz} />
+        <QuizSelection
+          onSelectQuiz={handleStartQuiz}
+          loadingQuizType={loadingQuizType}
+          errorMessage={quizStartError}
+        />
       )}
 
       {activeTab === 'review' && (

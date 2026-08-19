@@ -137,5 +137,5 @@ export interface QuizSessionResult {
   total: number;
   correct: number;
   xpEarned: number;
-  mistakes: Word[];
+  mistakeCount: number;
 }

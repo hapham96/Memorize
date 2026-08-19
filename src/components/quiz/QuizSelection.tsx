@@ -10,14 +10,21 @@ import {
   Image as ImageIcon,
   Play,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import { QuizType } from '@/types';
 
 interface QuizSelectionProps {
   onSelectQuiz: (type: QuizType) => void;
+  loadingQuizType?: QuizType | null;
+  errorMessage?: string | null;
 }
 
-export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) => {
+export const QuizSelection: React.FC<QuizSelectionProps> = ({
+  onSelectQuiz,
+  loadingQuizType = null,
+  errorMessage = null,
+}) => {
   const modes = [
     {
       id: 'flashcards' as QuizType,
@@ -43,7 +50,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
       id: 'fill-blank' as QuizType,
       title: 'Fill in the Blank',
       badge: 'Practice recall',
-      description: 'Complete real example sentences with the missing English vocabulary.',
+      description: 'Type the missing word to complete a real example sentence, guided by its meaning.',
       icon: FileText,
       color: 'bg-purple-500 border-purple-300',
       badgeBg: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
@@ -52,8 +59,8 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
     {
       id: 'type-word' as QuizType,
       title: 'Type Missing Word',
-      badge: 'Hard Mode',
-      description: 'Translate Vietnamese prompts and type the exact English word with hints.',
+      badge: 'Sentence context',
+      description: 'Pick the word that correctly completes the sentence from 4 options.',
       icon: Keyboard,
       color: 'bg-amber-500 border-amber-300',
       badgeBg: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
@@ -90,18 +97,24 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
         </p>
       </div>
 
+      {errorMessage && (
+        <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border-clay border-amber-300">
+          {errorMessage}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {modes.map((mode) => {
           const Icon = mode.icon;
+          const isLoading = loadingQuizType === mode.id;
           return (
             <div
               key={mode.id}
-              onClick={() => mode.active && onSelectQuiz(mode.id)}
-              className={`bg-white dark:bg-slate-800 rounded-[28px] p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
-                mode.active
-                  ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-clay-lg hover:-translate-y-0.5 active:scale-[0.99] group'
-                  : 'opacity-70 cursor-not-allowed'
-              }`}
+              onClick={() => mode.active && !isLoading && onSelectQuiz(mode.id)}
+              className={`bg-white dark:bg-slate-800 rounded-[28px] p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${mode.active
+                ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-clay-lg hover:-translate-y-0.5 active:scale-[0.99] group'
+                : 'opacity-70 cursor-not-allowed'
+                }`}
             >
               <div>
                 <div className="flex items-start justify-between mb-4">
@@ -113,7 +126,11 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
 
                   {mode.active ? (
                     <button className="p-3 rounded-full bg-blue-600 border-clay border-blue-400 text-white shadow-clay group-hover:scale-105 transition-transform">
-                      <Play className="w-4 h-4 fill-white" />
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-white" />
+                      )}
                     </button>
                   ) : (
                     <span className="p-2.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400">

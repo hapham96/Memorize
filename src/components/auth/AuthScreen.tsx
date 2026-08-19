@@ -47,6 +47,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setError(null);
 
     const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
     if (isRegister && password.length < MIN_PASSWORD_LENGTH) {
       setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
       return;
@@ -54,7 +55,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     setIsSubmitting(true);
     try {
-      const credentials = { email: trimmedEmail, password };
+      const credentials = { email: trimmedEmail, password, name: trimmedName };
       const session = isRegister ? await register(credentials) : await login(credentials);
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {

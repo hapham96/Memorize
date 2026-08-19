@@ -1,70 +1,65 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Volume2, ArrowLeft, CheckCircle, XCircle, ArrowRight, HelpCircle } from 'lucide-react';
-import { Word } from '@/types';
+import { Volume2, ArrowLeft, CheckCircle, XCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { MultipleChoiceExercise } from '@/types/exercise';
 import { speakWord, soundFX } from '@/lib/audio';
 
 interface MultipleChoiceQuizProps {
-  words: Word[];
-  allWords: Word[];
-  onComplete: (correctCount: number, mistakes: Word[]) => void;
+  exercises: MultipleChoiceExercise[];
+  onSubmitAnswer: (exercise: MultipleChoiceExercise, answer: string) => Promise<boolean>;
+  onComplete: (correctCount: number, mistakes: MultipleChoiceExercise[]) => void;
   onClose: () => void;
 }
 
 export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
-  words,
-  allWords,
+  exercises,
+  onSubmitAnswer,
   onComplete,
   onClose,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
   const [isAnswered, setIsAnswered] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<Word[]>([]);
-  const [shakeOption, setShakeOption] = useState<string | null>(null);
+  const [mistakes, setMistakes] = useState<MultipleChoiceExercise[]>([]);
 
-  const currentWord = words[currentIndex] || words[0];
+  const currentExercise = exercises[currentIndex] || exercises[0];
 
-  // Generate 4 choices (1 correct + 3 distractor meanings)
-  const options = React.useMemo(() => {
-    if (!currentWord) return [];
-    const distractors = allWords
-      .filter((w) => w.id !== currentWord.id)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map((w) => w.vietnamese);
-    const list = [currentWord.vietnamese, ...distractors];
-    return list.sort(() => 0.5 - Math.random());
-  }, [currentIndex, currentWord, allWords]);
+  if (!currentExercise) return null;
 
-  if (!currentWord) return null;
-
-  const handleSelectOption = (option: string) => {
-    if (isAnswered) return;
+  // The correct definition isn't in the payload, and grading happens server-side —
+  // unlike the other exercise types there is no local fallback to grade with.
+  const handleSelectOption = async (option: string) => {
+    if (isAnswered || isChecking) return;
     setSelectedOption(option);
-    setIsAnswered(true);
+    setIsChecking(true);
 
-    const isCorrect = option === currentWord.vietnamese;
-    if (isCorrect) {
+    const correct = await onSubmitAnswer(currentExercise, option);
+
+    setIsChecking(false);
+    setIsAnswered(true);
+    setIsCorrect(correct);
+
+    if (correct) {
       soundFX.playCorrect();
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setShakeOption(option);
-      setMistakes((prev) => [...prev, currentWord]);
-      setTimeout(() => setShakeOption(null), 500);
+      setMistakes((prev) => [...prev, currentExercise]);
     }
   };
 
   const handleNext = () => {
     setSelectedOption(null);
     setIsAnswered(false);
-    if (currentIndex < words.length - 1) {
+    setIsCorrect(false);
+    if (currentIndex < exercises.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
-      onComplete(correctCount + (selectedOption === currentWord.vietnamese ? 1 : 0), mistakes);
+      onComplete(correctCount, mistakes);
     }
   };
 
@@ -80,10 +75,10 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-xs font-bold text-slate-500">
-            Question {currentIndex + 1} / {words.length}
+            Question {currentIndex + 1} / {exercises.length}
           </span>
           <button
-            onClick={() => speakWord(currentWord.word)}
+            onClick={() => speakWord(currentExercise.headword)}
             className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-blue-600"
           >
             <Volume2 className="w-5 h-5" />
@@ -93,7 +88,7 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
         <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
-            style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / exercises.length) * 100}%` }}
           />
         </div>
       </div>
@@ -104,65 +99,56 @@ export const MultipleChoiceQuiz: React.FC<MultipleChoiceQuizProps> = ({
           What is the meaning of
         </span>
         <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 mt-2">
-          {currentWord.word}
+          {currentExercise.headword}
         </h2>
-        <p className="text-sm font-mono text-slate-500 mt-1">{currentWord.ipa}</p>
+        {currentExercise.ipaPronunciation && (
+          <p className="text-sm font-mono text-slate-500 mt-1">{currentExercise.ipaPronunciation}</p>
+        )}
 
         {/* 4 Choices Grid */}
         <div className="space-y-3 mt-6 text-left max-w-md mx-auto">
-          {options.map((option, idx) => {
+          {currentExercise.options.map((option, idx) => {
             const isSelected = selectedOption === option;
-            const isCorrectOption = option === currentWord.vietnamese;
 
             let cardStyle =
               'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200';
 
-            if (isAnswered) {
-              if (isCorrectOption) {
-                cardStyle =
-                  'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-clay-glow';
-              } else if (isSelected && !isCorrectOption) {
-                cardStyle = 'bg-red-500/10 border-red-500 text-red-600 dark:text-red-400';
-              }
+            if (isAnswered && isSelected) {
+              cardStyle = isCorrect
+                ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-clay-glow'
+                : 'bg-red-500/10 border-red-500 text-red-600 dark:text-red-400';
             }
 
             return (
               <button
                 key={idx}
                 onClick={() => handleSelectOption(option)}
-                disabled={isAnswered}
-                className={`w-full p-4 rounded-button border-3 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-clay-sm ${cardStyle} ${
-                  shakeOption === option ? 'animate-bounce' : ''
-                }`}
+                disabled={isAnswered || isChecking}
+                className={`w-full p-4 rounded-button border-3 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-clay-sm ${cardStyle}`}
               >
                 <span>{option}</span>
-                {isAnswered && (
-                  <>
-                    {isCorrectOption && <CheckCircle className="w-5 h-5 text-emerald-500" />}
-                    {isSelected && !isCorrectOption && <XCircle className="w-5 h-5 text-red-500" />}
-                  </>
+                {isSelected && isChecking && <Loader2 className="w-5 h-5 animate-spin text-slate-400" />}
+                {isAnswered && isSelected && (
+                  isCorrect ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-500" />
+                  )
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* Explanation Reveal */}
         {isAnswered && (
-          <div className="mt-5 p-4 rounded-card bg-blue-50 dark:bg-blue-950/40 border-clay border-blue-300 text-left space-y-1 animate-fadeIn">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">
-              <HelpCircle className="w-4 h-4" />
-              <span>Explanation & Example</span>
-            </div>
-            {currentWord.definition && (
-              <p className="text-xs text-blue-900 dark:text-blue-200 font-semibold">
-                📖 Definition: <span className="font-normal italic">{currentWord.definition}</span>
-              </p>
-            )}
-            <p className="text-xs text-slate-700 dark:text-slate-200 font-medium">
-              "{currentWord.example}"
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">👉 {currentWord.translation}</p>
+          <div
+            className={`mt-5 p-4 rounded-card border-clay text-left animate-fadeIn ${
+              isCorrect
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-200'
+                : 'bg-red-50 dark:bg-red-950/40 border-red-300 text-red-800 dark:text-red-200'
+            }`}
+          >
+            <p className="text-sm font-bold">{isCorrect ? 'Correct! 🎉' : 'Not quite — keep going!'}</p>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,12 +11,13 @@ import {
   Volume2,
   XCircle,
 } from 'lucide-react';
-import { Word } from '@/types';
+import { ListeningExercise } from '@/types/exercise';
 import { isSpeechSupported, speakWord, soundFX } from '@/lib/audio';
 
 interface ListeningQuizProps {
-  words: Word[];
-  onComplete: (correctCount: number, mistakes: Word[]) => void;
+  exercises: ListeningExercise[];
+  onSubmitAnswer: (exercise: ListeningExercise, answer: string) => Promise<boolean>;
+  onComplete: (correctCount: number, mistakes: ListeningExercise[]) => void;
   onClose: () => void;
 }
 
@@ -24,7 +25,12 @@ interface ListeningQuizProps {
 const SLOW_RATE = 0.55;
 const NORMAL_RATE = 0.85;
 
-export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete, onClose }) => {
+export const ListeningQuiz: React.FC<ListeningQuizProps> = ({
+  exercises,
+  onSubmitAnswer,
+  onComplete,
+  onClose,
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [inputVal, setInputVal] = useState('');
   const [showHint, setShowHint] = useState(false);
@@ -33,19 +39,37 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [playCount, setPlayCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<Word[]>([]);
+  const [mistakes, setMistakes] = useState<ListeningExercise[]>([]);
 
-  const speechSupported = useMemo(() => isSpeechSupported(), []);
-  const currentWord = words[currentIndex] || words[0];
+  const currentExercise = exercises[currentIndex] || exercises[0];
+  // A real recording never needs the TTS fallback or its browser-support check.
+  const canPlay = Boolean(currentExercise?.audioUrl) || isSpeechSupported();
 
-  // Latest utterance, so a replay does not leave a stale `onend` running that
-  // would flip `isSpeaking` off while the new audio is still playing.
+  // Latest playback handle, so a replay does not leave a stale `onend`/`onended`
+  // running that would flip `isSpeaking` off while the new audio is still playing.
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const play = useCallback(
     (rate = NORMAL_RATE) => {
-      if (!currentWord) return;
-      const utterance = speakWord(currentWord.word, 'en-US', rate);
+      if (!currentExercise) return;
+
+      if (currentExercise.audioUrl) {
+        const audio = new Audio(currentExercise.audioUrl);
+        audioRef.current = audio;
+        audio.playbackRate = rate;
+        const stop = () => {
+          if (audioRef.current === audio) setIsSpeaking(false);
+        };
+        audio.onended = stop;
+        audio.onerror = stop;
+        setIsSpeaking(true);
+        setPlayCount((prev) => prev + 1);
+        void audio.play();
+        return;
+      }
+
+      const utterance = speakWord(currentExercise.headword, 'en-US', rate);
       utteranceRef.current = utterance;
       if (!utterance) return;
 
@@ -53,70 +77,72 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
       setPlayCount((prev) => prev + 1);
 
       const stop = () => {
-        if (utteranceRef.current === utterance) {
-          setIsSpeaking(false);
-        }
+        if (utteranceRef.current === utterance) setIsSpeaking(false);
       };
       utterance.onend = stop;
       utterance.onerror = stop;
     },
-    [currentWord]
+    [currentExercise]
   );
 
   // Auto-play each new question. The learner arrived here by tapping a card, so
   // the gesture requirement for audio is already satisfied.
   useEffect(() => {
-    if (!speechSupported || !currentWord) return;
+    if (!canPlay || !currentExercise) return;
     const timer = setTimeout(() => play(), 350);
     return () => clearTimeout(timer);
-    // Re-run per question only — `play` changes with `currentWord` anyway.
-  }, [currentIndex, speechSupported, currentWord, play]);
+    // Re-run per question only — `play` changes with `currentExercise` anyway.
+  }, [currentIndex, canPlay, currentExercise, play]);
 
-  // Never leave speech running when the quiz unmounts.
+  // Never leave audio running when the quiz unmounts.
   useEffect(() => {
     return () => {
-      if (isSpeechSupported()) {
-        window.speechSynthesis.cancel();
-      }
+      if (isSpeechSupported()) window.speechSynthesis.cancel();
+      audioRef.current?.pause();
     };
   }, []);
 
-  if (!currentWord) return null;
+  if (!currentExercise) return null;
 
-  const finishQuestion = (correct: boolean) => {
+  // The headword is already in the payload, so this grades locally and syncs
+  // the backend in the background, same as FillBlankQuiz/TypeWordQuiz.
+  const finishQuestion = (answer: string, revealed: boolean) => {
+    const correct = !revealed && answer.trim().toLowerCase() === currentExercise.headword.trim().toLowerCase();
     setIsCorrect(correct);
     setIsAnswered(true);
+
     if (correct) {
       soundFX.playCorrect();
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setMistakes((prev) => [...prev, currentWord]);
+      setMistakes((prev) => [...prev, currentExercise]);
     }
+
+    void onSubmitAnswer(currentExercise, answer.trim());
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isAnswered || !inputVal.trim()) return;
-    finishQuestion(inputVal.trim().toLowerCase() === currentWord.word.toLowerCase());
+    finishQuestion(inputVal, false);
   };
 
   const handleReveal = () => {
     if (isAnswered) return;
-    setInputVal(currentWord.word);
-    finishQuestion(false);
+    setInputVal(currentExercise.headword);
+    finishQuestion(currentExercise.headword, true);
   };
 
   const handleNext = () => {
-    if (isSpeechSupported()) {
-      window.speechSynthesis.cancel();
-    }
+    if (isSpeechSupported()) window.speechSynthesis.cancel();
+    audioRef.current?.pause();
     setInputVal('');
     setShowHint(false);
     setIsAnswered(false);
     setIsSpeaking(false);
     setPlayCount(0);
-    if (currentIndex < words.length - 1) {
+    if (currentIndex < exercises.length - 1) {
       setCurrentIndex((prev) => prev + 1);
       setIsCorrect(false);
     } else {
@@ -126,7 +152,9 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
 
   // First letter plus blanks — enough to unstick a learner without giving the
   // spelling away.
-  const hintText = `${currentWord.word.charAt(0)}${'_ '.repeat(Math.max(currentWord.word.length - 1, 0))}`;
+  const hintText = `${currentExercise.headword.charAt(0)}${'_ '.repeat(
+    Math.max(currentExercise.headword.length - 1, 0)
+  )}`;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-5 py-4 bg-slate-50 dark:bg-slate-900">
@@ -140,7 +168,7 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-xs font-bold text-slate-500">
-            Word {currentIndex + 1} / {words.length}
+            Word {currentIndex + 1} / {exercises.length}
           </span>
           <span className="p-2 text-cyan-600 dark:text-cyan-400">
             <Headphones className="w-5 h-5" />
@@ -150,7 +178,7 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
         <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-cyan-500 h-full transition-all duration-300 rounded-full"
-            style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / exercises.length) * 100}%` }}
           />
         </div>
       </div>
@@ -161,7 +189,7 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
           Listen &amp; type the word
         </span>
 
-        {!speechSupported ? (
+        {!canPlay ? (
           <p className="mt-6 p-4 rounded-card border-clay border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 text-xs font-semibold">
             Trình duyệt này không hỗ trợ đọc phát âm nên chế độ Listening không hoạt động. Hãy thử
             trên Chrome, Safari hoặc Edge.
@@ -242,8 +270,8 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
 
               {showHint && !isAnswered && (
                 <p className="text-xs font-mono text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/50 p-2 rounded-lg">
-                  💡 Hint: {hintText} ({currentWord.word.length} letters)
-                  {currentWord.ipa ? ` · ${currentWord.ipa}` : ''}
+                  💡 Hint: {hintText} ({currentExercise.headword.length} letters)
+                  {currentExercise.ipaPronunciation ? ` · ${currentExercise.ipaPronunciation}` : ''}
                 </p>
               )}
 
@@ -276,14 +304,10 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
             )}
             <div>
               <p className="font-bold text-sm">
-                {isCorrect ? 'Correct!' : `Correct word: ${currentWord.word}`}
+                {isCorrect ? 'Correct!' : `Correct word: ${currentExercise.headword}`}
               </p>
-              <p className="text-xs opacity-90">
-                {currentWord.ipa ? `${currentWord.ipa} · ` : ''}
-                {currentWord.vietnamese}
-              </p>
-              {currentWord.example && (
-                <p className="text-xs opacity-90 mt-0.5">&quot;{currentWord.example}&quot;</p>
+              {currentExercise.ipaPronunciation && (
+                <p className="text-xs opacity-90">{currentExercise.ipaPronunciation}</p>
               )}
             </div>
           </div>
@@ -291,13 +315,13 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({ words, onComplete,
       </div>
 
       {/* Next Button */}
-      {(isAnswered || !speechSupported) && (
+      {(isAnswered || !canPlay) && (
         <div className="pt-2">
           <button
-            onClick={speechSupported ? handleNext : onClose}
+            onClick={canPlay ? handleNext : onClose}
             className="w-full py-4 rounded-button bg-cyan-500 hover:bg-cyan-600 border-clay border-cyan-300 active:shadow-clay-inset text-white font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all active:scale-95"
           >
-            <span>{speechSupported ? 'Continue' : 'Quay lại'}</span>
+            <span>{canPlay ? 'Continue' : 'Quay lại'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>

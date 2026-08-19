@@ -1,73 +1,61 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Lightbulb, CheckCircle2, XCircle, ArrowRight, Volume2 } from 'lucide-react';
-import { Word } from '@/types';
+import { ArrowLeft, CheckCircle, XCircle, ArrowRight, Volume2 } from 'lucide-react';
+import { TypeMissingWordExercise } from '@/types/exercise';
 import { speakWord, soundFX } from '@/lib/audio';
 
 interface TypeWordQuizProps {
-  words: Word[];
-  onComplete: (correctCount: number, mistakes: Word[]) => void;
+  exercises: TypeMissingWordExercise[];
+  onSubmitAnswer: (exercise: TypeMissingWordExercise, answer: string) => Promise<boolean>;
+  onComplete: (correctCount: number, mistakes: TypeMissingWordExercise[]) => void;
   onClose: () => void;
 }
 
-export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, onClose }) => {
+export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({
+  exercises,
+  onSubmitAnswer,
+  onComplete,
+  onClose,
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [inputVal, setInputVal] = useState('');
-  const [showHint, setShowHint] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<Word[]>([]);
+  const [mistakes, setMistakes] = useState<TypeMissingWordExercise[]>([]);
 
-  const currentWord = words[currentIndex] || words[0];
+  const currentExercise = exercises[currentIndex] || exercises[0];
 
-  if (!currentWord) return null;
+  if (!currentExercise) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isAnswered || !inputVal.trim()) return;
-
-    const userClean = inputVal.trim().toLowerCase();
-    const targetClean = currentWord.word.toLowerCase();
-    const correct = userClean === targetClean;
-
-    setIsCorrect(correct);
+  // The headword (the correct choice) is already in the payload, so this
+  // grades locally and syncs the backend in the background, same as FillBlankQuiz.
+  const handleSelectOption = (option: string) => {
+    if (isAnswered) return;
+    setSelectedOption(option);
     setIsAnswered(true);
 
-    if (correct) {
+    const isCorrect = option.toLowerCase() === currentExercise.headword.toLowerCase();
+    if (isCorrect) {
       soundFX.playCorrect();
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setMistakes((prev) => [...prev, currentWord]);
+      setMistakes((prev) => [...prev, currentExercise]);
     }
-  };
 
-  const handleReveal = () => {
-    setShowAnswer(true);
-    setIsAnswered(true);
-    setIsCorrect(false);
-    setInputVal(currentWord.word);
-    soundFX.playIncorrect();
-    setMistakes((prev) => [...prev, currentWord]);
+    void onSubmitAnswer(currentExercise, option);
   };
 
   const handleNext = () => {
-    setInputVal('');
-    setShowHint(false);
-    setShowAnswer(false);
+    setSelectedOption(null);
     setIsAnswered(false);
-    setIsCorrect(false);
-    if (currentIndex < words.length - 1) {
+    if (currentIndex < exercises.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
-      onComplete(correctCount + (isCorrect ? 1 : 0), mistakes);
+      onComplete(correctCount, mistakes);
     }
   };
-
-  const hintText = `${currentWord.word.substring(0, 2)}${'_ '.repeat(currentWord.word.length - 2)}`;
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-5 py-4 bg-slate-50 dark:bg-slate-900">
@@ -81,10 +69,10 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
             <ArrowLeft className="w-5 h-5" />
           </button>
           <span className="text-xs font-bold text-slate-500">
-            Word {currentIndex + 1} / {words.length}
+            Sentence {currentIndex + 1} / {exercises.length}
           </span>
           <button
-            onClick={() => speakWord(currentWord.word)}
+            onClick={() => speakWord(currentExercise.sentence)}
             className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-blue-600"
           >
             <Volume2 className="w-5 h-5" />
@@ -94,114 +82,74 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({ words, onComplete, o
         <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
           <div
             className="bg-amber-500 h-full transition-all duration-300 rounded-full"
-            style={{ width: `${((currentIndex + 1) / words.length) * 100}%` }}
+            style={{ width: `${((currentIndex + 1) / exercises.length) * 100}%` }}
           />
         </div>
       </div>
 
-      {/* Main Form */}
-      <div className="my-auto py-4 text-center max-w-sm mx-auto w-full">
-        <span className="text-xs uppercase font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2.5 py-1 rounded-full">
-          Translate to English
-        </span>
+      {/* Sentence Prompt */}
+      <div className="my-auto py-4 max-w-md mx-auto w-full">
+        <div className="bg-white dark:bg-slate-800 rounded-card p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay text-center mb-6">
+          <span className="text-xs uppercase font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2.5 py-1 rounded-full">
+            Complete the sentence
+          </span>
+          <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mt-4 leading-relaxed">
+            "{currentExercise.sentence}"
+          </h3>
+        </div>
 
-        <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-4">
-          "{currentWord.vietnamese}"
-        </h2>
-        <p className="text-xs text-slate-500 mt-1">Part of speech: {currentWord.pos}</p>
+        {/* Options Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {currentExercise.options.map((option, idx) => {
+            const isSelected = selectedOption === option;
+            const isCorrectOption = option.toLowerCase() === currentExercise.headword.toLowerCase();
 
-        {/* Input Form */}
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <input
-            type="text"
-            placeholder="Type English word..."
-            value={inputVal}
-            onChange={(e) => setInputVal(e.target.value)}
-            disabled={isAnswered}
-            autoFocus
-            className={`w-full p-4 rounded-input text-center text-lg font-bold border-2 bg-white dark:bg-slate-800 focus:outline-none transition-all shadow-clay-sm ${
-              isAnswered
-                ? isCorrect
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600'
-                  : 'border-red-500 bg-red-50 dark:bg-red-950/30 text-red-600'
-                : 'border-slate-300 dark:border-slate-700 focus:border-amber-500'
-            }`}
-          />
+            let btnStyle =
+              'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200';
 
-          {!isAnswered && (
-            <div className="flex gap-2">
+            if (isAnswered) {
+              if (isCorrectOption) {
+                btnStyle = 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold';
+              } else if (isSelected && !isCorrectOption) {
+                btnStyle = 'bg-red-500/10 border-red-500 text-red-600 dark:text-red-400 font-bold';
+              }
+            }
+
+            return (
               <button
-                type="button"
-                onClick={() => setShowHint(true)}
-                className="flex-1 py-2.5 rounded-button bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-semibold text-xs border-clay border-amber-300 flex items-center justify-center gap-1.5"
+                key={idx}
+                onClick={() => handleSelectOption(option)}
+                disabled={isAnswered}
+                className={`p-4 rounded-button border-3 text-sm font-semibold flex items-center justify-between transition-all duration-200 shadow-clay-sm ${btnStyle}`}
               >
-                <Lightbulb className="w-4 h-4" />
-                <span>Hint</span>
+                <span>{option}</span>
+                {isAnswered && (
+                  <>
+                    {isCorrectOption && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                    {isSelected && !isCorrectOption && <XCircle className="w-4 h-4 text-red-500" />}
+                  </>
+                )}
               </button>
-
-              <button
-                type="button"
-                onClick={handleReveal}
-                className="flex-1 py-2.5 rounded-button bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs"
-              >
-                Reveal Answer
-              </button>
-            </div>
-          )}
-
-          {showHint && !isAnswered && (
-            <p className="text-xs font-mono text-amber-600 dark:text-amber-400 font-bold bg-amber-50 dark:bg-amber-950/50 p-2 rounded-lg">
-              💡 Hint: {hintText} ({currentWord.word.length} letters)
-            </p>
-          )}
-
-          {!isAnswered && (
-            <button
-              type="submit"
-              disabled={!inputVal.trim()}
-              className="w-full py-3.5 rounded-button bg-amber-500 hover:bg-amber-600 border-clay border-amber-300 active:shadow-clay-inset text-white font-bold text-sm shadow-clay disabled:opacity-50 transition-all"
-            >
-              Submit Answer
-            </button>
-          )}
-        </form>
-
-        {/* Answer Feedback Banner */}
-        {isAnswered && (
-          <div
-            className={`mt-4 p-4 rounded-card border flex items-center gap-3 text-left ${
-              isCorrect
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 text-emerald-800 dark:text-emerald-200'
-                : 'bg-red-50 dark:bg-red-950/40 border-red-300 text-red-800 dark:text-red-200'
-            }`}
-          >
-            {isCorrect ? (
-              <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0" />
-            ) : (
-              <XCircle className="w-6 h-6 text-red-500 shrink-0" />
-            )}
-            <div>
-              <p className="font-bold text-sm">
-                {isCorrect ? 'Correct!' : `Correct word: ${currentWord.word}`}
-              </p>
-              <p className="text-xs opacity-90">"{currentWord.example}"</p>
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
 
       {/* Next Button */}
-      {isAnswered && (
-        <div className="pt-2">
-          <button
-            onClick={handleNext}
-            className="w-full py-4 rounded-button bg-amber-500 hover:bg-amber-600 border-clay border-amber-300 active:shadow-clay-inset text-white font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all active:scale-95"
-          >
-            <span>Continue</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <div className="pt-2">
+        <button
+          onClick={handleNext}
+          disabled={!isAnswered}
+          className={`w-full py-4 rounded-button font-bold text-sm shadow-clay flex items-center justify-center gap-2 transition-all ${
+            isAnswered
+              ? 'bg-amber-500 hover:bg-amber-600 border-clay border-amber-300 active:shadow-clay-inset text-white active:scale-95'
+              : 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+          }`}
+        >
+          <span>Continue</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 };

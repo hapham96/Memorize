@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Trophy, Zap, CheckCircle2, RotateCcw, ArrowRight } from 'lucide-react';
-import { Word, QuizType } from '@/types';
+import { QuizType } from '@/types';
 import { soundFX } from '@/lib/audio';
 import { ModalPortal } from '@/components/layout/ModalPortal';
 
@@ -12,7 +12,7 @@ interface QuizResultModalProps {
   totalQuestions: number;
   correctCount: number;
   xpEarned: number;
-  mistakes: Word[];
+  mistakeCount: number;
   onContinue: () => void;
   onReviewMistakes: () => void;
 }
@@ -22,7 +22,7 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
   totalQuestions,
   correctCount,
   xpEarned,
-  mistakes,
+  mistakeCount,
   onContinue,
   onReviewMistakes,
 }) => {
@@ -79,9 +79,9 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
         </div>
 
         {/* Mistakes Alert if any */}
-        {mistakes.length > 0 && (
+        {mistakeCount > 0 && (
           <div className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border-clay border-amber-300 flex items-center justify-between">
-            <span>You missed {mistakes.length} word(s) in this session.</span>
+            <span>You missed {mistakeCount} word(s) in this session.</span>
             <button
               onClick={onReviewMistakes}
               className="text-[11px] font-bold underline text-amber-600 hover:text-amber-800"
@@ -101,13 +101,13 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
             <ArrowRight className="w-4 h-4" />
           </button>
 
-          {mistakes.length > 0 && (
+          {mistakeCount > 0 && (
             <button
               onClick={onReviewMistakes}
               className="w-full py-3 rounded-button bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Review Mistakes ({mistakes.length})</span>
+              <span>Review Mistakes ({mistakeCount})</span>
             </button>
           )}
         </div>
