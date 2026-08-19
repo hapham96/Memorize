@@ -13,6 +13,7 @@ import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
 import { MultipleChoiceQuiz } from '@/components/quiz/MultipleChoiceQuiz';
 import { FillBlankQuiz } from '@/components/quiz/FillBlankQuiz';
 import { TypeWordQuiz } from '@/components/quiz/TypeWordQuiz';
+import { ListeningQuiz } from '@/components/quiz/ListeningQuiz';
 import { QuizResultModal } from '@/components/quiz/QuizResultModal';
 import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
@@ -48,7 +49,7 @@ import {
   updateSettings,
 } from '@/lib/api/settings-client';
 import { ApiError } from '@/lib/api/client';
-import { getCurrentSession, getDisplayName, logout } from '@/lib/api/auth-client';
+import { getCurrentSession, getDisplayName, logout, refreshProfile } from '@/lib/api/auth-client';
 import { AuthSession } from '@/types/auth';
 import {
   loadCategories,
@@ -227,7 +228,13 @@ export default function Home() {
     const loadedWords = loadAllWords();
     const rolledOver = applyDailyRollover(loadUserProgress());
 
-    const name = displayName?.trim() || rolledOver.name || getDisplayName(activeSession);
+    // What the user typed at registration wins, then the account's own name from
+    // `/users/profile`, then whatever this device recorded before.
+    const name =
+      displayName?.trim() ||
+      activeSession.name?.trim() ||
+      rolledOver.name ||
+      getDisplayName(activeSession);
     const loadedProgress = {
       ...rolledOver,
       name,
@@ -349,10 +356,46 @@ export default function Home() {
     }
   };
 
+  /**
+   * Re-reads `/users/profile` for a session restored from storage — it carries
+   * the name from the last sign-in, which may since have changed elsewhere.
+   * A different user id means the token now answers for another account, so the
+   * whole scoped state is reloaded rather than patched.
+   */
+  const syncProfile = async (restored: AuthSession) => {
+    const updated = await refreshProfile();
+    if (!updated) return;
+
+    if (updated.userId !== restored.userId) {
+      loadAccountState(updated);
+      return;
+    }
+
+    setSession(updated);
+
+    const name = updated.name?.trim();
+    if (!name) return;
+
+    setUserProgress((prev) => {
+      if (prev.name === name && prev.email === updated.email) return prev;
+
+      const next = {
+        ...prev,
+        name,
+        email: updated.email,
+        avatar: generateAvatar(name || updated.email),
+      };
+      saveUserProgress(next);
+      return next;
+    });
+  };
+
   useEffect(() => {
     const existingSession = getCurrentSession();
     loadAccountState(existingSession);
     setIsMounted(true);
+
+    if (existingSession) void syncProfile(existingSession);
   }, []);
 
   // Everything derivable is recomputed here, so the UI can never render a
@@ -679,6 +722,16 @@ export default function Home() {
 
         {activeQuizMode === 'type-word' && (
           <TypeWordQuiz
+            words={quizSessionWords}
+            onComplete={(correctCount, mistakes) => {
+              handleQuizComplete(correctCount, mistakes);
+            }}
+            onClose={() => setActiveQuizMode(null)}
+          />
+        )}
+
+        {activeQuizMode === 'listening' && (
+          <ListeningQuiz
             words={quizSessionWords}
             onComplete={(correctCount, mistakes) => {
               handleQuizComplete(correctCount, mistakes);

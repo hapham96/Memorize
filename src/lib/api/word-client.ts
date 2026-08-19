@@ -1,13 +1,14 @@
 import {
   AddWordRequest,
   AddWordResponse,
+  BackendDefinition,
   BackendDueReview,
   BackendUserWord,
   BackendWord,
   ReviewQuality,
   ReviewWordResponse,
 } from "@/types/word";
-import { Word, SRSData, SRSState, LevelDifficulty } from "@/types";
+import { Word, SRSData, SRSState, LevelDifficulty, WordMeaning } from "@/types";
 import { getAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
 import { FALLBACK_CATEGORY, pickLatestCategoryName } from "./category-client";
@@ -132,6 +133,30 @@ const trimmed = (value?: string | null): string | undefined => {
 };
 
 /**
+ * One `WordMeaning` per backend definition that carries text, each keeping its
+ * own part of speech and its own pair of examples (`en` reads as the sentence,
+ * `vi` as its translation). This is what lets a card page through the senses
+ * instead of only showing the primary one.
+ */
+function mapBackendDefinitionsToMeanings(
+  definitions: BackendDefinition[]
+): WordMeaning[] {
+  const meanings: WordMeaning[] = [];
+  definitions.forEach((definition) => {
+    const text = trimmed(definition.definition);
+    if (!text) return;
+    const examples = definition.examples ?? [];
+    meanings.push({
+      pos: normalizePos(definition.partOfSpeech) ?? '',
+      definition: text,
+      example: trimmed(examples.find((e) => e.language !== 'vi')?.example) ?? '',
+      translation: trimmed(examples.find((e) => e.language === 'vi')?.example) ?? '',
+    });
+  });
+  return meanings;
+}
+
+/**
  * Builds an app `Word` out of a backend word, using its embedded definitions
  * when the endpoint sends them.
  *
@@ -154,6 +179,9 @@ export function mapBackendWordToWord(
   const english = examples.find((e) => e.language !== 'vi' && trimmed(e.example));
   const vietnameseExample = examples.find((e) => e.language === 'vi' && trimmed(e.example));
   const meaning = trimmed(primary?.definition);
+  // A backend word with no embedded definitions says nothing about the senses,
+  // so the local copy's list is kept rather than collapsed to one.
+  const meanings = mapBackendDefinitionsToMeanings(definitions);
 
   return {
     id: String(backendWord.id),
@@ -167,6 +195,7 @@ export function mapBackendWordToWord(
     example: trimmed(english?.example) ?? fallback?.example ?? '',
     translation:
       trimmed(vietnameseExample?.example) ?? fallback?.translation ?? `Ví dụ với ${headword}.`,
+    meanings: meanings.length > 0 ? meanings : fallback?.meanings,
     level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? 'B1',
     category:
       pickLatestCategoryName(backendWord.categories) ??

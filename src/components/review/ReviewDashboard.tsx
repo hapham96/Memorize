@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Brain, CheckCircle2, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Brain, CheckCircle2, ChevronLeft, ChevronRight, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
 import { Category, Word, SRSData, WordCategory } from '@/types';
 import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
+import { getWordMeanings } from '@/lib/word';
 import { categoryNames } from '@/lib/api/category-client';
 import {
   submitReview,
@@ -32,6 +34,16 @@ interface DueReviewItem {
   userWord?: BackendDueReview;
 }
 
+/** How far a finger has to travel across the card back to count as a swipe. */
+const SWIPE_THRESHOLD_PX = 40;
+
+/** `direction` is +1 paging forward, -1 back, so a slide leaves the way it came. */
+const meaningSlide = {
+  enter: (direction: number) => ({ x: direction >= 0 ? 48 : -48, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({ x: direction >= 0 ? -48 : 48, opacity: 0 }),
+};
+
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   allWords,
   categories = [],
@@ -46,6 +58,14 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<WordCategory | 'All'>('All');
   const [apiDueItems, setApiDueItems] = useState<DueReviewItem[] | null>(null);
   const [isLoadingApi, setIsLoadingApi] = useState(false);
+  // Which sense of the current word the card back is showing, and which way it
+  // was paged — the slide has to leave towards the side it came from.
+  const [meaningIndex, setMeaningIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(1);
+  const swipeStartXRef = useRef<number | null>(null);
+  // A swipe ends in a `click` on the card, which would flip it. Set while the
+  // gesture paged a meaning so that click can be swallowed instead.
+  const swipedRef = useRef(false);
 
   const fetchDueFromApi = async () => {
     setIsLoadingApi(true);
@@ -105,6 +125,49 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
   const currentItem = dueItems[currentIndex];
   const currentWord = currentItem?.word;
+
+  // A word can hold several senses, each with its own part of speech; the card
+  // back pages through them rather than showing only the first.
+  const meanings = useMemo(
+    () => (currentWord ? getWordMeanings(currentWord) : []),
+    [currentWord]
+  );
+  const hasManyMeanings = meanings.length > 1;
+  // The list changes with the word, so an index from the previous card would
+  // otherwise point past the end for a word with fewer senses.
+  const safeMeaningIndex = Math.min(meaningIndex, Math.max(meanings.length - 1, 0));
+  const currentMeaning = meanings[safeMeaningIndex];
+
+  // Every new card starts on its primary sense.
+  useEffect(() => {
+    setMeaningIndex(0);
+    setSlideDirection(1);
+  }, [currentWord?.id]);
+
+  const goToMeaning = (nextIndex: number, direction: number) => {
+    if (nextIndex < 0 || nextIndex >= meanings.length || nextIndex === safeMeaningIndex) return;
+    soundFX.playPop();
+    setSlideDirection(direction);
+    setMeaningIndex(nextIndex);
+  };
+
+  const handleMeaningTouchStart = (e: React.TouchEvent) => {
+    swipeStartXRef.current = e.touches[0]?.clientX ?? null;
+    swipedRef.current = false;
+  };
+
+  const handleMeaningTouchEnd = (e: React.TouchEvent) => {
+    const startX = swipeStartXRef.current;
+    swipeStartXRef.current = null;
+    if (startX === null || !hasManyMeanings) return;
+
+    const deltaX = (e.changedTouches[0]?.clientX ?? startX) - startX;
+    if (Math.abs(deltaX) < SWIPE_THRESHOLD_PX) return;
+
+    swipedRef.current = true;
+    if (deltaX < 0) goToMeaning(safeMeaningIndex + 1, 1);
+    else goToMeaning(safeMeaningIndex - 1, -1);
+  };
 
   // The chips come from the account's `/categories` list, so a category the
   // backend added shows up without a release. A category nothing is filed under
@@ -200,6 +263,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
         <div className="my-auto py-3 perspective-1000">
           <div
             onClick={() => {
+              // A swipe across the meanings ends as a click here; paging a
+              // sense must not also flip the card back to the front.
+              if (swipedRef.current) {
+                swipedRef.current = false;
+                return;
+              }
               soundFX.playFlip();
               setIsFlipped(!isFlipped);
             }}
@@ -244,32 +313,117 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               className={`flex-1 flex flex-col justify-between rotate-y-180 backface-hidden ${isFlipped ? 'flex' : 'hidden'
                 }`}
             >
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-clay border-blue-300 dark:border-blue-800">
                   Definition & Context
                 </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    speakWord(currentWord.word);
-                  }}
-                  className="p-2 rounded-full text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {hasManyMeanings && (
+                    <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                      Nghĩa {safeMeaningIndex + 1}/{meanings.length}
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speakWord(currentWord.word);
+                    }}
+                    className="p-2 rounded-full text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              <div className="my-auto py-4 text-center space-y-3">
-                <h3 className="text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                  {currentWord.vietnamese}
-                </h3>
-                {currentWord.definition && (
-                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-blue-100">
-                     <span className="font-bold">Example:</span> <span className="italic">"{currentWord.example}"</span>
-                  </p>
+              {/* Meanings slider — one sense at a time, swipe or arrows to page */}
+              <div
+                className="my-auto py-2"
+                onTouchStart={handleMeaningTouchStart}
+                onTouchEnd={handleMeaningTouchEnd}
+              >
+                <div className="min-h-[132px] flex items-center overflow-hidden">
+                  <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
+                    <motion.div
+                      key={safeMeaningIndex}
+                      custom={slideDirection}
+                      variants={meaningSlide}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="w-full text-center space-y-2.5"
+                    >
+                      {currentMeaning?.pos && (
+                        <span className="inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">
+                          {currentMeaning.pos}
+                        </span>
+                      )}
+                      <h3 className="text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400">
+                        {currentMeaning?.definition || currentWord.vietnamese}
+                      </h3>
+                      {currentMeaning?.example && (
+                        <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-blue-100">
+                          <span className="font-bold">Example:</span>{' '}
+                          <span className="italic">"{currentMeaning.example}"</span>
+                        </p>
+                      )}
+                      {currentMeaning?.translation && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          {currentMeaning.translation}
+                        </p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+
+                {hasManyMeanings && (
+                  <div className="flex items-center justify-center gap-3 pt-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToMeaning(safeMeaningIndex - 1, -1);
+                      }}
+                      disabled={safeMeaningIndex === 0}
+                      aria-label="Nghĩa trước"
+                      className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4 stroke-[3]" />
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      {meanings.map((meaning, index) => (
+                        <button
+                          key={`${meaning.pos}-${index}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            goToMeaning(index, index > safeMeaningIndex ? 1 : -1);
+                          }}
+                          aria-label={`Nghĩa ${index + 1}`}
+                          className={`h-2 rounded-full transition-all ${
+                            index === safeMeaningIndex
+                              ? 'w-5 bg-emerald-500'
+                              : 'w-2 bg-slate-300 dark:bg-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToMeaning(safeMeaningIndex + 1, 1);
+                      }}
+                      disabled={safeMeaningIndex === meanings.length - 1}
+                      aria-label="Nghĩa tiếp theo"
+                      className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4 stroke-[3]" />
+                    </button>
+                  </div>
                 )}
+
                 {currentWord.mnemonic && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border-clay border-amber-300">
+                  <p className="text-xs text-center text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 mt-3 rounded-lg border-clay border-amber-300">
                     💡 Mẹo nhớ: {currentWord.mnemonic}
                   </p>
                 )}

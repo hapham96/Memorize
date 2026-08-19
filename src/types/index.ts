@@ -34,6 +34,22 @@ export interface Category {
   createdAt?: string;
 }
 
+/**
+ * One sense of a word: the backend keeps a `definitions[]` row per meaning, each
+ * with its own part of speech and examples. The flat `definition`/`example`
+ * fields on `Word` stay the primary sense so everything that reads them keeps
+ * working; cards that can show more read this list instead.
+ */
+export interface WordMeaning {
+  /** Part of speech in the app's short form (`n.`, `v.`); empty when unknown. */
+  pos: string;
+  definition: string;
+  /** English example sentence, `''` when the meaning has none. */
+  example: string;
+  /** Vietnamese translation of `example`, `''` when the meaning has none. */
+  translation: string;
+}
+
 export interface Word {
   id: string;
   word: string;
@@ -43,6 +59,8 @@ export interface Word {
   vietnamese: string;
   example: string;
   translation: string;
+  /** Every sense the word carries, primary first. Absent on older stored words. */
+  meanings?: WordMeaning[];
   level: LevelDifficulty;
   category: WordCategory;
   mnemonic?: string;

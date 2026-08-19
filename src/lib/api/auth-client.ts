@@ -1,6 +1,13 @@
-import { AuthResponse, AuthSession, JwtPayload, LoginRequest, RegisterRequest } from "@/types/auth";
+import {
+  AuthResponse,
+  AuthSession,
+  JwtPayload,
+  LoginRequest,
+  ProfileResponse,
+  RegisterRequest,
+} from "@/types/auth";
 import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/storage";
-import { postAsync } from "./client";
+import { getAsync, postAsync } from "./client";
 
 /** Backend rule from RegisterDto. */
 export const MIN_PASSWORD_LENGTH = 8;
@@ -35,22 +42,64 @@ function toAuthSession(accessToken: string, email: string): AuthSession {
     accessToken,
     userId: typeof claims?.sub === 'number' ? claims.sub : null,
     email,
+    name: null,
     expiresAt: claims?.exp ? claims.exp * 1000 : null,
   };
+}
+
+/** The account behind the bearer token — the only source of the user's name. */
+export async function getProfile(): Promise<ProfileResponse> {
+  return getAsync<ProfileResponse>('/users/profile', { auth: true });
+}
+
+/**
+ * Folds `GET /users/profile` into the stored session. The JWT carries only
+ * `sub`, so the name — and an authoritative email — can come from nowhere else.
+ *
+ * Failure is non-fatal: the token already authenticates every later call, so a
+ * missed profile only costs the display name, which falls back to the email
+ * local-part. The session must already be persisted before this runs, because
+ * the request reads its bearer token back out of storage.
+ */
+async function withProfile(session: AuthSession): Promise<AuthSession> {
+  try {
+    const profile = await getProfile();
+    const enriched: AuthSession = {
+      ...session,
+      userId: typeof profile.userId === 'number' ? profile.userId : session.userId,
+      email: profile.email?.trim() || session.email,
+      name: profile.name?.trim() || session.name,
+    };
+    saveAuthSession(enriched);
+    return enriched;
+  } catch (e) {
+    console.warn('Could not load the profile, keeping the token claims only:', e);
+    return session;
+  }
 }
 
 export async function register(payload: RegisterRequest): Promise<AuthSession> {
   const response = await postAsync<AuthResponse>('/auth/register', payload);
   const session = toAuthSession(response.accessToken, payload.email);
   saveAuthSession(session);
-  return session;
+  return withProfile(session);
 }
 
 export async function login(payload: LoginRequest): Promise<AuthSession> {
   const response = await postAsync<AuthResponse>('/auth/login', payload);
   const session = toAuthSession(response.accessToken, payload.email);
   saveAuthSession(session);
-  return session;
+  return withProfile(session);
+}
+
+/**
+ * Re-reads the profile for a session restored from storage, so a name changed
+ * elsewhere shows up on this device. Returns null when nobody is signed in.
+ */
+export async function refreshProfile(): Promise<AuthSession | null> {
+  const session = loadAuthSession();
+  if (!session) return null;
+  return withProfile(session);
 }
 
 export function logout(): void {
@@ -74,8 +123,13 @@ export function getCurrentUserId(): number | null {
   return loadAuthSession()?.userId ?? null;
 }
 
-/** Display name derived from the account email (the backend stores no name). */
+/**
+ * The account's name from `GET /users/profile`, falling back to the email
+ * local-part when the profile call has not answered (or failed).
+ */
 export function getDisplayName(session: AuthSession | null): string {
+  const name = session?.name?.trim();
+  if (name) return name;
   if (!session?.email) return 'User Name';
   return session.email.split('@')[0] || 'User Name';
 }

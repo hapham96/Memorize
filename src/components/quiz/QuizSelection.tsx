@@ -62,12 +62,12 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({ onSelectQuiz }) =>
     {
       id: 'listening' as QuizType,
       title: 'Listening Quiz',
-      badge: 'Coming Soon',
-      description: 'Listen to native audio pronunciations and pick the matching word.',
+      badge: 'Train your ears',
+      description: 'Listen to native audio pronunciations and type the matching word.',
       icon: Headphones,
-      color: 'bg-slate-400 border-slate-300',
-      badgeBg: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
-      active: false,
+      color: 'bg-cyan-500 border-cyan-300',
+      badgeBg: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300',
+      active: true,
     },
     {
       id: 'image' as QuizType,

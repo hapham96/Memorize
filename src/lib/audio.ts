@@ -2,10 +2,20 @@
  * Audio Utility for Text-to-Speech (TTS) & Web Audio Sound FX
  */
 
-// Text-to-Speech using Browser SpeechSynthesis
-export function speakWord(text: string, lang = 'en-US') {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return;
+// Whether the browser can synthesize speech at all. Listening exercises are
+// meaningless without it, so they check this before rendering.
+export function isSpeechSupported(): boolean {
+  return typeof window !== 'undefined' && 'speechSynthesis' in window;
+}
+
+/**
+ * Text-to-Speech using Browser SpeechSynthesis.
+ * Returns the utterance so callers can hook `onend` / `onerror` (used by the
+ * listening quiz to track playback state); returns null when unsupported.
+ */
+export function speakWord(text: string, lang = 'en-US', rate = 0.85): SpeechSynthesisUtterance | null {
+  if (!isSpeechSupported()) {
+    return null;
   }
 
   // Cancel any ongoing speech
@@ -13,7 +23,7 @@ export function speakWord(text: string, lang = 'en-US') {
 
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
-  utterance.rate = 0.85; // Slightly slower for crisp clear pronunciation
+  utterance.rate = rate; // Default is slightly slower for crisp clear pronunciation
   utterance.pitch = 1.0;
 
   // Try selecting an English voice if available
@@ -27,6 +37,7 @@ export function speakWord(text: string, lang = 'en-US') {
   }
 
   window.speechSynthesis.speak(utterance);
+  return utterance;
 }
 
 // Synthesized UI Sound FX using Web Audio API

@@ -9,9 +9,11 @@
  */
 export type BackendLeaderboardEntry = {
   userId: number;
-  /** Used to derive a name when `displayName` is missing (local-part only). */
+  /** What the endpoint actually sends — same field as `GET /users/profile`. */
+  name?: string | null;
+  /** Used to derive a name when neither name field is present (local-part only). */
   email?: string | null;
-  /** The backend stores no name today; sent only if that changes. */
+  /** Older/alternate spelling of `name`; kept so either shape renders. */
   displayName?: string | null;
   /** Distinct words the account has added/learned — what the ranking sorts on. */
   wordsLearned: number;

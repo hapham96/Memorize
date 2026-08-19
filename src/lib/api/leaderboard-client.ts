@@ -12,13 +12,14 @@ export const LEADERBOARD_LIMIT = 10;
 export const LEADERBOARD_PATH = "/users/leaderboard";
 
 /**
- * A name to print for a row. The backend stores no display name, so the email
- * local-part is the same fallback the profile screen uses; an id-only row still
- * gets something readable rather than a blank cell.
+ * A name to print for a row. `name` is what the endpoint sends; `displayName`
+ * covers the alternate spelling, then the email local-part is the same fallback
+ * the profile screen uses. An id-only row still gets something readable rather
+ * than a blank cell.
  */
 function resolveName(entry: BackendLeaderboardEntry): string {
-  const displayName = entry.displayName?.trim();
-  if (displayName) return displayName;
+  const name = entry.name?.trim() || entry.displayName?.trim();
+  if (name) return name;
 
   const local = entry.email?.split('@')[0]?.trim();
   if (local) return local;

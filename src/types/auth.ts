@@ -20,11 +20,20 @@ export type JwtPayload = {
   exp?: number;
 };
 
+/** GET /users/profile — the account behind the bearer token. */
+export type ProfileResponse = {
+  userId: number;
+  name: string;
+  email: string;
+};
+
 /** What we persist locally after a successful login/register. */
 export type AuthSession = {
   accessToken: string;
   userId: number | null;
   email: string;
+  /** From `GET /users/profile`; null until that call answers (or if it failed). */
+  name: string | null;
   /** Epoch ms from the JWT `exp` claim, or null when the token carries none. */
   expiresAt: number | null;
 };

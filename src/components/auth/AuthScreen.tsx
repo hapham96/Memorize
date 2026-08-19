@@ -9,8 +9,10 @@ import { AuthSession } from '@/types/auth';
 interface AuthScreenProps {
   /**
    * Only ever called with a real session — the app has no signed-out mode.
-   * `isNewAccount` is true only for `/auth/register`, which is what triggers the
-   * one-time CEFR level question.
+   * `displayName` is what the user typed at registration, empty on sign-in and
+   * whenever the field was left blank; the account's own name comes from the
+   * session instead. `isNewAccount` is true only for `/auth/register`, which is
+   * what triggers the one-time CEFR level question.
    */
   onLoginSuccess: (session: AuthSession, displayName: string, isNewAccount: boolean) => void;
   onBack: () => void;
@@ -29,7 +31,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const displayName = () => name.trim() || email.split('@')[0] || 'Bạn';
+  // Only what the user actually typed — the name field exists in register mode
+  // alone, and an empty string lets the caller fall back to `/users/profile`.
+  const typedName = () => (isRegister ? name.trim() : '');
 
   const switchMode = () => {
     setIsRegister((prev) => !prev);
@@ -52,7 +56,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     try {
       const credentials = { email: trimmedEmail, password };
       const session = isRegister ? await register(credentials) : await login(credentials);
-      onLoginSuccess(session, displayName(), isRegister);
+      onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
       if (err instanceof ApiError && err.isNetworkError) {
         // No offline bypass: every feature needs the account, so the only way

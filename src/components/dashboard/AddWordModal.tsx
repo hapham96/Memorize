@@ -24,6 +24,7 @@ import {
   SRSData,
   Word,
   WordCategory,
+  WordMeaning,
   LevelDifficulty,
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
@@ -721,6 +722,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       .map((ex) => ex.trim())
       .find((ex) => !isPlaceholderExample(ex, word));
 
+    // Every meaning the form holds, so the review card can page through them
+    // right away instead of waiting for the backend copy to come back.
+    const wordMeanings: WordMeaning[] = meanings
+      .filter((m) => m.definition.trim())
+      .map((m) => ({
+        pos: pos || "n.",
+        definition: m.definition.trim(),
+        example:
+          m.examples
+            .map((ex) => ex.trim())
+            .find((ex) => !isPlaceholderExample(ex, word)) || "",
+        translation: "",
+      }));
+
     const newWordItem: Word = {
       id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       word: word.trim().toLowerCase(),
@@ -729,6 +744,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       vietnamese: firstDefinition,
       example: firstExample || "",
       translation: `Ví dụ với ${word.trim()}.`,
+      meanings: wordMeanings,
       level,
       category,
       mnemonic: mnemonic.trim() || undefined,
