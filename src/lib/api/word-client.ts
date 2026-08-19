@@ -1,10 +1,12 @@
 import {
+  AddBulkWordsRequest,
   AddWordRequest,
   AddWordResponse,
   BackendDefinition,
   BackendDueReview,
   BackendUserWord,
   BackendWord,
+  BulkAddWordResponse,
   ReviewQuality,
   ReviewWordResponse,
 } from "@/types/word";
@@ -14,19 +16,36 @@ import { getCurrentUserId } from "./auth-client";
 import { FALLBACK_CATEGORY, pickLatestCategoryName } from "./category-client";
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
-  const response = await postAsync<AddWordResponse>("/words", word, { auth: true });
+  const response = await postAsync<AddWordResponse>("/words", word, {
+    auth: true,
+  });
+  invalidateDueReviews();
+  return response;
+}
+
+/**
+ * Bulk equivalent of `addWord` — one request for the whole Excel/CSV import.
+ * The response reports success or failure per headword (e.g. a duplicate key
+ * violation), so a partial import never blocks the words that did land.
+ */
+export async function addWordsBulk(
+  words: AddBulkWordsRequest,
+): Promise<BulkAddWordResponse> {
+  const response = await postAsync<BulkAddWordResponse>("/words/bulk", words, {
+    auth: true,
+  });
   invalidateDueReviews();
   return response;
 }
 
 export async function submitReview(
   userWordId: number | string,
-  quality: ReviewQuality
+  quality: ReviewQuality,
 ): Promise<ReviewWordResponse> {
   const response = await postAsync<ReviewWordResponse>(
     `/reviews/${userWordId}`,
     { quality },
-    { auth: true }
+    { auth: true },
   );
   invalidateDueReviews();
   return response;
@@ -68,7 +87,7 @@ export function invalidateDueReviews(): void {
  * answered out of the previous user's entry.
  */
 export async function getDueReviews(
-  options: { force?: boolean } = {}
+  options: { force?: boolean } = {},
 ): Promise<BackendDueReview[]> {
   const userId = getCurrentUserId();
   if (userId === null) return [];
@@ -77,15 +96,16 @@ export async function getDueReviews(
 
   if (!options.force) {
     const cached = dueCache.get(key);
-    if (cached && Date.now() - cached.fetchedAt < DUE_CACHE_TTL_MS) return cached.data;
+    if (cached && Date.now() - cached.fetchedAt < DUE_CACHE_TTL_MS)
+      return cached.data;
 
     const pending = dueInFlight.get(key);
     if (pending) return pending;
   }
 
   const request: Promise<BackendDueReview[]> = getAsync<BackendDueReview[]>(
-    '/reviews/due',
-    { auth: true }
+    "/reviews/due",
+    { auth: true },
   )
     .then((data) => {
       dueCache.set(key, { fetchedAt: Date.now(), data });
@@ -103,17 +123,17 @@ export async function getDueReviews(
 
 /** Long-form parts of speech the backend may hold, in the form the UI renders. */
 const POS_ABBREVIATIONS: Record<string, string> = {
-  noun: 'n.',
-  verb: 'v.',
-  adjective: 'adj.',
-  adverb: 'adv.',
-  pronoun: 'pron.',
-  preposition: 'prep.',
-  conjunction: 'conj.',
-  interjection: 'interj.',
+  noun: "n.",
+  verb: "v.",
+  adjective: "adj.",
+  adverb: "adv.",
+  pronoun: "pron.",
+  preposition: "prep.",
+  conjunction: "conj.",
+  interjection: "interj.",
 };
 
-const LEVELS: LevelDifficulty[] = ['A1', 'A2', 'B1', 'B2', 'C1'];
+const LEVELS: LevelDifficulty[] = ["A1", "A2", "B1", "B2", "C1"];
 
 function normalizePos(partOfSpeech?: string | null): string | undefined {
   const raw = partOfSpeech?.trim();
@@ -122,7 +142,9 @@ function normalizePos(partOfSpeech?: string | null): string | undefined {
 }
 
 /** The backend column is a free string; anything outside the app's ramp is dropped. */
-function normalizeLevel(cefrLevel?: string | null): LevelDifficulty | undefined {
+function normalizeLevel(
+  cefrLevel?: string | null,
+): LevelDifficulty | undefined {
   const raw = cefrLevel?.trim().toUpperCase() as LevelDifficulty | undefined;
   return raw && LEVELS.includes(raw) ? raw : undefined;
 }
@@ -139,7 +161,7 @@ const trimmed = (value?: string | null): string | undefined => {
  * instead of only showing the primary one.
  */
 function mapBackendDefinitionsToMeanings(
-  definitions: BackendDefinition[]
+  definitions: BackendDefinition[],
 ): WordMeaning[] {
   const meanings: WordMeaning[] = [];
   definitions.forEach((definition) => {
@@ -147,10 +169,12 @@ function mapBackendDefinitionsToMeanings(
     if (!text) return;
     const examples = definition.examples ?? [];
     meanings.push({
-      pos: normalizePos(definition.partOfSpeech) ?? '',
+      pos: normalizePos(definition.partOfSpeech) ?? "",
       definition: text,
-      example: trimmed(examples.find((e) => e.language !== 'vi')?.example) ?? '',
-      translation: trimmed(examples.find((e) => e.language === 'vi')?.example) ?? '',
+      example:
+        trimmed(examples.find((e) => e.language !== "vi")?.example) ?? "",
+      translation:
+        trimmed(examples.find((e) => e.language === "vi")?.example) ?? "",
     });
   });
   return meanings;
@@ -168,16 +192,21 @@ function mapBackendDefinitionsToMeanings(
  */
 export function mapBackendWordToWord(
   backendWord: BackendWord,
-  fallback?: Partial<Word>
+  fallback?: Partial<Word>,
 ): Word {
   const headword = backendWord.headword;
   const definitions = backendWord.definitions ?? [];
-  const primary = definitions.find((d) => trimmed(d.definition)) ?? definitions[0];
+  const primary =
+    definitions.find((d) => trimmed(d.definition)) ?? definitions[0];
   const examples = (primary?.examples ?? []).concat(
-    definitions.filter((d) => d !== primary).flatMap((d) => d.examples ?? [])
+    definitions.filter((d) => d !== primary).flatMap((d) => d.examples ?? []),
   );
-  const english = examples.find((e) => e.language !== 'vi' && trimmed(e.example));
-  const vietnameseExample = examples.find((e) => e.language === 'vi' && trimmed(e.example));
+  const english = examples.find(
+    (e) => e.language !== "vi" && trimmed(e.example),
+  );
+  const vietnameseExample = examples.find(
+    (e) => e.language === "vi" && trimmed(e.example),
+  );
   const meaning = trimmed(primary?.definition);
   // A backend word with no embedded definitions says nothing about the senses,
   // so the local copy's list is kept rather than collapsed to one.
@@ -186,17 +215,20 @@ export function mapBackendWordToWord(
   return {
     id: String(backendWord.id),
     word: headword,
-    ipa: trimmed(backendWord.ipaPronunciation) ?? fallback?.ipa ?? `/${headword}/`,
-    pos: normalizePos(primary?.partOfSpeech) ?? fallback?.pos ?? 'n.',
+    ipa:
+      trimmed(backendWord.ipaPronunciation) ?? fallback?.ipa ?? `/${headword}/`,
+    pos: normalizePos(primary?.partOfSpeech) ?? fallback?.pos ?? "n.",
     definition: meaning ?? fallback?.definition,
     // `vietnamese` is the meaning shown on the back of the card; the app writes
     // what the user typed into the backend's `definition`, so it round-trips.
-    vietnamese: meaning ?? fallback?.vietnamese ?? '',
-    example: trimmed(english?.example) ?? fallback?.example ?? '',
+    vietnamese: meaning ?? fallback?.vietnamese ?? "",
+    example: trimmed(english?.example) ?? fallback?.example ?? "",
     translation:
-      trimmed(vietnameseExample?.example) ?? fallback?.translation ?? `Ví dụ với ${headword}.`,
+      trimmed(vietnameseExample?.example) ??
+      fallback?.translation ??
+      `Ví dụ với ${headword}.`,
     meanings: meanings.length > 0 ? meanings : fallback?.meanings,
-    level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? 'B1',
+    level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? "B1",
     category:
       pickLatestCategoryName(backendWord.categories) ??
       fallback?.category ??
@@ -207,7 +239,7 @@ export function mapBackendWordToWord(
 
 export function mapAddWordResponseToWord(
   response: AddWordResponse,
-  fallback?: Partial<Word>
+  fallback?: Partial<Word>,
 ): Word {
   return mapBackendWordToWord(response.word, fallback);
 }
@@ -222,7 +254,7 @@ export function mapAddWordResponseToSRS(response: AddWordResponse): SRSData {
     repetitions: userWord.repetitions,
     lastReviewed: null,
     nextReviewDate: userWord.dueAt,
-    state: (userWord.status as SRSState) || 'new',
+    state: (userWord.status as SRSState) || "new",
   };
 }
 
@@ -235,7 +267,7 @@ export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
     repetitions: response.repetitions,
     lastReviewed: new Date().toISOString(),
     nextReviewDate: response.dueAt,
-    state: (response.status as SRSState) || 'learning',
+    state: (response.status as SRSState) || "learning",
   };
 }
 
@@ -243,7 +275,10 @@ export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
  * Words added locally hold an optimistic `custom_…` id until the backend
  * answers with a numeric one, so a lookup by backend id compares as strings.
  */
-export function findWordById(wordId: string | number, allWords: Word[]): Word | undefined {
+export function findWordById(
+  wordId: string | number,
+  allWords: Word[],
+): Word | undefined {
   const targetId = String(wordId);
   return allWords.find((w) => String(w.id) === targetId);
 }
@@ -255,11 +290,11 @@ export function createPlaceholderWord(wordId: string | number): Word {
     id: targetId,
     word: `Word #${targetId}`,
     ipa: `/#${targetId}/`,
-    pos: 'n.',
+    pos: "n.",
     vietnamese: `Từ vựng #${targetId}`,
     example: `Example sentence for word #${targetId}.`,
     translation: `Ví dụ minh họa cho từ #${targetId}.`,
-    level: 'B1',
+    level: "B1",
     category: FALLBACK_CATEGORY,
   };
 }
@@ -271,7 +306,10 @@ export function createPlaceholderWord(wordId: string | number): Word {
  * added it — without it the only thing left to show is a `Word #9` placeholder.
  * A local copy still fills in what the backend has no column for.
  */
-export function resolveWordForUserWord(userWord: BackendDueReview, allWords: Word[]): Word {
+export function resolveWordForUserWord(
+  userWord: BackendDueReview,
+  allWords: Word[],
+): Word {
   const local = findWordById(userWord.wordId, allWords);
   if (userWord.word) return mapBackendWordToWord(userWord.word, local);
   return local ?? createPlaceholderWord(userWord.wordId);
@@ -286,8 +324,6 @@ export function mapBackendUserWordToSRS(userWord: BackendUserWord): SRSData {
     repetitions: userWord.repetitions,
     lastReviewed: null,
     nextReviewDate: userWord.dueAt,
-    state: (userWord.status as SRSState) || 'new',
+    state: (userWord.status as SRSState) || "new",
   };
 }
-
-

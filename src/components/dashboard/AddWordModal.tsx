@@ -31,8 +31,10 @@ import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
 import {
   addWord,
+  addWordsBulk,
   mapAddWordResponseToWord,
   mapAddWordResponseToSRS,
+  mapBackendWordToWord,
 } from "@/lib/api/word-client";
 import { FALLBACK_CATEGORY, categoryNames } from "@/lib/api/category-client";
 import {
@@ -42,7 +44,7 @@ import {
   DictionaryEntry,
 } from "@/lib/api/dictionary-client";
 import { getCurrentUserId } from "@/lib/api/auth-client";
-import { AddWordRequest } from "@/types/word";
+import { AddBulkWordsRequest, AddWordRequest, BulkAddWordResult } from "@/types/word";
 import { ModalPortal } from "@/components/layout/ModalPortal";
 
 interface AddWordModalProps {
@@ -362,10 +364,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [parsedRows, setParsedRows] = useState<ParsedWordRow[]>([]);
   const [showGuide, setShowGuide] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  // Failures reported by `/words/bulk` (e.g. duplicate headwords) — shown after
+  // submit so the user knows which rows did not sync, even though the rest did.
+  const [bulkFailures, setBulkFailures] = useState<
+    { headword: string; error: string }[]
+  >([]);
 
   const resetExcelState = () => {
     setExcelFile(null);
     setParsedRows([]);
+    setBulkFailures([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -954,10 +963,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
   };
 
-  const handleBulkSubmit = () => {
+  const handleBulkSubmit = async () => {
     const validRows = parsedRows.filter((r) => r.isValid);
     if (validRows.length === 0) return;
 
+    setIsBulkSubmitting(true);
+    setBulkFailures([]);
+
+    // Optimistic local entries first, same as the single-word form — the
+    // library updates immediately and a sync (or a failure) is reconciled
+    // once `/words/bulk` answers.
     const newWordsList: Word[] = validRows.map((r, index) => ({
       id: `custom_import_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 5)}`,
       word: r.word,
@@ -979,7 +994,74 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
 
     soundFX.playCorrect();
-    handleModalClose();
+
+    const userId = getCurrentUserId();
+    if (userId === null) {
+      // No signed-in account id — stays local-only, same as a signed-out
+      // single-word add.
+      setIsBulkSubmitting(false);
+      handleModalClose();
+      return;
+    }
+
+    const requests: AddBulkWordsRequest = {
+      words: validRows.map((r, index) => ({
+        userId,
+        headword: newWordsList[index].word,
+        ipaPronunciation: newWordsList[index].ipa,
+        definitions: [
+          {
+            // Mirrors the single-word form: the Vietnamese meaning is what gets
+            // written to the backend's `definition` column so it round-trips.
+            definition: r.vietnamese,
+            partOfSpeech: r.pos,
+            examples: [
+              ...(r.example.trim()
+                ? [{ example: r.example.trim(), language: "en" as const }]
+                : []),
+              ...(r.translation.trim()
+                ? [{ example: r.translation.trim(), language: "vi" as const }]
+                : []),
+            ],
+          },
+        ],
+      }))
+    };
+
+    try {
+      const results = await addWordsBulk(requests);
+      const failures: { headword: string; error: string }[] = [];
+
+      results.forEach((result: BulkAddWordResult, index) => {
+        const localWord = newWordsList[index];
+        if (!localWord) return;
+
+        if (result.success) {
+          onWordSynced?.(
+            localWord.id,
+            mapBackendWordToWord(result.word, localWord),
+            mapAddWordResponseToSRS({ word: result.word, userWord: result.userWord }),
+          );
+        } else {
+          failures.push({ headword: result.headword, error: result.error });
+        }
+      });
+
+      setBulkFailures(failures);
+      // Nothing to review — close like a normal successful import. When some
+      // rows failed (e.g. duplicates), keep the modal open so the user can
+      // see which ones before dismissing.
+      if (failures.length === 0) {
+        handleModalClose();
+      }
+    } catch (err) {
+      console.error("API addWordsBulk error:", err);
+      // The optimistic local entries already stand — same degrade-to-local
+      // behavior as a failed single-word add.
+      handleModalClose();
+    } finally {
+      setIsBulkSubmitting(false);
+    }
   };
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
@@ -1747,6 +1829,22 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 </div>
               )}
 
+              {bulkFailures.length > 0 && (
+                <div className="rounded-2xl border-clay border-red-300 dark:border-red-800 bg-red-50/60 dark:bg-red-950/20 p-3 space-y-1.5">
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-red-700 dark:text-red-300">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    {bulkFailures.length} từ không đồng bộ được lên server (vẫn được lưu tạm trên máy):
+                  </p>
+                  <ul className="text-[11px] text-red-600 dark:text-red-400 space-y-0.5 max-h-24 overflow-y-auto">
+                    {bulkFailures.map((f, i) => (
+                      <li key={i}>
+                        <span className="font-semibold">{f.headword}</span>: {f.error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="pt-2 flex gap-3">
                 <button
@@ -1754,20 +1852,26 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   onClick={handleModalClose}
                   className="flex-1 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                 >
-                  Hủy
+                  {bulkFailures.length > 0 ? "Đóng" : "Hủy"}
                 </button>
                 <button
                   type="button"
-                  disabled={validCount === 0}
+                  disabled={validCount === 0 || isBulkSubmitting}
                   onClick={handleBulkSubmit}
                   className={`flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-clay transition-all flex items-center justify-center gap-1.5 ${
-                    validCount > 0
+                    validCount > 0 && !isBulkSubmitting
                       ? "bg-emerald-600 hover:bg-emerald-700 active:scale-98 cursor-pointer"
                       : "bg-slate-300 dark:bg-slate-700 opacity-60 cursor-not-allowed"
                   }`}
                 >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>Import {validCount} từ hợp lệ</span>
+                  {isBulkSubmitting ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UploadCloud className="w-4 h-4" />
+                  )}
+                  <span>
+                    {isBulkSubmitting ? "Đang import..." : `Import ${validCount} từ hợp lệ`}
+                  </span>
                 </button>
               </div>
             </div>

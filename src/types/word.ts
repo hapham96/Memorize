@@ -5,13 +5,17 @@ export type AddWordRequest = {
   definitions: DefinitionRequest[];
 };
 
+export type AddBulkWordsRequest = {
+  words: AddWordRequest[];
+};
+
 export type DefinitionRequest = {
   definition: string;
   partOfSpeech: string;
   examples: ExamplesRequest[];
 };
 
-export type ExampleLanguage = 'en' | 'vi';
+export type ExampleLanguage = "en" | "vi";
 
 export type ExamplesRequest = {
   example: string;
@@ -80,6 +84,17 @@ export type AddWordResponse = {
   userWord: BackendUserWord;
 };
 
+export type BulkAddWordResult =
+  | {
+      headword: string;
+      success: true;
+      word: BackendWord;
+      userWord: BackendUserWord;
+    }
+  | { headword: string; success: false; error: string };
+
+export type BulkAddWordResponse = BulkAddWordResult[];
+
 export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type ReviewWordRequest = {
@@ -87,5 +102,3 @@ export type ReviewWordRequest = {
 };
 
 export type ReviewWordResponse = BackendUserWord;
-
-
