@@ -42,6 +42,11 @@ import {
   resolveWordForUserWord,
 } from '@/lib/api/word-client';
 import { syncCategories } from '@/lib/api/category-client';
+import {
+  fetchSettings,
+  mapSettingsToRequest,
+  updateSettings,
+} from '@/lib/api/settings-client';
 import { ApiError } from '@/lib/api/client';
 import { getCurrentSession, getDisplayName, logout } from '@/lib/api/auth-client';
 import { AuthSession } from '@/types/auth';
@@ -121,6 +126,64 @@ export default function Home() {
   };
 
   /**
+   * The side effects a settings value implies, applied outside React: the dark
+   * class lives on `<html>` and the sound engine is a module singleton, so both
+   * have to be pushed whenever settings arrive — from storage, from the backend
+   * or from the user.
+   */
+  const applySettingsEffects = (active: AppSettings) => {
+    if (active.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    soundFX.setEnabled(active.soundEnabled);
+  };
+
+  /**
+   * Adopts the account's preferences from `GET /settings`, so a device that has
+   * never seen this account inherits them instead of showing the defaults.
+   *
+   * `local` is what storage just answered; the backend wins on every field it
+   * actually sends and the local value stands for the rest. Failure is silent —
+   * settings are readable locally, so there is nothing to block the session for.
+   */
+  const hydrateSettingsFromApi = async (local: AppSettings) => {
+    try {
+      const remote = await fetchSettings();
+      if (Object.keys(remote).length === 0) return;
+
+      const merged = { ...local, ...remote };
+      setSettings(merged);
+      saveSettings(merged);
+      applySettingsEffects(merged);
+    } catch (err) {
+      console.warn('Could not load settings from API, using local copy:', err);
+    }
+  };
+
+  /**
+   * Mirrors a settings change to `PATCH /settings`, which takes the settings
+   * whole — so this sends every field, not just the one that changed.
+   *
+   * Deliberately not awaited by its callers: the local write has already happened
+   * and the UI already shows the new value, so a failed sync must not undo the
+   * user's choice.
+   */
+  const pushSettingsToApi = async (merged: AppSettings) => {
+    // No token, no account to write against — the signed-out screens also load
+    // settings, and those changes are local-only until someone signs in.
+    if (!getCurrentSession()) return;
+
+    try {
+      await updateSettings(mapSettingsToRequest(merged));
+    } catch (err) {
+      console.warn('Could not save settings to API, keeping the local copy:', err);
+    }
+  };
+
+  /**
    * Loads the state belonging to `activeSession`. Storage is scoped by user id
    * first, so one account never reads another's progress, and identity fields
    * always come from the API session rather than whatever was stored earlier.
@@ -143,13 +206,7 @@ export default function Home() {
     invalidateDueReviews();
 
     const loadedSettings = loadSettings();
-
-    if (loadedSettings.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    soundFX.setEnabled(loadedSettings.soundEnabled);
+    applySettingsEffects(loadedSettings);
     setSettings(loadedSettings);
 
     if (!activeSession) {
@@ -164,6 +221,7 @@ export default function Home() {
     // the pickers must never wait on the network.
     setCategories(loadCategories());
     void hydrateCategories(isFreshLogin);
+    void hydrateSettingsFromApi(loadedSettings);
 
     const loadedSRS = loadSRSData();
     const loadedWords = loadAllWords();
@@ -524,18 +582,18 @@ export default function Home() {
     userId: session?.userId ?? null,
   });
 
+  /**
+   * The single entry point for every settings change — the settings modal and
+   * the CEFR question both come through here, so each one is stored locally and
+   * mirrored to `PATCH /settings` without the callers having to know about it.
+   */
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
     saveSettings(updated);
+    applySettingsEffects(updated);
 
-    if (updated.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-
-    soundFX.setEnabled(updated.soundEnabled);
+    void pushSettingsToApi(updated);
   };
 
   const handleResetProgress = () => {
@@ -724,6 +782,8 @@ export default function Home() {
         <LevelSelectModal
           initialLevel={settings.cefrLevel}
           onConfirm={(level) => {
+            // Stores the band and sends it straight on as `certLevel` via
+            // `PATCH /settings`, so the answer survives this device.
             handleUpdateSettings({ cefrLevel: level });
             setIsLevelPickerOpen(false);
           }}

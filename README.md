@@ -15,7 +15,7 @@
 - ➕ **Custom Vocabulary**: Easily add and study your own custom word lists.
 - 🎮 **Gamification & Progress Tracking**:
   - Experience Points (XP), Levels, and Daily Streaks.
-  - Daily Goals & Achievement unlocking system.
+  - Daily Goals tracking.
 - 📊 **Detailed Analytics**: Comprehensive view of quiz history, accuracy rates, and learning statistics.
 - 🌙 **Modern UI & Dark Mode**: Mobile-first responsive UI with smooth Framer Motion animations, Dark/Light theme switching, and sound effects.
 
@@ -80,7 +80,7 @@ Memorize/
 │   │   ├── quiz/           # Quiz screens (Flashcard, Multiple Choice, etc.)
 │   │   ├── review/         # SRS Review Dashboard
 │   │   └── stats/          # Statistics & Progress dashboards
-│   ├── data/               # Default Datasets (Vocabulary, Achievements)
+│   ├── data/               # Local fallback datasets (related words, definitions)
 │   ├── lib/                # Utilities (SRS, Audio FX, LocalStorage persistence)
 │   └── types/              # TypeScript Type Definitions
 ├── public/                 # Static Assets (Images, Audio)

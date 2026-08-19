@@ -94,6 +94,14 @@ export async function postAsync<T>(
   return requestAsync<T>(path, "POST", body, options);
 }
 
+export async function patchAsync<T>(
+  path: string,
+  body: any,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  return requestAsync<T>(path, "PATCH", body, options);
+}
+
 export async function getAsync<T>(
   path: string,
   options: ApiFetchOptions = {},

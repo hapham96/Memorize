@@ -164,7 +164,7 @@ export function mapBackendWordToWord(
     // `vietnamese` is the meaning shown on the back of the card; the app writes
     // what the user typed into the backend's `definition`, so it round-trips.
     vietnamese: meaning ?? fallback?.vietnamese ?? '',
-    example: trimmed(english?.example) ?? fallback?.example ?? `Example with ${headword}.`,
+    example: trimmed(english?.example) ?? fallback?.example ?? '',
     translation:
       trimmed(vietnameseExample?.example) ?? fallback?.translation ?? `Ví dụ với ${headword}.`,
     level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? 'B1',

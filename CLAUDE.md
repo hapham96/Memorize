@@ -95,6 +95,7 @@ It also handles bulk Excel/CSV import and template export via `xlsx`.
 ## Conventions
 
 - **UI copy is Vietnamese**; vocabulary data is English with Vietnamese `vietnamese`/`translation` fields. Match the surrounding language when adding strings.
+- **Code comments are English** — JSDoc, inline `//`, and JSX `{/* */}` alike. This is independent of the Vietnamese UI copy above.
 - **Dark mode** is Tailwind `darkMode: 'class'`, toggled by directly adding/removing `dark` on `document.documentElement` in `page.tsx` (`handleUpdateSettings` and the mount effect). There is no theme provider. The `'system'` theme option exists in `AppSettings` but is treated as light.
 - **Styling** is a **Claymorphism** theme defined entirely in [tailwind.config.ts](tailwind.config.ts) + [src/app/globals.css](src/app/globals.css). Read the header comment in the config before touching colors.
   - The stock `slate` (neutral) and `blue` (primary) ramps are **re-tinted**, not replaced — `slate` is a lavender-warm neutral, `blue` is indigo (`#4F46E5` at 600). Components keep using `slate-*`/`blue-*`; the theme changes from one place. `clay-*` holds the pastel accents.

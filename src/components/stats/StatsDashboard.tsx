@@ -106,48 +106,6 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress }) => {
         </div>
       </div>
 
-      {/* Heatmap Activity Grid */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-emerald-500" />
-            <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-              Activity Heatmap
-            </h4>
-          </div>
-          <span className="text-[11px] text-slate-400 font-medium">Last 28 Days</span>
-        </div>
-
-        {/* 7x4 Grid */}
-        <div className="grid grid-cols-7 gap-2 my-3">
-          {activity.map((item) => {
-            const date = new Date(item.date);
-            return (
-              <div
-                key={item.date}
-                className={`h-8 rounded-lg ${getHeatmapColor(
-                  intensityOf(item.count)
-                )} transition-all hover:scale-110 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-200 opacity-90 ${
-                  item.isToday ? 'ring-2 ring-blue-500' : ''
-                }`}
-                title={`${date.toLocaleDateString()}: ${item.count} words reviewed`}
-              >
-                {date.getDate()}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-400 mt-2">
-          <span>Less</span>
-          <div className="w-2.5 h-2.5 rounded bg-slate-200 dark:bg-slate-800" />
-          <div className="w-2.5 h-2.5 rounded bg-emerald-200 dark:bg-emerald-950" />
-          <div className="w-2.5 h-2.5 rounded bg-emerald-400 dark:bg-emerald-700" />
-          <div className="w-2.5 h-2.5 rounded bg-emerald-600 dark:bg-emerald-400" />
-          <span>More</span>
-        </div>
-      </div>
-
       {/* Ranking — top learners across all accounts */}
       <LeaderboardCard currentUserId={progress.userId} currentUserName={progress.name} />
     </div>

@@ -235,7 +235,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               </div>
 
               <div className="text-center text-xs text-slate-400 font-medium">
-                💡 Hãy nhẩm nghĩa Tiếng Việt trước khi xem đáp án
+                💡 Hãy nhẩm nghĩa trước khi xem đáp án
               </div>
             </div>
 
@@ -264,23 +264,15 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                   {currentWord.vietnamese}
                 </h3>
                 {currentWord.definition && (
-                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-clay border-blue-300">
-                    📖 <span className="font-bold">Definition:</span> <span className="italic">{currentWord.definition}</span>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-blue-100">
+                     <span className="font-bold">Example:</span> <span className="italic">"{currentWord.example}"</span>
                   </p>
                 )}
-                <p className="text-xs md:text-sm italic text-slate-600 dark:text-slate-300">
-                  "{currentWord.example}"
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">👉 {currentWord.translation}</p>
                 {currentWord.mnemonic && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border-clay border-amber-300">
                     💡 Mẹo nhớ: {currentWord.mnemonic}
                   </p>
                 )}
-              </div>
-
-              <div className="text-center text-xs text-slate-400 font-medium">
-                Đánh giá mức độ nhớ để lên lịch ôn tiếp theo
               </div>
             </div>
           </div>
@@ -305,7 +297,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           /* BACK SIDE: SM-2 6 Ratings (0: Blackout, 1: Remembered, 2: Familiar, 3: Hard, 4: Hesitation, 5: Perfect) */
           <div className="space-y-2 pt-2">
             <div className="text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-              Đánh giá khả năng ghi nhớ (Thang 0 - 5)
+              Đánh giá khả năng ghi nhớ để lên lịch ôn tiếp theo (Thang 0 - 5)
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
               <button
