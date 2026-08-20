@@ -39,6 +39,29 @@ export async function fetchWordDictionary(word: string): Promise<DictionaryEntry
   });
 }
 
+/** Body of `POST /words/generate`. `cefrLevel` only steers the wording — it is optional. */
+export interface GenerateWordRequest {
+  headword: string;
+  cefrLevel?: string;
+}
+
+/**
+ * AI-written dictionary entry, for a headword `/words/dictionary/:word` does not know.
+ * Answers the same shape as the dictionary lookup, so the same mappers read it.
+ */
+export async function generateWordEntry(
+  payload: GenerateWordRequest,
+): Promise<DictionaryEntry[]> {
+  const data = await postAsync<DictionaryEntry[] | DictionaryEntry | null>(
+    '/words/generate',
+    payload,
+    { auth: true },
+  );
+  if (Array.isArray(data)) return data;
+  // A single entry instead of a one-item array is the same answer — normalize it.
+  return data ? [data] : [];
+}
+
 /** Body of `POST /words/example`. `partOfSpeech` is the full form (`adjective`), not `adj.`. */
 export interface GenerateExampleRequest {
   word: string;

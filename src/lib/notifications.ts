@@ -1,4 +1,4 @@
-import { SRSData, Word } from '@/types';
+import { SRSData, UserWordListItem, Word } from '@/types';
 
 /**
  * Review reminders driven by the SRS due time (`dueAt` on the backend,
@@ -40,7 +40,12 @@ export interface ReminderSettings {
 
 export interface DueReminderItem {
   word: Word;
-  srs: SRSData;
+  /**
+   * The due moment this reminder is about, ISO. Comes from `dueAt` on a backend
+   * row and from `nextReviewDate` on a local SRS entry — the only two things a
+   * reminder needs, which is why the whole `SRSData` is not carried here.
+   */
+  dueAt: string;
   /** Identity of one scheduled due moment — changes when the word is rescheduled. */
   key: string;
 }
@@ -97,8 +102,8 @@ function isTracked(srs: SRSData): boolean {
   return srs.lastReviewed !== null || srs.userWordId !== undefined;
 }
 
-export function reminderKey(srs: SRSData): string {
-  return `${srs.wordId}@${srs.nextReviewDate}`;
+export function reminderKey(wordId: string, dueAt: string): string {
+  return `${wordId}@${dueAt}`;
 }
 
 /**
@@ -135,7 +140,51 @@ export function collectDueWords(
     const word = resolveWord(wordId);
     if (!word) return;
 
-    items.push({ word, srs, key: reminderKey(srs) });
+    items.push({ word, dueAt: srs.nextReviewDate, key: reminderKey(wordId, srs.nextReviewDate) });
+  });
+
+  return {
+    items,
+    nextDueAt: Number.isFinite(nextDueMs) ? new Date(nextDueMs) : null,
+  };
+}
+
+/**
+ * The same split, over the account's cached word library.
+ *
+ * This is the primary source: the library covers every word on the account and
+ * carries the backend's own `dueAt`, so reminders no longer depend on polling
+ * `/reviews/due`. A row with no `dueAt` has no schedule to remind about, and an
+ * unparsable one is skipped rather than treated as due forever.
+ *
+ * `resolveWord` gets the whole row so the caller can apply its focus filter, and
+ * returns null for rows it wants excluded.
+ */
+export function collectDueFromLibrary(
+  libraryItems: UserWordListItem[],
+  resolveWord: (item: UserWordListItem) => Word | null,
+  now: Date = new Date()
+): DueSnapshot {
+  const items: DueReminderItem[] = [];
+  let nextDueMs = Infinity;
+  const nowMs = now.getTime();
+
+  libraryItems.forEach((libraryItem) => {
+    const dueAt = libraryItem.dueAt;
+    if (!dueAt) return;
+
+    const dueMs = new Date(dueAt).getTime();
+    if (Number.isNaN(dueMs)) return;
+
+    if (dueMs > nowMs) {
+      if (dueMs < nextDueMs) nextDueMs = dueMs;
+      return;
+    }
+
+    const word = resolveWord(libraryItem);
+    if (!word) return;
+
+    items.push({ word, dueAt, key: reminderKey(word.id, dueAt) });
   });
 
   return {

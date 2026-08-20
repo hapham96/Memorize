@@ -48,6 +48,12 @@ export interface WordMeaning {
   example: string;
   /** Vietnamese translation of `example`, `''` when the meaning has none. */
   translation: string;
+  /**
+   * Every English example the sense carries, `example` first. A card shows only
+   * the primary one; the word detail view lists them. Absent on stored words
+   * saved before it existed and on locally rebuilt senses.
+   */
+  examples?: string[];
 }
 
 export interface Word {
@@ -61,12 +67,35 @@ export interface Word {
   translation: string;
   /** Every sense the word carries, primary first. Absent on older stored words. */
   meanings?: WordMeaning[];
+  /**
+   * Recorded pronunciation from the backend, preferred over speech synthesis
+   * when present. Absent on locally added words until `/words` answers.
+   */
+  audioUrl?: string;
   level: LevelDifficulty;
   category: WordCategory;
   mnemonic?: string;
 }
 
 export type SRSState = 'new' | 'learning' | 'review' | 'mastered';
+
+/**
+ * One row of the account's word library, as `GET /words` reports it: the word
+ * plus whatever progress the row carried. Lives here rather than beside the
+ * client because the cache in `storage.ts` stores these verbatim, and
+ * `storage.ts` cannot import from the API layer without a cycle.
+ */
+export interface UserWordListItem {
+  word: Word;
+  /** When the account added it, from the row's `createdAt`. */
+  addedAt?: string;
+  /** SRS status, only when the row reported the account's progress. */
+  state?: SRSState;
+  /** When the word is next due, when the row reported it. */
+  dueAt?: string;
+  /** Whether the account starred it, when the row reported it. */
+  isFavorite?: boolean;
+}
 
 export interface SRSData {
   userWordId?: number | string;

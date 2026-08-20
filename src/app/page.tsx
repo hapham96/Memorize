@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MobileContainer } from '@/components/layout/MobileContainer';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -19,6 +19,7 @@ import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
 import { ProfileScreen } from '@/components/profile/ProfileScreen';
 import { SettingsModal } from '@/components/profile/SettingsModal';
+import { EditProfileModal } from '@/components/profile/EditProfileModal';
 import { DueReminderToast } from '@/components/layout/DueReminderToast';
 
 import { AddWordModal } from '@/components/dashboard/AddWordModal';
@@ -33,6 +34,7 @@ import {
   Word,
 } from '@/types';
 import { ReviewQuality } from '@/types/word';
+import { StatsSummary } from '@/types/stats';
 import {
   AutoGradedExercise,
   isFlashcardExercise,
@@ -45,10 +47,8 @@ import { calculateNextSRS } from '@/lib/srs';
 import {
   submitReview,
   mapReviewResponseToSRS,
-  getDueReviews,
+  getUserWordLibrary,
   invalidateDueReviews,
-  mapBackendUserWordToSRS,
-  resolveWordForUserWord,
 } from '@/lib/api/word-client';
 import {
   getDueExercises,
@@ -58,6 +58,7 @@ import {
   QUIZ_TYPE_TO_EXERCISE_TYPE,
 } from '@/lib/api/exercise-client';
 import { syncCategories } from '@/lib/api/category-client';
+import { fetchStatsSummary } from '@/lib/api/stats-client';
 import {
   fetchSettings,
   mapSettingsToRequest,
@@ -116,6 +117,7 @@ export default function Home() {
   const [quizStartError, setQuizStartError] = useState<string | null>(null);
   const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAddWordOpen, setIsAddWordOpen] = useState(false);
   /**
    * The one-time CEFR question. Opened by a successful registration only — a
@@ -131,6 +133,11 @@ export default function Home() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  /**
+   * `GET /stats/summary` for the signed-in account, or null until it answers —
+   * the home screen falls back to its locally derived counters while it is null.
+   */
+  const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
 
   /**
    * Refreshes the cached `/categories` list. Only sign-in passes `force` — the
@@ -207,6 +214,25 @@ export default function Home() {
   };
 
   /**
+   * Re-asks `GET /stats/summary` for the home screen's counters. The account is
+   * the whole request — it comes from the bearer token — so there is nothing to
+   * ask without a session.
+   *
+   * Failure is silent and leaves the last good summary (or null) in place: these
+   * numbers all have a local equivalent, so a missing answer degrades to the
+   * device's own view instead of blanking the screen.
+   */
+  const refreshStats = useCallback(async () => {
+    if (!getCurrentSession()) return;
+
+    try {
+      setStatsSummary(await fetchStatsSummary());
+    } catch (err) {
+      console.warn('Could not load stats summary from API:', err);
+    }
+  }, []);
+
+  /**
    * Loads the state belonging to `activeSession`. Storage is scoped by user id
    * first, so one account never reads another's progress, and identity fields
    * always come from the API session rather than whatever was stored earlier.
@@ -224,9 +250,10 @@ export default function Home() {
   ) => {
     setStorageScope(activeSession?.userId ?? null);
     setSession(activeSession);
-    // Sign-in and sign-out both land here; the previous account's due list must
-    // not answer for the new one.
+    // Sign-in and sign-out both land here; the previous account's due list and
+    // summary must not answer for the new one.
     invalidateDueReviews();
+    setStatsSummary(null);
 
     const loadedSettings = loadSettings();
     applySettingsEffects(loadedSettings);
@@ -271,6 +298,7 @@ export default function Home() {
     setAllWords(loadedWords);
 
     hydrateFromApi(loadedWords);
+    void refreshStats();
   };
 
   /**
@@ -316,19 +344,26 @@ export default function Home() {
 
   /**
    * Pulls the account's real word state from the backend and folds it into the
-   * local SRS map. Failure is non-fatal — local data stays authoritative.
+   * local library and SRS map. Failure is non-fatal — local data stays
+   * authoritative.
+   *
+   * Reads the word library (`GET /words`, served from its localStorage cache),
+   * not `/reviews/due`: the library covers the account's *whole* vocabulary
+   * rather than only what happens to be due, and it costs no request when the
+   * cache is warm. The one thing it lacks is `userWordId`, which only the review
+   * tab needs.
    */
   const hydrateFromApi = async (words: Word[]) => {
     try {
-      const userWords = await getDueReviews();
-      if (!Array.isArray(userWords) || userWords.length === 0) return;
+      const { items } = await getUserWordLibrary({ fallbacks: words });
+      if (items.length === 0) return;
 
-      // A due row now carries the word itself, so one added on another device
+      // A library row carries the word itself, so one added on another device
       // can join this device's library instead of showing as a placeholder.
       const knownIds = new Set(words.map((w) => String(w.id)));
-      const adopted = userWords
-        .filter((userWord) => userWord.word && !knownIds.has(String(userWord.wordId)))
-        .map((userWord) => resolveWordForUserWord(userWord, words));
+      const adopted = items
+        .filter((item) => !knownIds.has(String(item.word.id)))
+        .map((item) => item.word);
 
       if (adopted.length > 0) {
         setAllWords((prev) => {
@@ -344,17 +379,30 @@ export default function Home() {
 
       setSrsMap((prev) => {
         const merged = { ...prev };
-        userWords.forEach((userWord) => {
-          const word = resolveWordForUserWord(userWord, words);
-          merged[word.id] = mapBackendUserWordToSRS(userWord);
+        items.forEach((item) => {
+          const wordId = String(item.word.id);
+          const existing = merged[wordId];
+          // The backend owns the schedule and the status; everything else on the
+          // entry — above all `userWordId`, which is what `/reviews/:id` is
+          // posted to — is only known locally and must survive this merge.
+          merged[wordId] = {
+            userWordId: existing?.userWordId,
+            wordId,
+            interval: existing?.interval ?? 0,
+            easeFactor: existing?.easeFactor ?? 2.5,
+            repetitions: existing?.repetitions ?? 0,
+            lastReviewed: existing?.lastReviewed ?? null,
+            nextReviewDate: item.dueAt ?? existing?.nextReviewDate ?? new Date().toISOString(),
+            state: item.state ?? existing?.state ?? 'new',
+          };
         });
         saveSRSData(merged);
         return merged;
       });
 
-      const favorites = userWords
-        .filter((userWord) => userWord.isFavorite)
-        .map((userWord) => resolveWordForUserWord(userWord, words).id);
+      const favorites = items
+        .filter((item) => item.isFavorite)
+        .map((item) => String(item.word.id));
 
       if (favorites.length > 0) {
         setUserProgress((prev) => {
@@ -393,6 +441,15 @@ export default function Home() {
       return;
     }
 
+    applySession(updated);
+  };
+
+  /**
+   * Folds a session the backend just confirmed — `/users/profile` or
+   * `PATCH /users/name` — into the on-screen progress. The avatar is derived
+   * from the name, so it has to be regenerated alongside it.
+   */
+  const applySession = (updated: AuthSession) => {
     setSession(updated);
 
     const name = updated.name?.trim();
@@ -422,7 +479,19 @@ export default function Home() {
 
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
-  const displayProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
+  const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
+
+  // The streak belongs to the account, not the device: a fresh install has no
+  // local history to count one from, so `/stats/summary` wins wherever it
+  // answered. `bestStreak` follows it up, never down.
+  const displayProgress: UserProgress =
+    statsSummary?.streak === undefined
+      ? derivedProgress
+      : {
+          ...derivedProgress,
+          streak: statsSummary.streak,
+          bestStreak: Math.max(derivedProgress.bestStreak, statsSummary.streak),
+        };
 
   // Filter word dataset according to user's focusCategories setting. Memoised
   // because `useDueReminders` scans this list on every identity change.
@@ -629,11 +698,29 @@ export default function Home() {
   };
 
   /**
+   * Folds a whole batch of backend SRS rows in at once. The review tab reads a
+   * due list of arbitrary length, and calling `handleUpdateSRS` per row would
+   * mean one state update and one localStorage write each.
+   */
+  const handleMergeSRS = useCallback((entries: Record<string, SRSData>) => {
+    if (Object.keys(entries).length === 0) return;
+    setSrsMap((prev) => {
+      const updatedMap = { ...prev, ...entries };
+      saveSRSData(updatedMap);
+      return updatedMap;
+    });
+  }, []);
+
+  /**
    * Re-keys a word from its optimistic local id to the id the backend assigned.
    * Without this the app holds two identities for one word and anything driven
    * by the backend — `dueAt`, review reminders — cannot match it locally.
    */
   const handleWordSynced = (localId: string, syncedWord: Word, syncedSRS: SRSData) => {
+    // The word reached the backend, so its totals moved — even when the id came
+    // back unchanged and there is nothing local to re-key.
+    void refreshStats();
+
     if (syncedWord.id === localId) return;
 
     setAllWords((prev) => prev.map((w) => (w.id === localId ? syncedWord : w)));
@@ -653,7 +740,6 @@ export default function Home() {
     requestPermission: requestNotificationPermission,
     activeReminder,
     dismissReminder,
-    apiDueCount,
     refreshDue,
   } = useDueReminders({
     allWords,
@@ -663,23 +749,23 @@ export default function Home() {
     isReady: isMounted,
     userId: session?.userId ?? null,
     onOpenReview: openReview,
-    onSyncSRS: handleUpdateSRS,
   });
 
-  // The review badge is whatever `/reviews/due` last answered, so it can never
-  // disagree with the review tab's own count. There is no local fallback on
-  // purpose: a due date only the backend knows is the one that matters, and
-  // "not asked yet" reads as zero rather than as a guess.
-  const dueCount = apiDueCount ?? 0;
-
-  // A tab change is the cheapest honest moment to re-ask. `getDueReviews` serves
-  // a 30s cache, so an idle switch costs nothing; after a review session
-  // `submitReview` has already dropped that cache, so this is the fetch that
-  // clears the badge.
+  // A tab change is the cheapest honest moment to recompute what is due. This
+  // costs a localStorage read, not a request — the due state comes from the
+  // cached word library, which `submitReview` patches as reviews land.
   useEffect(() => {
     if (!isMounted) return;
     refreshDue();
   }, [activeTab, isMounted, refreshDue]);
+
+  // The home counters are the backend's, so they have to be re-asked whenever
+  // the user lands back on that screen — a finished session or a review just
+  // moved every number on it.
+  useEffect(() => {
+    if (!isMounted || activeTab !== 'home' || activeQuizMode) return;
+    void refreshStats();
+  }, [activeTab, activeQuizMode, isMounted, refreshStats]);
 
   const { pushStatus } = usePushSubscription({
     isReady: isMounted,
@@ -833,7 +919,7 @@ export default function Home() {
       {activeTab === 'home' && (
         <HomeDashboard
           progress={displayProgress}
-          reviewDueCount={dueCount}
+          summary={statsSummary}
           focusCategories={settings.focusCategories}
           onStartQuiz={handleStartQuiz}
           onStartReview={() => setActiveTab('review')}
@@ -854,7 +940,9 @@ export default function Home() {
           allWords={allWords}
           categories={categories}
           srsMap={srsMap}
+          summary={statsSummary}
           onUpdateSRS={handleUpdateSRS}
+          onMergeSRS={handleMergeSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
           onDueListChanged={refreshDue}
         />
@@ -867,16 +955,14 @@ export default function Home() {
       {activeTab === 'profile' && (
         <ProfileScreen
           progress={displayProgress}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          allWords={allWords}
+          srsMap={srsMap}
+          onEditProfile={() => setIsEditProfileOpen(true)}
           onLogout={() => signOut()}
         />
       )}
 
-      <BottomNav
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
-        reviewDueCount={dueCount}
-      />
+      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
 
       {isSettingsOpen && (
         <SettingsModal
@@ -890,6 +976,15 @@ export default function Home() {
             void requestNotificationPermission();
           }}
           pushStatus={pushStatus}
+        />
+      )}
+
+      {isEditProfileOpen && session && (
+        <EditProfileModal
+          currentName={displayProgress.name}
+          email={session.email}
+          onClose={() => setIsEditProfileOpen(false)}
+          onNameUpdated={applySession}
         />
       )}
 

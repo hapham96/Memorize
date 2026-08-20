@@ -8,7 +8,7 @@ import {
   SubmitExerciseResponse,
 } from "@/types/exercise";
 import { getAsync, postAsync } from "./client";
-import { invalidateDueReviews } from "./word-client";
+import { invalidateDueReviews, patchCachedUserWord } from "./word-client";
 import { FALLBACK_CATEGORY } from "./category-client";
 
 /**
@@ -86,6 +86,10 @@ export async function submitExercise(
     { auth: true },
   );
   invalidateDueReviews();
+  // Grading here reschedules the same `user_words` row `/reviews/:id` does, so
+  // the cached library — which is what review reminders read — has to follow, or
+  // a word just practised keeps announcing itself as due.
+  patchCachedUserWord(response.wordId, response.status, response.dueAt);
   return response;
 }
 

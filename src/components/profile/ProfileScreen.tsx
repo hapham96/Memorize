@@ -1,18 +1,25 @@
 'use client';
 
 import React from 'react';
-import { Settings, LogOut } from 'lucide-react';
-import { UserProgress } from '@/types';
+import { Pencil, LogOut } from 'lucide-react';
+import { SRSData, UserProgress, Word } from '@/types';
+import { WordLibrarySection } from './WordLibrarySection';
 
 interface ProfileScreenProps {
   progress: UserProgress;
-  onOpenSettings: () => void;
+  /** Local library, used as the fallback for the word list below. */
+  allWords: Word[];
+  srsMap: Record<string, SRSData>;
+  /** Opens the name/password editor. Settings live in the header bar instead. */
+  onEditProfile: () => void;
   onLogout: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   progress,
-  onOpenSettings,
+  allWords,
+  srsMap,
+  onEditProfile,
   onLogout,
 }) => {
   const xpForNextLevel = progress.level * 300;
@@ -26,10 +33,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       {/* Profile Header */}
       <div className="bg-white dark:bg-slate-800 rounded-card p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm text-center relative">
         <button
-          onClick={onOpenSettings}
+          onClick={onEditProfile}
+          aria-label="Chỉnh sửa tài khoản"
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500"
         >
-          <Settings className="w-5 h-5" />
+          <Pencil className="w-5 h-5" />
         </button>
 
         <div className="relative inline-block mb-3">
@@ -62,6 +70,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Every word the account has added, paged straight off `GET /words` */}
+      <WordLibrarySection allWords={allWords} srsMap={srsMap} />
 
       {/* Logout Action Button — pinned to the bottom of the scroll area */}
       <button

@@ -48,7 +48,8 @@ export type BackendWord = {
   ipaPronunciation: string | null;
   audioUrl: string | null;
   cefrLevel: string | null;
-  createdAt: string;
+  /** Absent on `GET /words` rows, which report only the word's own columns. */
+  createdAt?: string | null;
   /** Only present on endpoints that embed the word's content. */
   definitions?: BackendDefinition[] | null;
   /** A word may belong to several categories; the card shows the newest one. */
@@ -94,6 +95,60 @@ export type BulkAddWordResult =
   | { headword: string; success: false; error: string };
 
 export type BulkAddWordResponse = BulkAddWordResult[];
+
+/**
+ * A `GET /words` row: the word's own columns with the account's progress folded
+ * in flat — `status`/`dueAt`/`isFavorite` come from the user-word, not the word,
+ * so they are optional and every other user-word column is absent.
+ */
+export type BackendWordListItem = BackendWord & {
+  status?: string | null;
+  dueAt?: string | null;
+  isFavorite?: boolean | null;
+};
+
+/**
+ * A row of `GET /words`. The endpoint is not in the deployed OpenAPI document,
+ * so both observed shapes are accepted: the flattened word above, or a wrapper
+ * carrying the account's user-word alongside it (like `AddWordResponse`).
+ */
+export type BackendWordListRow =
+  | BackendWordListItem
+  | { word: BackendWord; userWord?: BackendUserWord | null };
+
+/**
+ * The envelope `GET /words` answers a paginated read with. Every field is
+ * optional because the contract is unconfirmed — a bare array is read as the
+ * whole library, and the key aliases below cover the shapes NestJS pagination
+ * helpers commonly emit.
+ */
+export type BackendWordListResponse =
+  | BackendWordListRow[]
+  | {
+      data?: BackendWordListRow[] | null;
+      items?: BackendWordListRow[] | null;
+      words?: BackendWordListRow[] | null;
+      results?: BackendWordListRow[] | null;
+      total?: number | null;
+      totalItems?: number | null;
+      count?: number | null;
+      totalPages?: number | null;
+      page?: number | null;
+      /** What the deployed endpoint calls `page`. */
+      pageNumber?: number | null;
+      pageSize?: number | null;
+      limit?: number | null;
+      perPage?: number | null;
+      meta?: {
+        total?: number | null;
+        totalItems?: number | null;
+        totalPages?: number | null;
+        page?: number | null;
+        pageNumber?: number | null;
+        pageSize?: number | null;
+        limit?: number | null;
+      } | null;
+    };
 
 export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
 

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Brain, CheckCircle2, ChevronLeft, ChevronRight, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
 import { Category, Word, SRSData, WordCategory } from '@/types';
+import { StatsSummary } from '@/types/stats';
 import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
@@ -22,9 +23,17 @@ interface ReviewDashboardProps {
   /** The account's `/categories` list; drives the filter chips. */
   categories?: Category[];
   srsMap: Record<string, SRSData>;
+  /**
+   * `GET /stats/summary`, or null while it has not answered. Its counters win
+   * over the ones derived from `srsMap`, which only knows the words this device
+   * has seen.
+   */
+  summary?: StatsSummary | null;
   onUpdateSRS: (wordId: string, updatedSRS: SRSData) => void;
+  /** Folds a whole due list into the SRS map in one write. */
+  onMergeSRS?: (entries: Record<string, SRSData>) => void;
   onOpenAddWord?: () => void;
-  /** Fired after the backend due list is re-read, so the nav badge can follow. */
+  /** Fired after the backend due list is re-read, so reminders can follow. */
   onDueListChanged?: () => void;
 }
 
@@ -44,11 +53,33 @@ const meaningSlide = {
   exit: (direction: number) => ({ x: direction >= 0 ? -48 : 48, opacity: 0 }),
 };
 
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * How overdue a queued word is, in words. Whole calendar days apart, so a word
+ * due last night reads as "hôm qua" rather than "16 giờ".
+ */
+function formatDueLabel(dueAt?: string | null, now: Date = new Date()): string | null {
+  if (!dueAt) return null;
+  const due = new Date(dueAt);
+  if (Number.isNaN(due.getTime())) return null;
+
+  const startOfDue = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.round((startOfToday - startOfDue) / MS_PER_DAY);
+
+  if (days <= 0) return 'đến hạn hôm nay';
+  if (days === 1) return 'quá hạn hôm qua';
+  return `quá hạn ${days} ngày`;
+}
+
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   allWords,
   categories = [],
   srsMap,
+  summary = null,
   onUpdateSRS,
+  onMergeSRS,
   onOpenAddWord,
   onDueListChanged,
 }) => {
@@ -67,39 +98,60 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   // gesture paged a meaning so that click can be swallowed instead.
   const swipedRef = useRef(false);
 
-  const fetchDueFromApi = async () => {
+  // Read through refs so the mount-only effect below still sees the latest props
+  // without becoming an effect that re-runs on every identity change — every one
+  // of those re-runs used to be another `/reviews/due` request.
+  const latestRef = useRef({ allWords, onUpdateSRS, onMergeSRS, onDueListChanged });
+  latestRef.current = { allWords, onUpdateSRS, onMergeSRS, onDueListChanged };
+
+  /**
+   * This screen is the only caller of `/reviews/due` in the app: it is the only
+   * place that needs `userWordId` to post a review with. Everything else — the
+   * reminders, the due dates on this list — reads `dueAt` off the cached word
+   * library instead.
+   */
+  const fetchDueFromApi = useCallback(async () => {
+    const { allWords: words, onUpdateSRS: updateSRS, onMergeSRS: mergeSRS, onDueListChanged: notifyChanged } =
+      latestRef.current;
+
     setIsLoadingApi(true);
     try {
       const data = await getDueReviews();
       if (Array.isArray(data)) {
         const items: DueReviewItem[] = data.map((userWord) => ({
           userWordId: userWord.id,
-          word: resolveWordForUserWord(userWord, allWords),
+          word: resolveWordForUserWord(userWord, words),
           userWord,
         }));
         setApiDueItems(items);
 
-        // Update local SRS map from backend response
+        // The backend's schedule for every row, folded in as one write rather
+        // than one state update and one localStorage write per word.
+        const entries: Record<string, SRSData> = {};
         items.forEach((item) => {
           if (item.userWord) {
-            onUpdateSRS(String(item.word.id), mapBackendUserWordToSRS(item.userWord));
+            entries[String(item.word.id)] = mapBackendUserWordToSRS(item.userWord);
           }
         });
 
-        // The nav badge reads the same endpoint; tell it to catch up rather than
-        // letting it sit on a stale number until its own poll comes round.
-        onDueListChanged?.();
+        if (mergeSRS) mergeSRS(entries);
+        else Object.entries(entries).forEach(([wordId, srs]) => updateSRS(wordId, srs));
+
+        // Reminders read the cached library, which `submitReview` patches; this
+        // tells them to recompute now rather than at their next tick.
+        notifyChanged?.();
       }
     } catch (err) {
       console.warn('Could not fetch due reviews from API, using local SRS data:', err);
     } finally {
       setIsLoadingApi(false);
     }
-  };
+  }, []);
 
+  // Once per visit to this tab — the component only exists while it is open.
   useEffect(() => {
-    fetchDueFromApi();
-  }, [allWords]);
+    void fetchDueFromApi();
+  }, [fetchDueFromApi]);
 
   // The backend owns what is due. A local guess would only ever disagree with
   // it — that disagreement is what put a badge of 2 next to a queue of 0 — so
@@ -119,9 +171,15 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   // different copy — a new account has an empty library by design.
   const isLibraryEmpty = hasLoadedDue && allWords.length === 0 && dueItems.length === 0;
 
-  const learningCount = Object.values(srsMap).filter((s) => s.state === 'learning').length;
-  const masteredCount = Object.values(srsMap).filter((s) => s.state === 'mastered').length;
+  // `/stats/summary` counts the account; `srsMap` only counts what this device
+  // has seen, so it is the fallback rather than the source. "Sắp tới" has no
+  // remote counterpart, so it stays local.
+  const learningCount =
+    summary?.learningCount ?? Object.values(srsMap).filter((s) => s.state === 'learning').length;
+  const masteredCount =
+    summary?.masteredCount ?? Object.values(srsMap).filter((s) => s.state === 'mastered').length;
   const upcomingCount = Object.values(srsMap).filter((s) => s.state === 'review').length;
+  const libraryCount = summary?.totalWords ?? allWords.length;
 
   const currentItem = dueItems[currentIndex];
   const currentWord = currentItem?.word;
@@ -143,6 +201,11 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     setMeaningIndex(0);
     setSlideDirection(1);
   }, [currentWord?.id]);
+
+  // A different filter is a different queue, so the cursor cannot carry over.
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [selectedCategory]);
 
   const goToMeaning = (nextIndex: number, direction: number) => {
     if (nextIndex < 0 || nextIndex >= meanings.length || nextIndex === safeMeaningIndex) return;
@@ -172,14 +235,24 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   // The chips come from the account's `/categories` list, so a category the
   // backend added shows up without a release. A category nothing is filed under
   // would only ever filter to an empty queue, so it is left out.
+  //
+  // "Filed under" counts the queue as well as the local library: a due word this
+  // device never added falls back to `FALLBACK_CATEGORY`, and without it in the
+  // list that word could not be filtered for at all.
   const CATEGORIES: (WordCategory | 'All')[] = useMemo(() => {
-    const used = new Set(allWords.map((w) => w.category));
+    const used = new Set<WordCategory>(allWords.map((w) => w.category));
+    (apiDueItems ?? []).forEach((item) => used.add(item.word.category));
+
     const known = categoryNames(categories).filter((name) => used.has(name));
+    // A queue category the `/categories` list does not name would otherwise be
+    // unreachable, so it is appended rather than dropped.
+    const unnamed = Array.from(used).filter((name) => !known.includes(name)).sort();
+    const listed = [...known, ...unnamed];
     // Whatever the current filter is must stay clickable, or it cannot be undone.
     const extra =
-      selectedCategory !== 'All' && !known.includes(selectedCategory) ? [selectedCategory] : [];
-    return ['All', ...known, ...extra];
-  }, [allWords, categories, selectedCategory]);
+      selectedCategory !== 'All' && !listed.includes(selectedCategory) ? [selectedCategory] : [];
+    return ['All', ...listed, ...extra];
+  }, [allWords, apiDueItems, categories, selectedCategory]);
 
   const handleRating = async (rating: ReviewQuality) => {
     if (!currentItem || !currentWord) return;
@@ -622,7 +695,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <div>
             <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Tổng kho từ</span>
             <p className="text-xl font-black text-slate-900 dark:text-slate-100">
-              {allWords.length}
+              {libraryCount}
             </p>
           </div>
         </div>
@@ -630,9 +703,25 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
       {/* Words Queue Preview */}
       <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
-        <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">
-          Review Queue Preview
-        </h4>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+            Review Queue Preview
+          </h4>
+          {/* The queue is read once when this tab opens, so this is the way to
+              re-ask without leaving and coming back. */}
+          <button
+            onClick={() => {
+              soundFX.playPop();
+              void fetchDueFromApi();
+            }}
+            disabled={isLoadingApi}
+            aria-label="Tải lại hàng đợi ôn tập"
+            title="Tải lại hàng đợi ôn tập"
+            className="shrink-0 p-2 rounded-button bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-2 border-slate-200 dark:border-slate-600 transition-all disabled:opacity-40"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingApi ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
 
         {/* One chip per category the library actually uses — hidden while there
             is only "All" to choose from. */}
@@ -698,27 +787,39 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         ) : (
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {dueWords.map((word) => (
-              <div
-                key={word.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border-clay border-blue-200 dark:border-slate-800 flex items-center justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                      {word.word}
-                    </h5>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                      {word.category}
-                    </span>
+            {dueItems.map((item) => {
+              const dueLabel = formatDueLabel(item.userWord?.dueAt);
+              return (
+                <div
+                  key={item.word.id}
+                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border-clay border-blue-200 dark:border-slate-800 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {item.word.word}
+                      </h5>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                        {item.word.category}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{item.word.vietnamese}</p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">{word.vietnamese}</p>
+
+                  <div className="shrink-0 flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                      {item.word.level}
+                    </span>
+                    {dueLabel && (
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {dueLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {word.level}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

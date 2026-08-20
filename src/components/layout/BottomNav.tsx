@@ -7,23 +7,15 @@ import { ActiveTab } from '@/types';
 interface BottomNavProps {
   activeTab: ActiveTab;
   onChangeTab: (tab: ActiveTab) => void;
-  reviewDueCount: number;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({
-  activeTab,
-  onChangeTab,
-  reviewDueCount,
-}) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) => {
   const tabs = [
     { id: 'home' as ActiveTab, label: 'Trang chủ', icon: Home },
     { id: 'learn' as ActiveTab, label: 'Luyện tập', icon: BookOpen },
-    {
-      id: 'review' as ActiveTab,
-      label: 'Ôn tập',
-      icon: Brain,
-      badge: reviewDueCount > 0 ? reviewDueCount : undefined,
-    },
+    // No due-count badge: the review tab owns that number, and it is only known
+    // once `/reviews/due` has been asked — which now happens on that tab alone.
+    { id: 'review' as ActiveTab, label: 'Ôn tập', icon: Brain },
     { id: 'stats' as ActiveTab, label: 'Thống kê', icon: BarChart3 },
     { id: 'profile' as ActiveTab, label: 'Cá nhân', icon: User },
   ];
@@ -46,11 +38,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             >
               <div className="relative">
                 <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                {tab.badge !== undefined && (
-                  <span className="absolute -top-2 -right-3 bg-clay-cta text-white text-[10px] font-black min-w-5 h-5 px-1 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-clay-sm animate-bounce">
-                    {tab.badge > 99 ? '99+' : tab.badge}
-                  </span>
-                )}
               </div>
               <span className="text-[10px] md:text-xs mt-0.5 font-bold tracking-tight">{tab.label}</span>
             </button>

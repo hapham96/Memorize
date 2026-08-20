@@ -1,15 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SRSData, Word, WordCategory } from '@/types';
+import { SRSData, UserWordListItem, Word, WordCategory } from '@/types';
 import { AppSettings, loadReminderState, saveReminderState } from '@/lib/storage';
-import { BackendDueReview } from '@/types/word';
 import {
   createPlaceholderWord,
   findWordById,
-  getDueReviews,
-  mapBackendUserWordToSRS,
-  resolveWordForUserWord,
+  getUserWordLibrary,
 } from '@/lib/api/word-client';
 import {
   DueReminderItem,
@@ -17,19 +14,20 @@ import {
   NotificationPermissionState,
   ReminderState,
   canNotifyNow,
+  collectDueFromLibrary,
   collectDueWords,
   getNotificationPermission,
   markNotified,
-  reminderKey,
   requestNotificationPermission,
   showDueNotification,
 } from '@/lib/notifications';
 
 /**
- * Fallback poll, and the rate at which the backend is asked for due reviews.
- * The exact timer below fires on a locally-known due moment, so this only has
- * to cover what that timer cannot see: clocks that drifted, timers a background
- * tab throttled, and due times only the backend knows about. Coarse on purpose.
+ * Fallback poll, and the rate at which the due state is recomputed.
+ * The exact timer below fires on a known due moment, so this only has to cover
+ * what that timer cannot see: clocks that drifted and timers a background tab
+ * throttled. Coarse on purpose — and cheap, since a tick reads the cached word
+ * library rather than the network.
  */
 const POLL_MS = 300_000;
 
@@ -47,7 +45,7 @@ const MAX_TIMEOUT_MS = 2_000_000_000;
 interface UseDueRemindersArgs {
   /** Full word list — also used to name words the backend reports as due. */
   allWords: Word[];
-  /** Empty means "no filter"; mirrors the review badge's active pool. */
+  /** Empty means "no filter"; mirrors the review tab's active pool. */
   focusCategories: WordCategory[];
   srsMap: Record<string, SRSData>;
   settings: AppSettings;
@@ -57,8 +55,6 @@ interface UseDueRemindersArgs {
   userId: number | null;
   /** Runs when the user accepts the reminder, from the banner or the notification. */
   onOpenReview: () => void;
-  /** Folds a backend due time back into the app's SRS map. */
-  onSyncSRS?: (wordId: string, srs: SRSData) => void;
 }
 
 export interface ActiveReminder {
@@ -73,12 +69,7 @@ export interface UseDueRemindersResult {
   requestPermission: () => Promise<NotificationPermissionState>;
   activeReminder: ActiveReminder | null;
   dismissReminder: () => void;
-  /**
-   * How many rows `/reviews/due` last returned, before the focus filter — the
-   * same number the review tab shows. `null` until a fetch has ever resolved.
-   */
-  apiDueCount: number | null;
-  /** Re-asks the backend for the due list without disturbing the reminder clock. */
+  /** Recomputes the due state — a cache read, not a request. */
   refreshDue: () => void;
 }
 
@@ -87,9 +78,16 @@ export interface UseDueRemindersResult {
  * in-app banner always, plus a browser notification when permission was
  * granted.
  *
- * Two sources, because neither alone is complete: the backend owns `dueAt` for
- * synced words but `/reviews/due` only ever returns what is *already* due, so
- * the local SRS map is what makes it possible to wake up exactly on time.
+ * The account's cached word library is the primary source: every row carries the
+ * backend's own `dueAt`, so this needs no polling at all — `getUserWordLibrary`
+ * answers from localStorage and only fetches when there is nothing cached (a new
+ * device, or right after a word was added, which drops the cache). `/reviews/due`
+ * is deliberately *not* used here; it is only worth a request where its
+ * `userWordId` is needed, i.e. the review tab.
+ *
+ * The local SRS map is the second source, so a word reviewed on this device — or
+ * added while the backend was unreachable — still counts. Where both know a word,
+ * the later schedule wins.
  */
 export function useDueReminders({
   allWords,
@@ -99,16 +97,16 @@ export function useDueReminders({
   isReady,
   userId,
   onOpenReview,
-  onSyncSRS,
 }: UseDueRemindersArgs): UseDueRemindersResult {
   // `null` until mounted: computing due state during SSR/first render would
   // produce server/client markup that disagrees.
   const [clock, setClock] = useState<number | null>(null);
   const [permission, setPermission] = useState<NotificationPermissionState>('unsupported');
   const [activeReminder, setActiveReminder] = useState<ActiveReminder | null>(null);
-  const [apiItems, setApiItems] = useState<DueReminderItem[] | null>(null);
-  const [apiDueCount, setApiDueCount] = useState<number | null>(null);
-  // Only re-runs the backend fetch. `clock` also feeds the reminder throttle, so
+  // The account's library, as last read. `null` means "not read yet", which is
+  // different from an account with no words.
+  const [libraryItems, setLibraryItems] = useState<UserWordListItem[] | null>(null);
+  // Only re-runs the library read. `clock` also feeds the reminder throttle, so
   // bumping that from the outside could pop a notification nobody asked for.
   const [dueTick, setDueTick] = useState(0);
 
@@ -116,13 +114,11 @@ export function useDueReminders({
   const stateLoadedRef = useRef(false);
 
   // Kept in refs so a new callback/object identity each render never restarts
-  // a timer or re-triggers the backend poll.
+  // a timer or re-triggers the library read.
   const onOpenReviewRef = useRef(onOpenReview);
   onOpenReviewRef.current = onOpenReview;
-  const onSyncSRSRef = useRef(onSyncSRS);
-  onSyncSRSRef.current = onSyncSRS;
-  const srsMapRef = useRef(srsMap);
-  srsMapRef.current = srsMap;
+  const allWordsRef = useRef(allWords);
+  allWordsRef.current = allWords;
 
   const isSignedIn = userId !== null;
 
@@ -132,8 +128,7 @@ export function useDueReminders({
 
     stateLoadedRef.current = false;
     setActiveReminder(null);
-    setApiItems(null);
-    setApiDueCount(null);
+    setLibraryItems(null);
     setPermission(getNotificationPermission());
     stateRef.current = loadReminderState();
     stateLoadedRef.current = true;
@@ -170,9 +165,37 @@ export function useDueReminders({
     };
   }, [isReady]);
 
+  // Read the library. Keyed on `clock`/`dueTick` so it runs once per tick rather
+  // than once per render; a hit costs one localStorage read.
+  useEffect(() => {
+    if (!isReady || !isSignedIn || clock === null) return;
+
+    let cancelled = false;
+
+    getUserWordLibrary({ fallbacks: allWordsRef.current })
+      .then((library) => {
+        if (!cancelled) setLibraryItems(library.items);
+      })
+      .catch((err) => {
+        // Backend is optional everywhere — the local SRS map still drives
+        // reminders, and `libraryItems` keeps its last value rather than
+        // dropping every backend-known word off the list.
+        if (!cancelled) console.warn('Could not read the word library for reminders:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isReady, isSignedIn, clock, dueTick]);
+
   const inFocus = useCallback(
     (word: Word) => focusCategories.length === 0 || focusCategories.includes(word.category),
     [focusCategories]
+  );
+
+  const libraryIds = useMemo(
+    () => new Set((libraryItems ?? []).map((item) => String(item.word.id))),
+    [libraryItems]
   );
 
   /**
@@ -183,96 +206,95 @@ export function useDueReminders({
     (wordId: string): Word | null => {
       const match = findWordById(wordId, allWords);
       if (match) return inFocus(match) ? match : null;
+      // The library is the account's whole vocabulary. Once it has been read, a
+      // key it has never heard of names nothing the user can review — most often
+      // a flashcard session's `userWordId` key — so it is dropped rather than
+      // announced as "Word #123".
+      if (libraryItems !== null && !libraryIds.has(String(wordId))) return null;
       // A placeholder has no real category, so a focus filter cannot judge it —
       // let it through rather than silently dropping a genuinely due word.
       return createPlaceholderWord(wordId);
     },
-    [allWords, inFocus]
+    [allWords, inFocus, libraryItems, libraryIds]
   );
 
   /**
-   * Names a word the backend reports as due. The row's embedded word is the
-   * best source — it reads correctly even on a device that never added it —
-   * and the local copy fills what the backend has no column for. The focus
-   * filter can only judge a word this device knows; a backend-only word has no
-   * real category, so it is let through rather than silently dropped.
+   * Names a library row. Its own word is the best source — it reads correctly
+   * even on a device that never added it — while the focus filter can only judge
+   * a word this device knows, so a backend-only word is let through rather than
+   * silently dropped.
    */
-  const resolveDueWord = useCallback(
-    (userWord: BackendDueReview): Word | null => {
-      const local = findWordById(userWord.wordId, allWords);
+  const resolveLibraryWord = useCallback(
+    (item: UserWordListItem): Word | null => {
+      const local = findWordById(item.word.id, allWords);
       if (local && !inFocus(local)) return null;
-      return resolveWordForUserWord(userWord, allWords);
+      return item.word;
     },
     [allWords, inFocus]
   );
 
+  const now = useMemo(() => new Date(clock ?? Date.now()), [clock]);
+
   const localSnapshot = useMemo(
-    () => collectDueWords(srsMap, resolveWord, new Date(clock ?? Date.now())),
-    [srsMap, resolveWord, clock]
+    () => collectDueWords(srsMap, resolveWord, now),
+    [srsMap, resolveWord, now]
   );
 
-  // Ask the backend what is due. Keyed on `clock`, so it runs once per tick
-  // rather than once per render.
-  useEffect(() => {
-    if (!isReady || !isSignedIn || clock === null) return;
+  const librarySnapshot = useMemo(
+    () => collectDueFromLibrary(libraryItems ?? [], resolveLibraryWord, now),
+    [libraryItems, resolveLibraryWord, now]
+  );
 
-    let cancelled = false;
-
-    getDueReviews()
-      .then((userWords) => {
-        if (cancelled || !Array.isArray(userWords)) return;
-
-        // The raw row count, deliberately taken before the focus filter below —
-        // this is the number the review tab shows, and the badge has to match it.
-        setApiDueCount(userWords.length);
-
-        const items: DueReminderItem[] = [];
-        userWords.forEach((userWord) => {
-          const srs = mapBackendUserWordToSRS(userWord);
-          const word = resolveDueWord(userWord);
-          if (!word) return;
-
-          items.push({ word, srs, key: reminderKey(srs) });
-
-          // Keep the badge and review tab agreeing with what the reminder says,
-          // but only write when something actually moved.
-          const existing = srsMapRef.current[word.id];
-          if (
-            !existing ||
-            existing.nextReviewDate !== srs.nextReviewDate ||
-            existing.state !== srs.state ||
-            existing.repetitions !== srs.repetitions
-          ) {
-            onSyncSRSRef.current?.(word.id, srs);
-          }
-        });
-
-        setApiItems(items);
-      })
-      .catch((err) => {
-        // Backend is optional everywhere — the local SRS map still drives reminders.
-        // `apiDueCount` deliberately keeps its last value: the review tab keeps its
-        // list on a failed poll too, and blanking one but not the other would put
-        // the badge and that screen back out of step.
-        if (!cancelled) console.warn('Could not poll due reviews for reminders:', err);
-      });
-
-    return () => {
-      cancelled = true;
+  /**
+   * The latest due moment known for each word, across both sources.
+   *
+   * This is what settles a disagreement: a review through the quiz flow moves
+   * the local entry, a review on another device moves the library row, and
+   * whichever is later is the schedule that actually stands.
+   */
+  const latestDueMs = useMemo(() => {
+    const latest = new Map<string, number>();
+    const consider = (wordId: string, iso?: string | null) => {
+      if (!iso) return;
+      const ms = Date.parse(iso);
+      if (Number.isNaN(ms)) return;
+      const current = latest.get(wordId);
+      if (current === undefined || ms > current) latest.set(wordId, ms);
     };
-  }, [isReady, isSignedIn, clock, dueTick, resolveDueWord]);
 
-  // Backend entries win on conflict; local-only words still count, so words
-  // reviewed offline are not dropped from reminders.
+    (libraryItems ?? []).forEach((item) => consider(String(item.word.id), item.dueAt));
+    Object.entries(srsMap).forEach(([wordId, srs]) => consider(wordId, srs?.nextReviewDate));
+    return latest;
+  }, [libraryItems, srsMap]);
+
   const dueItems = useMemo(() => {
-    if (!apiItems) return localSnapshot.items;
+    const nowMs = now.getTime();
+    const byWordId = new Map<string, DueReminderItem>();
 
-    const byWordId = new Map(localSnapshot.items.map((item) => [item.word.id, item]));
-    apiItems.forEach((item) => byWordId.set(item.word.id, item));
-    return Array.from(byWordId.values());
-  }, [apiItems, localSnapshot]);
+    // The library first — its word carries the backend's definitions — then any
+    // local-only word, so something reviewed offline is not dropped.
+    librarySnapshot.items.forEach((item) => byWordId.set(item.word.id, item));
+    localSnapshot.items.forEach((item) => {
+      if (!byWordId.has(item.word.id)) byWordId.set(item.word.id, item);
+    });
 
-  const nextDueMs = localSnapshot.nextDueAt ? localSnapshot.nextDueAt.getTime() : null;
+    // A later schedule from the other source means the word has been reviewed
+    // since this item was written, so it is not due after all.
+    return Array.from(byWordId.values()).filter((item) => {
+      const latest = latestDueMs.get(item.word.id);
+      return latest === undefined || latest <= nowMs;
+    });
+  }, [librarySnapshot, localSnapshot, latestDueMs, now]);
+
+  // The earliest schedule still ahead of us, from either source.
+  const nextDueMs = useMemo(() => {
+    const nowMs = now.getTime();
+    let next = Infinity;
+    latestDueMs.forEach((ms) => {
+      if (ms > nowMs && ms < next) next = ms;
+    });
+    return Number.isFinite(next) ? next : null;
+  }, [latestDueMs, now]);
 
   // Wake exactly on the next due moment rather than waiting out the poll.
   useEffect(() => {
@@ -290,21 +312,21 @@ export function useDueReminders({
     if (!isReady || clock === null || !stateLoadedRef.current) return;
     if (dueItems.length === 0) return;
 
-    const now = new Date(clock);
+    const raisedAt = new Date(clock);
     const state = stateRef.current;
     const keys = dueItems.map((item) => item.key);
     const known = new Set(state.notifiedKeys);
 
     if (keys.every((key) => known.has(key))) return;
-    if (!canNotifyNow(settings, state, now)) return;
+    if (!canNotifyNow(settings, state, raisedAt)) return;
 
     // Every currently-due key is marked, not just the new ones, so the next
     // word falling due does not re-announce the whole backlog.
-    const nextState = markNotified(state, keys, now);
+    const nextState = markNotified(state, keys, raisedAt);
     stateRef.current = nextState;
     saveReminderState(nextState);
 
-    setActiveReminder({ items: dueItems, raisedAt: now.getTime() });
+    setActiveReminder({ items: dueItems, raisedAt: raisedAt.getTime() });
     showDueNotification(dueItems, () => onOpenReviewRef.current());
   }, [isReady, clock, dueItems, settings]);
 
@@ -325,12 +347,11 @@ export function useDueReminders({
 
   return {
     dueItems,
-    nextDueAt: localSnapshot.nextDueAt,
+    nextDueAt: nextDueMs === null ? null : new Date(nextDueMs),
     permission,
     requestPermission,
     activeReminder,
     dismissReminder,
-    apiDueCount,
     refreshDue,
   };
 }

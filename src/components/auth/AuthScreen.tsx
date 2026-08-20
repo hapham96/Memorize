@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { login, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
@@ -27,6 +27,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   const switchMode = () => {
     setIsRegister((prev) => !prev);
+    // The confirm field only exists in register mode, so a value left behind by
+    // the other mode must not survive the switch and fail a later comparison.
+    setConfirmPassword('');
     setError(null);
   };
 
@@ -48,14 +54,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     const trimmedEmail = email.trim();
     const trimmedName = name.trim();
-    if (isRegister && password.length < MIN_PASSWORD_LENGTH) {
+    // Surrounding whitespace is almost always a paste artefact, and sending it
+    // would register a password the user can never retype. What is validated
+    // and what is sent are therefore both the trimmed value.
+    const trimmedPassword = password.trim();
+    if (!trimmedPassword) {
+      setPassword(trimmedPassword);
+      setError('Vui lòng nhập mật khẩu.');
+      return;
+    }
+    if (isRegister && trimmedPassword.length < MIN_PASSWORD_LENGTH) {
       setError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
+      return;
+    }
+    if (isRegister && trimmedPassword !== confirmPassword.trim()) {
+      setError('Mật khẩu xác nhận không khớp.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const credentials = { email: trimmedEmail, password, name: trimmedName };
+      const credentials = { email: trimmedEmail, password: trimmedPassword, name: trimmedName };
       const session = isRegister ? await register(credentials) : await login(credentials);
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
@@ -131,15 +150,47 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <div className="relative">
             <Lock className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
             <input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder={isRegister ? `Mật khẩu (tối thiểu ${MIN_PASSWORD_LENGTH} ký tự)` : 'Mật khẩu'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               minLength={isRegister ? MIN_PASSWORD_LENGTH : undefined}
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
+
+          {isRegister && (
+            <div className="relative">
+              <Lock className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Nhập lại mật khẩu"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoComplete="new-password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-start gap-2 p-3 rounded-input bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400">

@@ -12,12 +12,19 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { UserProgress, QuizType, WordCategory } from '@/types';
+import { StatsSummary } from '@/types/stats';
 import { buildActivitySeries } from '@/lib/progress';
+import { buildRemoteActivitySeries } from '@/lib/api/stats-client';
 import { Plus } from 'lucide-react';
 
 interface HomeDashboardProps {
   progress: UserProgress;
-  reviewDueCount: number;
+  /**
+   * `GET /stats/summary` for this account, or null while it has not answered.
+   * Every counter it carries wins over the locally derived one — it counts the
+   * whole account, not just what this device has seen.
+   */
+  summary?: StatsSummary | null;
   focusCategories?: WordCategory[];
   onStartQuiz: (quizType: QuizType) => void;
   onStartReview: () => void;
@@ -26,15 +33,24 @@ interface HomeDashboardProps {
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   progress,
-  reviewDueCount,
+  summary = null,
   focusCategories = [],
   onStartQuiz,
   onStartReview,
   onOpenAddWord,
 }) => {
+  // Remote counters when the summary landed, local ones until then.
+  const learnedToday = summary?.learnedToday ?? progress.dailyGoalProgress;
+  const masteredCount = summary?.masteredCount ?? progress.masteredCount;
+  // The backend splits the library into learning + mastered; together they are
+  // the same "words studied" the local SRS map derives.
+  const wordsLearned = summary
+    ? summary.learningCount + summary.masteredCount
+    : progress.wordsLearned;
+
   const goalPercentage = Math.min(
     100,
-    Math.round((progress.dailyGoalProgress / progress.dailyGoal) * 100)
+    Math.round((learnedToday / progress.dailyGoal) * 100)
   );
 
   // SVG Ring Calculations
@@ -42,8 +58,11 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (goalPercentage / 100) * circumference;
 
-  // Weekly activity from the user's real quiz history (last 7 days)
-  const weeklyActivity = buildActivitySeries(progress, 7);
+  // Weekly activity from the account's real review history (last 7 days) —
+  // the backend's series when it answered, this device's quiz history otherwise.
+  const weeklyActivity = summary
+    ? buildRemoteActivitySeries(summary, 7)
+    : buildActivitySeries(progress, 7);
   const weeklyTotal = weeklyActivity.reduce((sum, item) => sum + item.count, 0);
   const weeklyMax = Math.max(...weeklyActivity.map((item) => item.count), 1);
 
@@ -59,7 +78,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               🎯 Target Today
             </span>
             <h3 className="text-3xl md:text-4xl font-black mt-2 tracking-tight">
-              {progress.dailyGoalProgress}{' '}
+              {learnedToday}{' '}
               <span className="text-base font-normal text-blue-200">/ {progress.dailyGoal} words</span>
             </h3>
             <p className="text-xs md:text-sm text-blue-100 mt-2 font-medium flex items-center gap-1.5">
@@ -68,7 +87,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                   🎉 Hoàn thành mục tiêu ngày!
                 </span>
               ) : (
-                <span>Cần học thêm {progress.dailyGoal - progress.dailyGoalProgress} từ nữa hôm nay</span>
+                <span>Cần học thêm {Math.max(0, progress.dailyGoal - learnedToday)} từ nữa hôm nay</span>
               )}
             </p>
           </div>
@@ -213,13 +232,16 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               Ôn tập hôm nay
             </h4>
+            {/* No count here: how many words are due is only known once the
+                review tab has asked `/reviews/due`, so promising a number on
+                this screen would mean asking for it on every visit. */}
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              {reviewDueCount} từ đến lịch ghi nhớ ngắt quãng
+              Ghi nhớ ngắt quãng theo lịch SRS
             </p>
           </div>
 
           <div className="mt-3 flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400 group-hover:translate-x-1 transition-transform">
-            <span>Ôn tập ngay ({reviewDueCount})</span>
+            <span>Ôn tập ngay</span>
             <ChevronRight className="w-4 h-4 ml-1" />
           </div>
         </div>
@@ -248,9 +270,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <span>TỪ ĐÃ HỌC (LEARNED)</span>
           </div>
           <p className="text-3xl font-black text-slate-900 dark:text-slate-100">
-            {progress.wordsLearned}
+            {wordsLearned}
           </p>
-          <p className="text-xs text-slate-400 font-medium mt-2">{progress.masteredCount} từ đã Master ✨</p>
+          <p className="text-xs text-slate-400 font-medium mt-2">
+            {masteredCount} từ đã Master ✨
+            {summary ? ` · ${summary.totalWords} từ trong bộ` : ''}
+          </p>
         </div>
 
         {/* Weekly Activity Bar Chart */}

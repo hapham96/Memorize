@@ -17,6 +17,7 @@ import {
   ChevronUp,
   FileText,
   RefreshCw,
+  Wand2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
+import { VOCAB_HEADERS } from "@/lib/wordExcel";
 import {
   addWord,
   addWordsBulk,
@@ -39,11 +41,13 @@ import {
 import { FALLBACK_CATEGORY, categoryNames } from "@/lib/api/category-client";
 import {
   fetchWordDictionary,
+  generateWordEntry,
   generateWordExample,
   WordSuggestion,
   DictionaryEntry,
 } from "@/lib/api/dictionary-client";
 import { getCurrentUserId } from "@/lib/api/auth-client";
+import { ApiError } from "@/lib/api/client";
 import { AddBulkWordsRequest, AddWordRequest, BulkAddWordResult } from "@/types/word";
 import { ModalPortal } from "@/components/layout/ModalPortal";
 
@@ -211,45 +215,47 @@ interface ParsedWordRow {
 // Download sample Excel template
 const downloadSampleExcel = () => {
   soundFX.playPop();
+  // Keyed off the shared headers so the template and the profile screen's
+  // export stay one format — an export has to import back without editing.
+  const H = VOCAB_HEADERS;
   const sampleData = [
     {
-      "Từ tiếng Anh (Word)": "resilient",
-      "Nghĩa tiếng Việt (Vietnamese)": "kiên cường, phục hồi nhanh",
-      "Định nghĩa (Definition)":
+      [H.word]: "resilient",
+      [H.vietnamese]: "kiên cường, phục hồi nhanh",
+      [H.definition]:
         "Able to withstand or recover quickly from difficult conditions.",
-      "Phiên âm (IPA)": "/rɪˈzɪl.jənt/",
-      "Từ loại (POS)": "adj.",
-      "Ví dụ (Example)": "He is resilient in the face of hardship.",
-      "Dịch ví dụ (Translation)": "Anh ấy rất kiên cường trước khó khăn.",
-      "Bộ từ (Category)": "IELTS",
-      "Cấp độ (Level)": "B2",
-      "Mẹo nhớ (Mnemonic)": "Re + silient -> Lại nổi lên nhẹ nhàng",
+      [H.ipa]: "/rɪˈzɪl.jənt/",
+      [H.pos]: "adj.",
+      [H.example]: "He is resilient in the face of hardship.",
+      [H.translation]: "Anh ấy rất kiên cường trước khó khăn.",
+      [H.category]: "IELTS",
+      [H.level]: "B2",
+      [H.mnemonic]: "Re + silient -> Lại nổi lên nhẹ nhàng",
     },
     {
-      "Từ tiếng Anh (Word)": "perseverance",
-      "Nghĩa tiếng Việt (Vietnamese)": "sự kiên trì, nhẫn nại",
-      "Định nghĩa (Definition)":
+      [H.word]: "perseverance",
+      [H.vietnamese]: "sự kiên trì, nhẫn nại",
+      [H.definition]:
         "Persistence in doing something despite difficulty or delay.",
-      "Phiên âm (IPA)": "/ˌpɜː.sɪˈvɪə.rəns/",
-      "Từ loại (POS)": "n.",
-      "Ví dụ (Example)": "Perseverance is key to success.",
-      "Dịch ví dụ (Translation)": "Sự kiên trì là chìa khóa tới thành công.",
-      "Bộ từ (Category)": "Academic",
-      "Cấp độ (Level)": "C1",
-      "Mẹo nhớ (Mnemonic)": "Per + sever -> Vượt qua khó khăn bằng nhẫn nại",
+      [H.ipa]: "/ˌpɜː.sɪˈvɪə.rəns/",
+      [H.pos]: "n.",
+      [H.example]: "Perseverance is key to success.",
+      [H.translation]: "Sự kiên trì là chìa khóa tới thành công.",
+      [H.category]: "Academic",
+      [H.level]: "C1",
+      [H.mnemonic]: "Per + sever -> Vượt qua khó khăn bằng nhẫn nại",
     },
     {
-      "Từ tiếng Anh (Word)": "ubiquitous",
-      "Nghĩa tiếng Việt (Vietnamese)": "có mặt ở khắp nơi",
-      "Định nghĩa (Definition)": "Present, appearing, or found everywhere.",
-      "Phiên âm (IPA)": "/juːˈbɪk.wɪ.təs/",
-      "Từ loại (POS)": "adj.",
-      "Ví dụ (Example)": "Smartphones are ubiquitous today.",
-      "Dịch ví dụ (Translation)":
-        "Điện thoại thông minh hiện có mặt ở khắp mọi nơi.",
-      "Bộ từ (Category)": "TOEIC",
-      "Cấp độ (Level)": "C1",
-      "Mẹo nhớ (Mnemonic)": "U + bi + qui -> Đi đâu cũng quẹo thấy",
+      [H.word]: "ubiquitous",
+      [H.vietnamese]: "có mặt ở khắp nơi",
+      [H.definition]: "Present, appearing, or found everywhere.",
+      [H.ipa]: "/juːˈbɪk.wɪ.təs/",
+      [H.pos]: "adj.",
+      [H.example]: "Smartphones are ubiquitous today.",
+      [H.translation]: "Điện thoại thông minh hiện có mặt ở khắp mọi nơi.",
+      [H.category]: "TOEIC",
+      [H.level]: "C1",
+      [H.mnemonic]: "U + bi + qui -> Đi đâu cũng quẹo thấy",
     },
   ];
 
@@ -344,6 +350,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const datamuseDefsRef = useRef<Record<string, string[]>>({});
   const [autoFilled, setAutoFilled] = useState(false);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  // Datamuse answered with zero matches for what was typed — the word is not in its index,
+  // so the chip list is replaced by the AI generator instead of unrelated fallback words.
+  const [hasNoSuggestions, setHasNoSuggestions] = useState(false);
+  // Why `POST /words/generate` did not fill the form — it is the only feedback that block has.
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [isGeneratingWord, setIsGeneratingWord] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   // Id of the meaning waiting on `POST /words/example` — only one request at a time.
   const [generatingExampleId, setGeneratingExampleId] = useState<string | null>(
@@ -356,7 +368,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   } | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  // Set when `/words` rejected the word (e.g. 422 "Word not found"). The local
+  // copy is already saved by then, so this keeps the modal open to say the word
+  // will not sync — and blocks a resubmit that would add a second local copy.
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Excel Import state
   const [isDragOver, setIsDragOver] = useState(false);
@@ -386,6 +401,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setDefinitionOptions([]);
       setLookedUpWord("");
       setExampleError(null);
+      setHasNoSuggestions(false);
+      setAiNotice(null);
+      setSyncError(null);
     }
   }, [isOpen]);
 
@@ -424,7 +442,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   // Fetch Datamuse suggestions when user types prefix (e.g. "bea" -> "bea", "bean", "beautiful")
   useEffect(() => {
     const trimmed = word.trim();
+    setAiNotice(null);
     if (!trimmed) {
+      setHasNoSuggestions(false);
       setSuggestions([
         "teacher",
         "beautiful",
@@ -447,12 +467,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           // Put exact prefix first if present, followed by suggestions
           const wordsList = data.map((item) => item.word);
           setSuggestions(Array.from(new Set(wordsList)));
+          setHasNoSuggestions(false);
         } else {
-          setSuggestions(getRelatedWordSuggestions(trimmed));
+          // An empty answer means the word does not exist — the local fallback would only
+          // list unrelated defaults here, so offer AI generation instead.
+          setSuggestions([]);
+          setHasNoSuggestions(true);
         }
       } catch (err) {
+        // A network failure is not "word not found" — keep the local suggestions.
         console.warn("Datamuse API error:", err);
         setSuggestions(getRelatedWordSuggestions(trimmed));
+        setHasNoSuggestions(false);
       } finally {
         setIsLoadingSuggestions(false);
       }
@@ -479,9 +505,103 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     return "n.";
   };
 
+  /**
+   * Writes a finished lookup over the form. Shared by the suggestion path and the AI
+   * generator, since `POST /words/generate` answers the same shape as the dictionary.
+   */
+  const applyLookup = (result: {
+    headword: string;
+    options: DefinitionOption[];
+    ipa: string;
+    pos: string;
+    definition: string;
+    example: string;
+    level: LevelDifficulty;
+  }) => {
+    setDefinitionOptions(result.options);
+    setIpa(result.ipa || `/${result.headword}/`);
+    setPos(result.pos);
+    setMeanings((prev) => [
+      {
+        ...(prev[0] ?? createMeaning()),
+        definition: result.definition || `Nghĩa của ${result.headword}`,
+        // Leave it blank when there is no example — blank is what surfaces the AI button.
+        examples: [result.example],
+      },
+      ...prev.slice(1),
+    ]);
+    setLevel(result.level);
+
+    setAutoFilled(true);
+    setTimeout(() => setAutoFilled(false), 3000);
+  };
+
+  /**
+   * The AI word generator, offered when Datamuse has no match for what was typed —
+   * `POST /words/generate` writes the entry the dictionary does not carry.
+   */
+  const handleGenerateWithAI = async () => {
+    const headword = word.trim();
+    if (!headword || isGeneratingWord) return;
+
+    soundFX.playPop();
+    setAiNotice(null);
+    setSyncError(null);
+    setExampleError(null);
+    setIsGeneratingWord(true);
+
+    try {
+      const data = await generateWordEntry({ headword, cefrLevel: level });
+      const entry = data[0];
+      const options = entry ? buildDefinitionOptions(entry) : [];
+
+      if (!entry || options.length === 0) {
+        setAiNotice(
+          `AI chưa tạo được nghĩa cho “${headword}” — thử lại hoặc tự điền nhé.`,
+        );
+        return;
+      }
+
+      // The generator may normalize the spelling (`runing` -> `running`). Move the input with
+      // it, otherwise the field's own guard reads the panel as stale and clears it.
+      const finalWord = entry.word?.trim() || headword;
+      setWord(finalWord);
+      setLookedUpWord(finalWord);
+
+      const firstMeaning = entry.meanings?.[0];
+      const firstDef = firstMeaning?.definitions?.[0];
+
+      applyLookup({
+        headword: finalWord,
+        options,
+        ipa:
+          entry.phonetic?.trim() ||
+          entry.phonetics?.find((p) => p.text?.trim())?.text?.trim() ||
+          "",
+        pos: mapPartOfSpeech(firstMeaning?.partOfSpeech),
+        definition: firstDef?.definition?.trim() || "",
+        example: firstDef?.example?.trim() || "",
+        level,
+      });
+    } catch (err) {
+      console.warn("Generate word error:", err);
+      // A rejection names its own reason; a network failure only carries the browser's
+      // English "Failed to fetch", so that one gets the Vietnamese wording instead.
+      const rejected =
+        err instanceof ApiError && !err.isNetworkError && err.message;
+      setAiNotice(
+        rejected ||
+          "Không tạo được từ bằng AI — kiểm tra kết nối rồi thử lại nhé.",
+      );
+    } finally {
+      setIsGeneratingWord(false);
+    }
+  };
+
   const handleSelectSuggestion = async (suggestedWord: string) => {
     soundFX.playPop();
     setWord(suggestedWord);
+    setSyncError(null);
     setIsLoadingDetails(true);
     setDefinitionOptions([]);
     setLookedUpWord(suggestedWord);
@@ -546,24 +666,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     }
 
-    setDefinitionOptions(options);
     setIsLoadingDetails(false);
 
-    setIpa(fetchedIpa || `/${suggestedWord}/`);
-    setPos(fetchedPos);
-    setMeanings((prev) => [
-      {
-        ...(prev[0] ?? createMeaning()),
-        definition: fetchedDef || `Nghĩa của ${suggestedWord}`,
-        // Leave it blank when the dictionary has no example — blank is what surfaces the AI button.
-        examples: [fetchedExample],
-      },
-      ...prev.slice(1),
-    ]);
-    setLevel(fetchedLevel as LevelDifficulty);
-
-    setAutoFilled(true);
-    setTimeout(() => setAutoFilled(false), 3000);
+    applyLookup({
+      headword: suggestedWord,
+      options,
+      ipa: fetchedIpa,
+      pos: fetchedPos,
+      definition: fetchedDef,
+      example: fetchedExample,
+      level: fetchedLevel as LevelDifficulty,
+    });
   };
 
   const isDefinitionPicked = (text: string) =>
@@ -725,7 +838,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     if (!word.trim() || !firstDefinition) return;
 
     setIsSubmitting(true);
-    setError("");
+    setSyncError(null);
 
     const firstExample = meanings[0]?.examples
       .map((ex) => ex.trim())
@@ -807,12 +920,23 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     } catch (err) {
       console.error("API addWord error:", err);
+      // A rejection the backend spelled out (`success: false`, e.g. 422 "Word not
+      // found") will never succeed on retry, so say so instead of closing as if
+      // the word had synced. A network error stays silent: it is transient and
+      // the local copy already covers it.
+      if (err instanceof ApiError && !err.isNetworkError) {
+        setSyncError(
+          `Đã lưu "${newWordItem.word}" trên thiết bị này, nhưng chưa đồng bộ được: ${err.message}`,
+        );
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     soundFX.playCorrect();
 
     setIsSubmitting(false);
-    setError("");
+    setSyncError(null);
     // Reset form
     setWord("");
     setIpa("");
@@ -1056,9 +1180,18 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     } catch (err) {
       console.error("API addWordsBulk error:", err);
-      // The optimistic local entries already stand — same degrade-to-local
-      // behavior as a failed single-word add.
-      handleModalClose();
+      // The optimistic local entries already stand. A rejection the backend
+      // spelled out (`success: false`) applies to the whole batch and will not
+      // resolve on retry, so name it per row in the panel below instead of
+      // closing as if everything synced. A network error keeps the old
+      // degrade-to-local close.
+      if (err instanceof ApiError && !err.isNetworkError) {
+        setBulkFailures(
+          newWordsList.map((w) => ({ headword: w.word, error: err.message })),
+        );
+      } else {
+        handleModalClose();
+      }
     } finally {
       setIsBulkSubmitting(false);
     }
@@ -1145,8 +1278,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   value={word}
                   onChange={(e) => {
                     setWord(e.target.value);
-                    // The definition list belongs to the word that was looked up — drop it once
-                    // the input moves to a different word.
+                    setSyncError(null);
                     if (
                       e.target.value.trim().toLowerCase() !==
                       lookedUpWord.toLowerCase()
@@ -1215,6 +1347,47 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         );
                       })}
                     </div>
+                  </div>
+                ) : hasNoSuggestions ? (
+                  /* Datamuse found nothing for this input — the chips are replaced by the
+                    AI generator so the user still has a way forward. */
+                  <div className="p-3.5 rounded-2xl border-clay border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-slate-800 shadow-clay space-y-2.5 animate-slideUp">
+                    <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                      <span className="flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                        <span>
+                          Không tìm thấy gợi ý cho &ldquo;{word.trim()}&rdquo;
+                        </span>
+                      </span>
+                      {isLoadingSuggestions && (
+                        <RefreshCw className="w-3 h-3 shrink-0 animate-spin text-amber-500" />
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateWithAI}
+                      disabled={isLoadingDetails || isGeneratingWord}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-clay border-blue-300 dark:border-blue-800 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 text-xs font-extrabold shadow-clay-sm hover:shadow-clay hover:bg-blue-600 hover:text-white hover:border-blue-500 dark:hover:text-white transition-all duration-200 active:scale-95 disabled:opacity-50"
+                    >
+                      {isGeneratingWord ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Đang tạo từ với AI...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" />
+                          <span>Tạo từ với AI</span>
+                        </>
+                      )}
+                    </button>
+
+                    {aiNotice && (
+                      <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                        {aiNotice}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   /* Datamuse API Smart Suggestions Chips */
@@ -1481,6 +1654,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                 />
               </div>
 
+              {/* Backend refused the word — the local copy stands, so this is a
+                  warning, not a failure. */}
+              {syncError && (
+                <div className="flex items-start gap-2 p-3 rounded-2xl border-clay border-amber-300 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+                    {syncError}
+                  </p>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="pt-2 flex gap-3">
                 <button
@@ -1488,15 +1672,21 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   onClick={handleModalClose}
                   className="flex-1 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                 >
-                  Hủy
+                  {syncError ? "Đóng" : "Hủy"}
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || syncError !== null}
                   className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset text-white text-xs font-bold shadow-clay transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>{isSubmitting ? "Đang lưu..." : "Lưu từ mới"}</span>
+                  <span>
+                    {isSubmitting
+                      ? "Đang lưu..."
+                      : syncError
+                        ? "Đã lưu trên máy"
+                        : "Lưu từ mới"}
+                  </span>
                 </button>
               </div>
             </form>

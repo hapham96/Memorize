@@ -28,6 +28,17 @@ export type ProfileResponse = {
   email: string;
 };
 
+/** PATCH /users/name — the only endpoint that writes the display name back. */
+export type UpdateNameRequest = {
+  name: string;
+};
+
+/** PATCH /users/password — the current password is verified server-side. */
+export type UpdatePasswordRequest = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 /** What we persist locally after a successful login/register. */
 export type AuthSession = {
   accessToken: string;

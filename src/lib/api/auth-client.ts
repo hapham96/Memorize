@@ -5,9 +5,10 @@ import {
   LoginRequest,
   ProfileResponse,
   RegisterRequest,
+  UpdatePasswordRequest,
 } from "@/types/auth";
 import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/storage";
-import { getAsync, postAsync } from "./client";
+import { getAsync, patchAsync, postAsync } from "./client";
 
 /** Backend rule from RegisterDto. */
 export const MIN_PASSWORD_LENGTH = 8;
@@ -100,6 +101,46 @@ export async function refreshProfile(): Promise<AuthSession | null> {
   const session = loadAuthSession();
   if (!session) return null;
   return withProfile(session);
+}
+
+/**
+ * Writes the display name back through `PATCH /users/name` — the one endpoint
+ * that can change it — and folds the result into the stored session so the
+ * header, profile and avatar all follow without another `/users/profile` read.
+ *
+ * The response shape is not in `/api-json`, so it is only trusted where it
+ * actually carries a value; otherwise the name we just sent stands. Returns
+ * null when nobody is signed in, which can only happen if the session was
+ * cleared (401) while the request was in flight.
+ */
+export async function updateName(name: string): Promise<AuthSession | null> {
+  const trimmed = name.trim();
+  const response = await patchAsync<Partial<ProfileResponse> | null>(
+    '/users/name',
+    { name: trimmed },
+    { auth: true },
+  );
+
+  const session = loadAuthSession();
+  if (!session) return null;
+
+  const updated: AuthSession = {
+    ...session,
+    userId: typeof response?.userId === 'number' ? response.userId : session.userId,
+    email: response?.email?.trim() || session.email,
+    name: response?.name?.trim() || trimmed,
+  };
+  saveAuthSession(updated);
+  return updated;
+}
+
+/**
+ * `PATCH /users/password`. The current password is verified server-side, so a
+ * wrong one comes back as a failure envelope (401/422) and is shown as-is.
+ * The token is unchanged by a password change — there is nothing to re-store.
+ */
+export async function updatePassword(payload: UpdatePasswordRequest): Promise<void> {
+  await patchAsync<unknown>('/users/password', payload, { auth: true });
 }
 
 export function logout(): void {

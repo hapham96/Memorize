@@ -1,4 +1,12 @@
-import { Category, CEFRLevel, UserProgress, SRSData, Word, WordCategory } from '@/types';
+import {
+  Category,
+  CEFRLevel,
+  UserProgress,
+  SRSData,
+  UserWordListItem,
+  Word,
+  WordCategory,
+} from '@/types';
 import { AuthSession } from '@/types/auth';
 import { generateAvatar } from '@/lib/avatar';
 import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
@@ -11,6 +19,7 @@ const STORAGE_KEYS = {
   AUTH: 'memorize_auth',
   REMINDERS: 'memorize_reminder_state',
   CATEGORIES: 'memorize_categories',
+  WORD_LIBRARY: 'memorize_word_library',
 };
 
 /** Keys holding per-account data — scoped by user id, unlike AUTH and SETTINGS. */
@@ -22,6 +31,7 @@ const SCOPED_KEYS = [
   // `/categories` is authenticated, so the list may well be the account's own —
   // scoping costs one duplicated copy and rules out showing another user's.
   STORAGE_KEYS.CATEGORIES,
+  STORAGE_KEYS.WORD_LIBRARY,
 ];
 
 /**
@@ -274,6 +284,71 @@ export function saveCategories(categories: Category[]): void {
     writeScoped(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
   } catch (e) {
     console.error('Failed to save categories', e);
+  }
+}
+
+/**
+ * Bumped whenever a cached row's shape changes. An older payload is dropped
+ * rather than read with missing fields.
+ */
+const WORD_LIBRARY_CACHE_VERSION = 1;
+
+export interface WordLibraryCache {
+  version: number;
+  /** When the pages were read, for the "cập nhật lúc …" hint and nothing else. */
+  fetchedAt: number;
+  items: UserWordListItem[];
+}
+
+/**
+ * The account's whole word library, as last read from `GET /words`.
+ *
+ * The library only changes when the account adds words, so it is read once and
+ * kept — `addWord`/`addWordsBulk` drop it, and nothing else does. Returns null
+ * when there is no usable copy, which is the signal to fetch.
+ */
+export function loadWordLibraryCache(): WordLibraryCache | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const data = readScoped(STORAGE_KEYS.WORD_LIBRARY);
+    if (!data) return null;
+
+    const parsed = JSON.parse(data) as WordLibraryCache;
+    if (parsed?.version !== WORD_LIBRARY_CACHE_VERSION) return null;
+    if (!Array.isArray(parsed.items)) return null;
+
+    return { ...parsed, fetchedAt: parsed.fetchedAt ?? 0 };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `fetchedAt` is passed through when an existing copy is only being patched, so
+ * a row rewrite does not pose as a fresh read of the library.
+ */
+export function saveWordLibraryCache(items: UserWordListItem[], fetchedAt?: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: WordLibraryCache = {
+      version: WORD_LIBRARY_CACHE_VERSION,
+      fetchedAt: fetchedAt ?? Date.now(),
+      items,
+    };
+    writeScoped(STORAGE_KEYS.WORD_LIBRARY, JSON.stringify(payload));
+  } catch (e) {
+    // A large library can exceed the localStorage quota; the screen still works
+    // from the fetched list, it just has to fetch again next time.
+    console.warn('Failed to cache word library', e);
+  }
+}
+
+export function clearWordLibraryCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(scopedKey(STORAGE_KEYS.WORD_LIBRARY));
+  } catch (e) {
+    console.error('Failed to clear word library cache', e);
   }
 }
 
