@@ -507,6 +507,13 @@ export default function Home() {
     setActiveTab('review');
   };
 
+  const openPractice = () => {
+    setActiveQuizMode(null);
+    setSessionResult(null);
+    setIsSettingsOpen(false);
+    setActiveTab('learn');
+  };
+
   const handleAddWords = (newWords: Word[]) => {
     if (newWords.length === 0) return;
 
@@ -1016,9 +1023,11 @@ export default function Home() {
           items={activeReminder.items}
           onReview={() => {
             dismissReminder();
-            openReview();
+            openPractice();
           }}
-          onDismiss={dismissReminder}
+          onDismiss={() => {
+            dismissReminder();
+          }}
         />
       )}
     </MobileContainer>

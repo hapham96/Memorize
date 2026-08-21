@@ -71,7 +71,7 @@ export const DueReminderToast: React.FC<DueReminderToastProps> = ({
 
           <button
             onClick={onDismiss}
-            aria-label="Đóng nhắc nhở"
+            aria-label="Đóng nhắc nhở và mở màn hình luyện tập"
             className="flex-shrink-0 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
           >
             <X className="w-4 h-4" />
