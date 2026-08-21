@@ -39,7 +39,7 @@ export async function getDueExercises(
  * Each row is one definition, so `Word.id` is the exercise's own
  * `userWordDefinitionId` — the id `/reviews/:id` is posted to. A local copy is
  * matched by headword text to fill what the flat row doesn't carry (level,
- * category, mnemonic). Unmatched words (never synced to this device) fall back
+ * category, mnemonic, the other senses). Unmatched words (never synced to this device) fall back
  * to a synthetic id; rating them still updates local SRS state, just not
  * through a real backend id.
  */
@@ -61,6 +61,9 @@ export function mapFlashcardExerciseToWord(
     // The backend sends no example sentence for flashcard rows — local only.
     example: local?.example ?? "",
     translation: local?.translation ?? "",
+    // The exercise row is one definition; the local copy (from `GET /words`)
+    // carries every sense, so the card still pages through all of them.
+    meanings: local?.meanings,
     level: local?.level ?? "B1",
     category: local?.category ?? FALLBACK_CATEGORY,
     mnemonic: local?.mnemonic,

@@ -357,6 +357,9 @@ export function resolveWordForUserWord(
     vietnamese: trimmed(dueRow.definition) ?? local?.vietnamese ?? "",
     example: trimmed(dueRow.example) ?? local?.example ?? "",
     translation: local?.translation ?? `Ví dụ với ${dueRow.headword}.`,
+    // The due row is one definition; the local copy (from `GET /words`)
+    // carries every sense, so the card still pages through all of them.
+    meanings: local?.meanings,
     audioUrl: trimmed(dueRow.audioUrl) ?? local?.audioUrl,
     level: normalizeLevel(dueRow.cefrLevel) ?? local?.level ?? "B1",
     category: local?.category ?? FALLBACK_CATEGORY,
