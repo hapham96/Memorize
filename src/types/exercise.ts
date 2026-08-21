@@ -1,9 +1,10 @@
-import { BackendExample, BackendUserWord } from './word';
+import { BackendWordDefinition } from './word';
 
 /**
  * The exercise types served by `GET /exercises/due`. Only the four below are
- * also graded by `POST /exercises/:userWordId/submit` — flashcards keep the
- * existing `/reviews` flow, so they're excluded from `AutoGradedExerciseType`.
+ * also graded by `POST /exercises/:userWordDefinitionId/submit` — flashcards
+ * keep the existing `/reviews` flow, so they're excluded from
+ * `AutoGradedExerciseType`.
  */
 export type AutoGradedExerciseType =
   | 'multiple_choice'
@@ -14,40 +15,39 @@ export type AutoGradedExerciseType =
 export type ExerciseType = 'flashcard' | AutoGradedExerciseType;
 
 interface BaseExercise<T extends ExerciseType> {
-  userWordId: number;
+  userWordDefinitionId: number;
   exerciseType: T;
   headword: string;
   ipaPronunciation: string | null;
 }
 
-export interface FlashcardDefinition {
+export interface FlashcardExercise extends BaseExercise<'flashcard'> {
   definition: string;
   partOfSpeech: string | null;
-  /** Same `{ example, language }` shape as everywhere else in this API, not plain strings. */
-  examples: BackendExample[];
-}
-
-export interface FlashcardExercise extends BaseExercise<'flashcard'> {
-  definitions: FlashcardDefinition[];
 }
 
 export interface MultipleChoiceExercise extends BaseExercise<'multiple_choice'> {
   options: string[];
+  /** Not used for local grading — `/exercises/:id/submit` remains the source of truth. */
+  correctAnswer?: string;
 }
 
 export interface FillInBlankExercise extends BaseExercise<'fill_in_blank'> {
   sentence: string;
   definitionHint: string | null;
   partOfSpeech: string | null;
+  correctAnswer?: string;
 }
 
 export interface TypeMissingWordExercise extends BaseExercise<'type_missing_word'> {
   sentence: string;
   options: string[];
+  correctAnswer?: string;
 }
 
 export interface ListeningExercise extends BaseExercise<'listening'> {
   audioUrl: string | null;
+  correctAnswer?: string;
 }
 
 export type AutoGradedExercise =
@@ -82,9 +82,9 @@ export interface SubmitExerciseRequest {
 }
 
 /**
- * The backend's submit-exercise response isn't documented on the frontend
- * side; it's assumed to carry the same SRS columns `/reviews/:id` returns,
- * since both endpoints grade into the same `user_words` row. `isCorrect` is
- * read opportunistically if present, with a fallback in `isExerciseAnswerCorrect`.
+ * `/exercises/:userWordDefinitionId/submit` grades into the same definition
+ * row `/reviews/:id` does, so the response carries the same SRS columns plus
+ * `isCorrect`. `userWordId` here is the *parent word*, not the definition —
+ * use it to patch the cached library row.
  */
-export type SubmitExerciseResponse = BackendUserWord & { isCorrect?: boolean };
+export type SubmitExerciseResponse = BackendWordDefinition & { isCorrect?: boolean };

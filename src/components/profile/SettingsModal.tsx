@@ -13,7 +13,7 @@ import {
   AlertCircle,
   GraduationCap,
 } from 'lucide-react';
-import { Category, WordCategory } from '@/types';
+import { VocabularySet, WordCategory } from '@/types';
 import { CEFR_LEVELS, cefrLevelInfo } from '@/data/cefrLevels';
 import { categoryNames } from '@/lib/api/category-client';
 import { AppSettings } from '@/lib/storage';
@@ -23,8 +23,8 @@ import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface SettingsModalProps {
   settings: AppSettings;
-  /** The account's `/categories` list; the focus picker is built from it. */
-  categories?: Category[];
+  /** The account's `/vocabulary-sets` list; the focus picker is built from it. */
+  vocabularySets?: VocabularySet[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetProgress: () => void;
   onClose: () => void;
@@ -39,7 +39,8 @@ const REMINDER_INTERVALS = [30, 60, 180, 360];
 
 /**
  * Emoji per category name — decoration only. The list itself comes from
- * `/categories`, so a name that is not here still renders, just without an icon.
+ * `/vocabulary-sets`, so a name that is not here still renders, just without
+ * an icon.
  */
 const CATEGORY_EMOJI: Record<string, string> = {
   IELTS: '🎓',
@@ -63,7 +64,7 @@ const categoryLabel = (name: WordCategory): string => {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
-  categories = [],
+  vocabularySets = [],
   onUpdateSettings,
   onResetProgress,
   onClose,
@@ -361,7 +362,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </p>
 
           <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-            {categoryNames(categories).map((cat) => {
+            {categoryNames(vocabularySets).map((cat) => {
               const isSelected = settings.focusCategories?.includes(cat);
 
               const handleToggleCat = () => {

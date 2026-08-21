@@ -1,19 +1,30 @@
-import { Category, WordCategory } from "@/types";
-import { BackendCategory } from "@/types/word";
+import { VocabularySet, WordCategory } from "@/types";
 import { getAsync } from "./client";
 import { loadCategories, saveCategories } from "@/lib/storage";
 
 /**
+ * The backend row shape for `GET /vocabulary-sets` — `VocabularySetResponseDto`.
+ */
+interface BackendVocabularySet {
+  id: number;
+  userId: number;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+/**
  * The bucket a word falls into when nothing else names one. It is local-only —
  * the backend has no such row — so it is always offered alongside the fetched
- * list rather than expected to come back from `/categories`.
+ * list rather than expected to come back from `/vocabulary-sets`.
  */
 export const FALLBACK_CATEGORY: WordCategory = 'Custom';
 
 /**
- * Names the app shipped before `/categories` existed. Used only while the list
- * is empty — a first run that has not reached the backend yet, or an account
- * whose fetch failed — so the pickers are never blank.
+ * Names the app shipped before `/vocabulary-sets` existed. Used only while the
+ * list is empty — a first run that has not reached the backend yet, or an
+ * account whose fetch failed — so the pickers are never blank.
  */
 export const FALLBACK_CATEGORY_NAMES: WordCategory[] = [
   'Custom',
@@ -30,40 +41,44 @@ export const FALLBACK_CATEGORY_NAMES: WordCategory[] = [
 ];
 
 /** Drops rows with no usable name; the name is what the whole UI keys on. */
-function mapBackendCategory(category: BackendCategory): Category | null {
-  const name = typeof category?.name === 'string' ? category.name.trim() : '';
+function mapBackendVocabularySet(set: BackendVocabularySet): VocabularySet | null {
+  const name = typeof set?.name === 'string' ? set.name.trim() : '';
   if (!name) return null;
 
-  const createdAt = category.createdAt?.trim();
   return {
-    id: Number(category.id),
+    id: Number(set.id),
+    userId: Number(set.userId),
     name,
-    ...(createdAt ? { createdAt } : {}),
+    description: typeof set.description === 'string' ? set.description : null,
+    isDefault: Boolean(set.isDefault),
+    createdAt: set.createdAt,
   };
 }
 
-function toCategories(data: unknown): Category[] {
+function toVocabularySets(data: unknown): VocabularySet[] {
   if (!Array.isArray(data)) return [];
 
   const seen = new Set<string>();
-  return data.reduce<Category[]>((acc, raw) => {
-    const category = mapBackendCategory(raw as BackendCategory);
+  return data.reduce<VocabularySet[]>((acc, raw) => {
+    const set = mapBackendVocabularySet(raw as BackendVocabularySet);
     // Two rows with the same name would render as two identical chips that
     // filter identically — keep the first.
-    if (!category || seen.has(category.name.toLowerCase())) return acc;
+    if (!set || seen.has(set.name.toLowerCase())) return acc;
 
-    seen.add(category.name.toLowerCase());
-    acc.push(category);
+    seen.add(set.name.toLowerCase());
+    acc.push(set);
     return acc;
   }, []);
 }
 
-export async function fetchCategories(): Promise<Category[]> {
-  return toCategories(await getAsync<BackendCategory[]>('/categories', { auth: true }));
+export async function fetchVocabularySets(): Promise<VocabularySet[]> {
+  return toVocabularySets(
+    await getAsync<BackendVocabularySet[]>('/vocabulary-sets', { auth: true }),
+  );
 }
 
 /**
- * The single read of `/categories`, run at sign-in.
+ * The single read of `/vocabulary-sets`, run at sign-in.
  *
  * The list is small and effectively static, so it is fetched once and served
  * from localStorage thereafter. `force` is what sign-in passes to refresh the
@@ -71,19 +86,19 @@ export async function fetchCategories(): Promise<Category[]> {
  * network when there is nothing stored at all. A failed fetch keeps whatever
  * was cached — a category picker is not worth blocking a session over.
  */
-export async function syncCategories(
+export async function syncVocabularySets(
   options: { force?: boolean } = {}
-): Promise<Category[]> {
+): Promise<VocabularySet[]> {
   const cached = loadCategories();
   if (!options.force && cached.length > 0) return cached;
 
   try {
-    const categories = await fetchCategories();
+    const sets = await fetchVocabularySets();
     // An empty answer is not worth overwriting a usable cached list with.
-    if (categories.length === 0) return cached;
+    if (sets.length === 0) return cached;
 
-    saveCategories(categories);
-    return categories;
+    saveCategories(sets);
+    return sets;
   } catch (e) {
     if (cached.length > 0) return cached;
     throw e;
@@ -91,35 +106,20 @@ export async function syncCategories(
 }
 
 /**
- * The one category a word is labelled with. A word can belong to several and
- * the card has room for one, so the latest wins.
- *
- * A row is only `{ id, name }`, so there is no timestamp to sort on: the last
- * entry of the array is taken as the most recently attached one. `createdAt` is
- * still honoured if the backend ever starts sending it.
+ * The name of the vocabulary set a word is filed under. A word now belongs to
+ * exactly one set (`vocabularySetId`), so this is a lookup, not a pick-latest.
  */
-export function pickLatestCategoryName(
-  categories?: BackendCategory[] | null
+export function resolveVocabularySetName(
+  vocabularySetId: number | null | undefined,
+  sets: VocabularySet[],
 ): WordCategory | undefined {
-  if (!Array.isArray(categories)) return undefined;
-
-  const named = categories.filter((c) => typeof c?.name === 'string' && c.name.trim());
-  if (named.length === 0) return undefined;
-
-  const latest = named.reduce((newest, candidate) => {
-    const candidateAt = Date.parse(candidate.createdAt ?? '');
-    const newestAt = Date.parse(newest.createdAt ?? '');
-    // Either side missing a usable date drops back to array order.
-    if (Number.isNaN(candidateAt) || Number.isNaN(newestAt)) return candidate;
-    return candidateAt >= newestAt ? candidate : newest;
-  });
-
-  return latest.name.trim();
+  if (vocabularySetId === null || vocabularySetId === undefined) return undefined;
+  return sets.find((s) => s.id === vocabularySetId)?.name;
 }
 
 /** Names for the pickers: the account's list, or the shipped names until it loads. */
-export function categoryNames(categories: Category[]): WordCategory[] {
-  const names = categories.map((c) => c.name).filter(Boolean);
+export function categoryNames(sets: VocabularySet[]): WordCategory[] {
+  const names = sets.map((s) => s.name).filter(Boolean);
   if (names.length === 0) return FALLBACK_CATEGORY_NAMES;
 
   // `Custom` is where locally added words land, so it must always be pickable

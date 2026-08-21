@@ -1,5 +1,5 @@
 import {
-  Category,
+  VocabularySet,
   CEFRLevel,
   UserProgress,
   SRSData,
@@ -28,8 +28,8 @@ const SCOPED_KEYS = [
   STORAGE_KEYS.SRS,
   STORAGE_KEYS.CUSTOM_WORDS,
   STORAGE_KEYS.REMINDERS,
-  // `/categories` is authenticated, so the list may well be the account's own —
-  // scoping costs one duplicated copy and rules out showing another user's.
+  // `/vocabulary-sets` is authenticated, so the list may well be the account's
+  // own — scoping costs one duplicated copy and rules out showing another user's.
   STORAGE_KEYS.CATEGORIES,
   STORAGE_KEYS.WORD_LIBRARY,
 ];
@@ -261,11 +261,12 @@ export function saveCustomWords(customWords: Word[]): void {
 }
 
 /**
- * The category list from `GET /categories`. Fetched once per sign-in and read
- * from here on every later render, so a category chip never waits on the
- * network — and an offline session still filters and labels words.
+ * The vocabulary set list from `GET /vocabulary-sets`. Fetched once per
+ * sign-in and read from here on every later render, so a category chip never
+ * waits on the network — and an offline session still filters and labels
+ * words.
  */
-export function loadCategories(): Category[] {
+export function loadCategories(): VocabularySet[] {
   if (typeof window === 'undefined') return [];
   try {
     const data = readScoped(STORAGE_KEYS.CATEGORIES);
@@ -278,7 +279,7 @@ export function loadCategories(): Category[] {
   }
 }
 
-export function saveCategories(categories: Category[]): void {
+export function saveCategories(categories: VocabularySet[]): void {
   if (typeof window === 'undefined') return;
   try {
     writeScoped(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));

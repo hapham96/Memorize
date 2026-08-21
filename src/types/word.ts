@@ -1,154 +1,113 @@
+export type WordDefinitionRequest = {
+  definition: string;
+  partOfSpeech?: string;
+  example?: string;
+};
+
 export type AddWordRequest = {
-  userId: number;
   headword: string;
+  /** Omit to use (or lazily create) the caller's default vocabulary set. */
+  vocabularySetId?: number;
   ipaPronunciation: string;
-  definitions: DefinitionRequest[];
+  audioUrl: string;
+  cefrLevel: string;
+  definitions: WordDefinitionRequest[];
 };
 
 export type AddBulkWordsRequest = {
   words: AddWordRequest[];
 };
 
-export type DefinitionRequest = {
-  definition: string;
-  partOfSpeech: string;
-  examples: ExamplesRequest[];
-};
-
-export type ExampleLanguage = "en" | "vi";
-
-export type ExamplesRequest = {
-  example: string;
-  language: ExampleLanguage;
-};
-
-export type BackendExample = {
-  id?: number;
-  example: string;
-  language: ExampleLanguage;
-};
-
-export type BackendDefinition = {
-  id?: number;
+/**
+ * One (user, word, sense) row — `UserWordDefinitionResponseDto`. SRS state lives
+ * here, not on the word, since the backend schedules each sense independently.
+ */
+export type BackendWordDefinition = {
+  id: number;
+  /** The parent word row this definition belongs to. */
+  userWordId: number;
   definition: string;
   partOfSpeech: string | null;
-  examples?: BackendExample[] | null;
-};
-
-export type BackendCategory = {
-  id: number;
-  name: string;
-  description?: string | null;
-  createdAt?: string | null;
-};
-
-export type BackendWord = {
-  id: number;
-  headword: string;
-  ipaPronunciation: string | null;
-  audioUrl: string | null;
-  cefrLevel: string | null;
-  /** Absent on `GET /words` rows, which report only the word's own columns. */
-  createdAt?: string | null;
-  /** Only present on endpoints that embed the word's content. */
-  definitions?: BackendDefinition[] | null;
-  /** A word may belong to several categories; the card shows the newest one. */
-  categories?: BackendCategory[] | null;
-};
-
-export type BackendUserWord = {
-  id: number;
-  userId: number;
-  wordId: number;
+  example: string | null;
   status: string;
   learningStep: number;
   easinessFactor: number;
   repetitions: number;
+  /** Days, meaningful once status is reviewing/mastered. */
   interval: number;
   dueAt: string;
+  graduatedAt: string | null;
+  createdAt: string;
+};
+
+/** A word row — `UserWordResponseDto`. No SRS fields; those live per-definition. */
+export type BackendUserWord = {
+  id: number;
+  userId: number;
+  headword: string;
+  ipaPronunciation: string | null;
+  audioUrl: string | null;
+  cefrLevel: string | null;
+  vocabularySetId: number;
   isFavorite: boolean;
   createdAt: string;
 };
 
 /**
- * A `/reviews/due` row. The account comes from the bearer token, so the request
- * carries no `userId`. `word` is what lets a due item render on a device that
- * never added it locally — treated as optional so a backend that still answers
- * with the bare user-word keeps working (the UI falls back to the local copy).
+ * A `/reviews/due` row — `DueReviewResponseDto`. Flat: one definition, plus the
+ * word columns needed to render it without a second lookup. The account comes
+ * from the bearer token, so the request carries no `userId`.
  */
-export type BackendDueReview = BackendUserWord & {
-  word?: BackendWord | null;
+export type BackendDueReview = BackendWordDefinition & {
+  headword: string;
+  ipaPronunciation: string | null;
+  audioUrl: string | null;
+  cefrLevel: string | null;
 };
 
 export type AddWordResponse = {
-  word: BackendWord;
-  userWord: BackendUserWord;
+  word: BackendUserWord;
+  definitions: BackendWordDefinition[];
 };
 
-export type BulkAddWordResult =
-  | {
-      headword: string;
-      success: true;
-      word: BackendWord;
-      userWord: BackendUserWord;
-    }
-  | { headword: string; success: false; error: string };
+/**
+ * A `/words/bulk` result. `word`/`definitions` are absent when `success` is
+ * false (e.g. a duplicate headword), so a partial import never blocks the
+ * words that did land.
+ */
+export type BulkAddWordResult = {
+  word?: BackendUserWord;
+  definitions?: BackendWordDefinition[];
+  headword: string;
+  success: boolean;
+  error?: string;
+};
 
 export type BulkAddWordResponse = BulkAddWordResult[];
 
 /**
- * A `GET /words` row: the word's own columns with the account's progress folded
- * in flat — `status`/`dueAt`/`isFavorite` come from the user-word, not the word,
- * so they are optional and every other user-word column is absent.
+ * A `GET /words` row — `WordListItemDto`. Per-word SRS status is gone; each
+ * entry in `definitions` carries its own.
  */
-export type BackendWordListItem = BackendWord & {
-  status?: string | null;
-  dueAt?: string | null;
-  isFavorite?: boolean | null;
+export type BackendWordListItem = {
+  id: number;
+  headword: string;
+  ipaPronunciation: string | null;
+  audioUrl: string | null;
+  cefrLevel: string | null;
+  vocabularySetId: number;
+  isFavorite: boolean;
+  definitions: BackendWordDefinition[];
 };
 
-/**
- * A row of `GET /words`. The endpoint is not in the deployed OpenAPI document,
- * so both observed shapes are accepted: the flattened word above, or a wrapper
- * carrying the account's user-word alongside it (like `AddWordResponse`).
- */
-export type BackendWordListRow =
-  | BackendWordListItem
-  | { word: BackendWord; userWord?: BackendUserWord | null };
-
-/**
- * The envelope `GET /words` answers a paginated read with. Every field is
- * optional because the contract is unconfirmed — a bare array is read as the
- * whole library, and the key aliases below cover the shapes NestJS pagination
- * helpers commonly emit.
- */
-export type BackendWordListResponse =
-  | BackendWordListRow[]
-  | {
-      data?: BackendWordListRow[] | null;
-      items?: BackendWordListRow[] | null;
-      words?: BackendWordListRow[] | null;
-      results?: BackendWordListRow[] | null;
-      total?: number | null;
-      totalItems?: number | null;
-      count?: number | null;
-      totalPages?: number | null;
-      page?: number | null;
-      /** What the deployed endpoint calls `page`. */
-      pageNumber?: number | null;
-      pageSize?: number | null;
-      limit?: number | null;
-      perPage?: number | null;
-      meta?: {
-        total?: number | null;
-        totalItems?: number | null;
-        totalPages?: number | null;
-        page?: number | null;
-        pageNumber?: number | null;
-        pageSize?: number | null;
-        limit?: number | null;
-      } | null;
-    };
+/** `GET /words` — `GetWordsResponseDto`. A fixed shape, not an envelope to guess at. */
+export type BackendWordListResponse = {
+  items: BackendWordListItem[];
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
 
 export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -156,4 +115,4 @@ export type ReviewWordRequest = {
   quality: ReviewQuality;
 };
 
-export type ReviewWordResponse = BackendUserWord;
+export type ReviewWordResponse = BackendWordDefinition;

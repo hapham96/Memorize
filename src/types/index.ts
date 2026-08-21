@@ -8,9 +8,10 @@ export type LevelDifficulty = 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
 /**
- * The set is open: names come from `GET /categories`, so the app cannot close
- * it. The listed members are only the names the app ships copy and decoration
- * for (and `Custom`, the local bucket) — any other string is equally valid.
+ * The set is open: names come from `GET /vocabulary-sets`, so the app cannot
+ * close it. The listed members are only the names the app ships copy and
+ * decoration for (and `Custom`, the local bucket) — any other string is
+ * equally valid.
  */
 export type WordCategory =
   | 'IELTS'
@@ -26,12 +27,18 @@ export type WordCategory =
   | 'Custom'
   | (string & {});
 
-/** A row of `GET /categories`, fetched once per sign-in and cached locally. */
-export interface Category {
+/**
+ * A row of `GET /vocabulary-sets`, fetched once per sign-in and cached
+ * locally. A word belongs to exactly one of these (`vocabularySetId`),
+ * replacing the old many-categories-per-word model.
+ */
+export interface VocabularySet {
   id: number;
+  userId: number;
   name: string;
-  /** Present only when the backend sends it; used to pick a word's newest category. */
-  createdAt?: string;
+  description: string | null;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 /**

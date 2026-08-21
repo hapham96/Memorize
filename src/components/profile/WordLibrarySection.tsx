@@ -12,7 +12,7 @@ import {
   Loader2,
   RefreshCw,
 } from 'lucide-react';
-import { SRSData, SRSState, UserWordListItem, Word } from '@/types';
+import { SRSData, SRSState, UserWordListItem, VocabularySet, Word } from '@/types';
 import {
   WORDS_PAGE_SIZE,
   getUserWordLibrary,
@@ -31,6 +31,8 @@ interface WordLibrarySectionProps {
   allWords: Word[];
   /** Supplies status and due date for rows the backend did not report them for. */
   srsMap: Record<string, SRSData>;
+  /** The account's `/vocabulary-sets` list; resolves each word's category name. */
+  vocabularySets?: VocabularySet[];
 }
 
 const STATE_STYLES: Record<SRSState, string> = {
@@ -80,6 +82,7 @@ function formatFetchedAt(timestamp: number): string | null {
 export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   allWords,
   srsMap,
+  vocabularySets = [],
 }) => {
   const [page, setPage] = useState(1);
   // The whole library, paged locally below — one read covers every page.
@@ -100,13 +103,13 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   const requestRef = useRef(0);
   // Read through refs so a re-render with a new `allWords`/`srsMap` identity does
   // not re-run the load effect — the library is fetched once, not per render.
-  const localRef = useRef({ allWords, srsMap });
-  localRef.current = { allWords, srsMap };
+  const localRef = useRef({ allWords, srsMap, vocabularySets });
+  localRef.current = { allWords, srsMap, vocabularySets };
 
   const loadLibrary = useCallback(async (force: boolean) => {
     const requestId = ++requestRef.current;
     const isCurrent = () => requestRef.current === requestId;
-    const { allWords: words, srsMap: srs } = localRef.current;
+    const { allWords: words, srsMap: srs, vocabularySets: sets } = localRef.current;
 
     // A cache hit costs nothing, so it is applied straight away — no loading
     // state, no spinner flash on a tab that already has its data.
@@ -124,7 +127,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
 
     setIsLoading(true);
     try {
-      const library = await getUserWordLibrary({ force, fallbacks: words });
+      const library = await getUserWordLibrary({ force, fallbacks: words, vocabularySets: sets });
       if (!isCurrent()) return;
       setItems(withLocalOnly(library.items, words, srs));
       setFetchedAt(library.fetchedAt);

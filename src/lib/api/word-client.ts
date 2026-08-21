@@ -2,13 +2,11 @@ import {
   AddBulkWordsRequest,
   AddWordRequest,
   AddWordResponse,
-  BackendDefinition,
   BackendDueReview,
   BackendUserWord,
-  BackendWord,
+  BackendWordDefinition,
   BackendWordListItem,
   BackendWordListResponse,
-  BackendWordListRow,
   BulkAddWordResponse,
   ReviewQuality,
   ReviewWordResponse,
@@ -19,6 +17,7 @@ import {
   SRSState,
   LevelDifficulty,
   UserWordListItem,
+  VocabularySet,
   WordMeaning,
 } from "@/types";
 import {
@@ -28,7 +27,22 @@ import {
 } from "@/lib/storage";
 import { getAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
-import { FALLBACK_CATEGORY, pickLatestCategoryName } from "./category-client";
+import { FALLBACK_CATEGORY, resolveVocabularySetName } from "./category-client";
+
+/**
+ * The word-level columns `mapBackendWordToWord` actually reads — shared by
+ * `BackendUserWord` (`GET /words/bulk`, add-word responses) and
+ * `BackendWordListItem` (`GET /words`), which report the same word columns
+ * but not the same envelope.
+ */
+type BackendWordCore = {
+  id: number;
+  headword: string;
+  ipaPronunciation: string | null;
+  audioUrl: string | null;
+  cefrLevel: string | null;
+  vocabularySetId: number;
+};
 
 export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   const response = await postAsync<AddWordResponse>("/words", word, {
@@ -56,18 +70,19 @@ export async function addWordsBulk(
 }
 
 export async function submitReview(
-  userWordId: number | string,
+  userWordDefinitionId: number | string,
   quality: ReviewQuality,
 ): Promise<ReviewWordResponse> {
   const response = await postAsync<ReviewWordResponse>(
-    `/reviews/${userWordId}`,
+    `/reviews/${userWordDefinitionId}`,
     { quality },
     { auth: true },
   );
   invalidateDueReviews();
-  // A review moves one word's status and due date. Patching that row keeps the
-  // cached library honest without re-reading every page of it.
-  patchCachedUserWord(response.wordId, response.status, response.dueAt);
+  // A review moves one definition's status and due date. Patching the parent
+  // word's cached row keeps the cached library honest without re-reading
+  // every page of it.
+  patchCachedUserWord(response.userWordId, response.status, response.dueAt);
   return response;
 }
 
@@ -175,66 +190,49 @@ const trimmed = (value?: string | null): string | undefined => {
 };
 
 /**
- * One `WordMeaning` per backend definition that carries text, each keeping its
- * own part of speech and its own examples (`en` reads as the sentence, `vi` as
- * its translation). This is what lets a card page through the senses instead of
- * only showing the primary one.
- *
- * A sense can carry many English examples; `example` stays the first one so
- * everything that reads the flat field is unchanged, and `examples` holds the
- * whole list for the detail view.
+ * One `WordMeaning` per backend definition that carries text. The backend no
+ * longer distinguishes an English example from a Vietnamese one (one `example`
+ * string, no language tag), so `translation` has no backend source anymore —
+ * it is left for the caller's `fallback` to fill.
  */
 function mapBackendDefinitionsToMeanings(
-  definitions: BackendDefinition[],
+  definitions: BackendWordDefinition[],
 ): WordMeaning[] {
   const meanings: WordMeaning[] = [];
   definitions.forEach((definition) => {
     const text = trimmed(definition.definition);
     if (!text) return;
-    const examples = definition.examples ?? [];
-    const english = examples
-      .filter((e) => e.language !== "vi")
-      .map((e) => trimmed(e.example))
-      .filter(Boolean) as string[];
+    const example = trimmed(definition.example);
     meanings.push({
       pos: normalizePos(definition.partOfSpeech) ?? "",
       definition: text,
-      example: english[0] ?? "",
-      translation:
-        trimmed(examples.find((e) => e.language === "vi")?.example) ?? "",
-      ...(english.length > 0 ? { examples: english } : {}),
+      example: example ?? "",
+      translation: "",
+      ...(example ? { examples: [example] } : {}),
     });
   });
   return meanings;
 }
 
 /**
- * Builds an app `Word` out of a backend word, using its embedded definitions
- * when the endpoint sends them.
+ * Builds an app `Word` out of a backend word and its sibling definitions —
+ * separate objects now that SRS state moved off the word and onto each sense.
  *
- * The backend stores less than the card shows — no mnemonic, and a Vietnamese
- * sentence translation only if one was saved as a `vi` example — so every gap
- * is filled from `fallback`, i.e. the locally entered copy, before the
- * generated placeholder text is used. A word with no backend category keeps
- * whatever the local copy was filed under rather than being re-filed.
+ * The backend stores less than the card shows — no mnemonic, no Vietnamese
+ * translation of the example — so every gap is filled from `fallback`, i.e.
+ * the locally entered copy, before the generated placeholder text is used. A
+ * word with no resolvable vocabulary set keeps whatever the local copy was
+ * filed under rather than being re-filed.
  */
 export function mapBackendWordToWord(
-  backendWord: BackendWord,
+  backendWord: BackendWordCore,
+  definitions: BackendWordDefinition[],
+  vocabularySets: VocabularySet[],
   fallback?: Partial<Word>,
 ): Word {
   const headword = backendWord.headword;
-  const definitions = backendWord.definitions ?? [];
   const primary =
     definitions.find((d) => trimmed(d.definition)) ?? definitions[0];
-  const examples = (primary?.examples ?? []).concat(
-    definitions.filter((d) => d !== primary).flatMap((d) => d.examples ?? []),
-  );
-  const english = examples.find(
-    (e) => e.language !== "vi" && trimmed(e.example),
-  );
-  const vietnameseExample = examples.find(
-    (e) => e.language === "vi" && trimmed(e.example),
-  );
   const meaning = trimmed(primary?.definition);
   // A backend word with no embedded definitions says nothing about the senses,
   // so the local copy's list is kept rather than collapsed to one.
@@ -250,16 +248,13 @@ export function mapBackendWordToWord(
     // `vietnamese` is the meaning shown on the back of the card; the app writes
     // what the user typed into the backend's `definition`, so it round-trips.
     vietnamese: meaning ?? fallback?.vietnamese ?? "",
-    example: trimmed(english?.example) ?? fallback?.example ?? "",
-    translation:
-      trimmed(vietnameseExample?.example) ??
-      fallback?.translation ??
-      `Ví dụ với ${headword}.`,
+    example: trimmed(primary?.example) ?? fallback?.example ?? "",
+    translation: fallback?.translation ?? `Ví dụ với ${headword}.`,
     meanings: meanings.length > 0 ? meanings : fallback?.meanings,
     audioUrl: trimmed(backendWord.audioUrl) ?? fallback?.audioUrl,
     level: normalizeLevel(backendWord.cefrLevel) ?? fallback?.level ?? "B1",
     category:
-      pickLatestCategoryName(backendWord.categories) ??
+      resolveVocabularySetName(backendWord.vocabularySetId, vocabularySets) ??
       fallback?.category ??
       FALLBACK_CATEGORY,
     mnemonic: fallback?.mnemonic,
@@ -268,29 +263,40 @@ export function mapBackendWordToWord(
 
 export function mapAddWordResponseToWord(
   response: AddWordResponse,
+  vocabularySets: VocabularySet[],
   fallback?: Partial<Word>,
 ): Word {
-  return mapBackendWordToWord(response.word, fallback);
+  return mapBackendWordToWord(response.word, response.definitions, vocabularySets, fallback);
 }
 
-export function mapAddWordResponseToSRS(response: AddWordResponse): SRSData {
-  const userWord = response.userWord;
+/**
+ * The word's primary sense is "the" SRS entry the library-level `srsMap`
+ * tracks for it — a deliberate simplification distinct from the review flow's
+ * true per-definition tracking, since adding a word / browsing the library
+ * isn't part of the one-card-per-definition review model.
+ */
+export function mapAddWordResponseToSRS(
+  response: { word: BackendUserWord; definitions: BackendWordDefinition[] },
+): SRSData | undefined {
+  const primary = response.definitions[0];
+  if (!primary) return undefined;
+
   return {
-    userWordId: userWord.id,
-    wordId: String(userWord.wordId),
-    interval: userWord.interval,
-    easeFactor: userWord.easinessFactor,
-    repetitions: userWord.repetitions,
+    userWordId: primary.id,
+    wordId: String(response.word.id),
+    interval: primary.interval,
+    easeFactor: primary.easinessFactor,
+    repetitions: primary.repetitions,
     lastReviewed: null,
-    nextReviewDate: userWord.dueAt,
-    state: (userWord.status as SRSState) || "new",
+    nextReviewDate: primary.dueAt,
+    state: (primary.status as SRSState) || "new",
   };
 }
 
 export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
   return {
     userWordId: response.id,
-    wordId: String(response.wordId),
+    wordId: String(response.id),
     interval: response.interval,
     easeFactor: response.easinessFactor,
     repetitions: response.repetitions,
@@ -329,25 +335,39 @@ export function createPlaceholderWord(wordId: string | number): Word {
 }
 
 /**
- * Reconciles a backend user-word with the account's locally stored words.
+ * Reconciles a `/reviews/due` row with the account's locally stored words.
  *
- * The embedded `word` is what makes a due item readable on a device that never
- * added it — without it the only thing left to show is a `Word #9` placeholder.
- * A local copy still fills in what the backend has no column for.
+ * Each row is one definition (one card), so `Word.id` is the definition's own
+ * id — the id `/reviews/:id` is posted to. The row's flat fields make the card
+ * readable on a device that never added the word locally; a local copy
+ * (matched by the parent word id) fills what those flat fields don't carry
+ * (mnemonic, resolved category, etc).
  */
 export function resolveWordForUserWord(
-  userWord: BackendDueReview,
+  dueRow: BackendDueReview,
   allWords: Word[],
 ): Word {
-  const local = findWordById(userWord.wordId, allWords);
-  if (userWord.word) return mapBackendWordToWord(userWord.word, local);
-  return local ?? createPlaceholderWord(userWord.wordId);
+  const local = findWordById(dueRow.userWordId, allWords);
+  return {
+    id: String(dueRow.id),
+    word: dueRow.headword,
+    ipa: trimmed(dueRow.ipaPronunciation) ?? local?.ipa ?? `/${dueRow.headword}/`,
+    pos: normalizePos(dueRow.partOfSpeech) ?? local?.pos ?? "n.",
+    definition: trimmed(dueRow.definition) ?? local?.definition,
+    vietnamese: trimmed(dueRow.definition) ?? local?.vietnamese ?? "",
+    example: trimmed(dueRow.example) ?? local?.example ?? "",
+    translation: local?.translation ?? `Ví dụ với ${dueRow.headword}.`,
+    audioUrl: trimmed(dueRow.audioUrl) ?? local?.audioUrl,
+    level: normalizeLevel(dueRow.cefrLevel) ?? local?.level ?? "B1",
+    category: local?.category ?? FALLBACK_CATEGORY,
+    mnemonic: local?.mnemonic,
+  };
 }
 
 /** How many words the profile library lists per page. */
 export const WORDS_PAGE_SIZE = 10;
 
-/** Guard on the export loop so an endpoint that ignores `page` cannot spin. */
+/** Guard on the export loop so an endpoint that ignores `pageNumber` cannot spin. */
 const MAX_EXPORT_PAGES = 500;
 
 /** Declared in `@/types` so the storage layer can hold these without a cycle. */
@@ -355,28 +375,11 @@ export type { UserWordListItem };
 
 export interface UserWordsPage {
   items: UserWordListItem[];
-  /** Total words in the account, as reported (or counted) by the backend. */
   total: number;
-  /**
-   * False when `total` had to be inferred — from `totalPages`, or from this
-   * page's offset — in which case it is an upper or lower bound, not a count.
-   * The UI must not print an inferred number as the size of the library.
-   */
-  isTotalExact: boolean;
   page: number;
   pageSize: number;
-  /** Derived, so a backend that sends only `totalPages` is still honoured. */
   totalPages: number;
 }
-
-const firstNumber = (...values: unknown[]): number | undefined => {
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-    const n = Number(value);
-    if (Number.isFinite(n) && n >= 0) return Math.round(n);
-  }
-  return undefined;
-};
 
 const SRS_STATES: SRSState[] = ["new", "learning", "review", "mastered"];
 
@@ -387,133 +390,75 @@ function normalizeState(status?: string | null): SRSState | undefined {
 }
 
 /**
- * Splits a list row into its word and the account's progress on it, which the
- * row carries either flattened onto the word or inside a `userWord` wrapper.
+ * The word's "worst case" definition — the one due soonest — so a library
+ * card's single `state`/`dueAt` reflects whichever sense needs attention
+ * first, and a reminder fires as soon as any sense is due.
  */
-function splitListRow(
-  row: BackendWordListRow,
-): { word: BackendWord; progress?: Partial<BackendUserWord> } | null {
-  if (!row || typeof row !== "object") return null;
-
-  if ("headword" in row && typeof row.headword === "string") {
-    const flat = row as BackendWordListItem;
-    return {
-      word: flat,
-      progress: {
-        ...(flat.status ? { status: flat.status } : {}),
-        ...(flat.dueAt ? { dueAt: flat.dueAt } : {}),
-        ...(typeof flat.isFavorite === "boolean"
-          ? { isFavorite: flat.isFavorite }
-          : {}),
-      },
-    };
-  }
-
-  const wrapper = row as { word?: BackendWord | null; userWord?: BackendUserWord | null };
-  if (wrapper.word && typeof wrapper.word === "object") {
-    return { word: wrapper.word, progress: wrapper.userWord ?? undefined };
-  }
-
-  return null;
+function pickRepresentativeDefinition(
+  definitions: BackendWordDefinition[],
+): BackendWordDefinition | undefined {
+  return definitions.reduce<BackendWordDefinition | undefined>((soonest, d) => {
+    if (!soonest) return d;
+    const soonestAt = Date.parse(soonest.dueAt);
+    const dAt = Date.parse(d.dueAt);
+    if (Number.isNaN(dAt)) return soonest;
+    if (Number.isNaN(soonestAt)) return d;
+    return dAt < soonestAt ? d : soonest;
+  }, undefined);
 }
 
-function mapListRow(row: BackendWordListRow, fallbacks: Word[]): UserWordListItem | null {
-  const split = splitListRow(row);
-  if (!split) return null;
-
-  const { word: backendWord, progress } = split;
-  const local = findWordById(backendWord.id, fallbacks);
+function mapListRow(
+  row: BackendWordListItem,
+  fallbacks: Word[],
+  vocabularySets: VocabularySet[],
+): UserWordListItem {
+  const local = findWordById(row.id, fallbacks);
+  const representative = pickRepresentativeDefinition(row.definitions);
 
   return {
-    word: mapBackendWordToWord(backendWord, local),
-    addedAt: trimmed(progress?.createdAt) ?? trimmed(backendWord.createdAt),
-    state: normalizeState(progress?.status),
-    dueAt: trimmed(progress?.dueAt),
-    ...(typeof progress?.isFavorite === "boolean"
-      ? { isFavorite: progress.isFavorite }
-      : {}),
+    word: mapBackendWordToWord(row, row.definitions, vocabularySets, local),
+    // The word-level response reports no `createdAt` of its own; the earliest
+    // definition's is the closest stand-in.
+    addedAt: trimmed(representative?.createdAt),
+    state: normalizeState(representative?.status),
+    dueAt: trimmed(representative?.dueAt),
+    isFavorite: row.isFavorite,
   };
 }
 
 /**
  * Reads one page of the account's words from `GET /words`.
  *
- * The contract is unconfirmed — the endpoint is absent from the deployed
- * OpenAPI document — so the response is read defensively. A bare array is taken
- * as the *whole* library and sliced here, which is also what a backend that
- * ignores `page`/`pageSize` produces; an envelope is trusted about its own page
- * and total. Either way the caller gets the same shape.
- *
- * Throws like every other client. `fallbacks` are the locally stored words,
- * used to fill the fields the backend has no column for.
+ * `fallbacks` are the locally stored words, used to fill the fields the
+ * backend has no column for. `vocabularySets` resolves each word's single
+ * `vocabularySetId` to a display name.
  */
 export async function fetchUserWords(
-  options: { page?: number; pageSize?: number; fallbacks?: Word[] } = {},
+  options: {
+    page?: number;
+    pageSize?: number;
+    fallbacks?: Word[];
+    vocabularySets?: VocabularySet[];
+  } = {},
 ): Promise<UserWordsPage> {
   const pageSize = Math.max(1, options.pageSize ?? WORDS_PAGE_SIZE);
   const page = Math.max(1, options.page ?? 1);
   const fallbacks = options.fallbacks ?? [];
+  const vocabularySets = options.vocabularySets ?? [];
 
   const data = await getAsync<BackendWordListResponse>(
-    `/words?page=${page}&pageSize=${pageSize}`,
+    `/words?pageNumber=${page}&pageSize=${pageSize}`,
     { auth: true },
   );
 
-  if (Array.isArray(data)) {
-    const all = data.map((row) => mapListRow(row, fallbacks)).filter(Boolean) as UserWordListItem[];
-    // A response longer than the page is the endpoint answering with everything,
-    // so the window is applied here rather than shown as one very long page.
-    const items = all.length > pageSize ? all.slice((page - 1) * pageSize, page * pageSize) : all;
-    return {
-      items,
-      total: all.length,
-      // The whole library was in hand, so the count is the count.
-      isTotalExact: true,
-      page,
-      pageSize,
-      totalPages: Math.max(1, Math.ceil(all.length / pageSize)),
-    };
-  }
-
-  const envelope = data ?? {};
-  const meta = envelope.meta ?? {};
-  const rows =
-    envelope.data ?? envelope.items ?? envelope.words ?? envelope.results ?? [];
-  const items = (Array.isArray(rows) ? rows : [])
-    .map((row) => mapListRow(row, fallbacks))
-    .filter(Boolean) as UserWordListItem[];
-
-  const reportedPageSize =
-    firstNumber(envelope.pageSize, envelope.limit, envelope.perPage, meta.pageSize, meta.limit) ??
-    pageSize;
-  const effectivePageSize = Math.max(1, reportedPageSize);
-  const reportedPage =
-    firstNumber(envelope.page, envelope.pageNumber, meta.page, meta.pageNumber) ?? page;
-  const reportedTotalPages = firstNumber(envelope.totalPages, meta.totalPages);
-  const reportedTotal = firstNumber(
-    envelope.total,
-    envelope.totalItems,
-    envelope.count,
-    meta.total,
-    meta.totalItems,
-  );
-
-  // `total` is what paging is driven off, so when only `totalPages` came back it
-  // is reconstructed from it — and when neither did, the offset of this page
-  // plus what it holds is the smallest count that is certainly true.
-  const total =
-    reportedTotal ??
-    (reportedTotalPages !== undefined
-      ? reportedTotalPages * effectivePageSize
-      : (reportedPage - 1) * effectivePageSize + items.length);
+  const items = (data.items ?? []).map((row) => mapListRow(row, fallbacks, vocabularySets));
 
   return {
     items,
-    total,
-    isTotalExact: reportedTotal !== undefined,
-    page: reportedPage,
-    pageSize: effectivePageSize,
-    totalPages: reportedTotalPages ?? Math.max(1, Math.ceil(total / effectivePageSize)),
+    total: data.totalItems,
+    page: data.pageNumber,
+    pageSize: data.pageSize,
+    totalPages: data.totalPages,
   };
 }
 
@@ -529,14 +474,19 @@ export async function fetchUserWords(
  * calls on a miss.
  */
 export async function fetchAllUserWords(
-  options: { pageSize?: number; fallbacks?: Word[] } = {},
+  options: { pageSize?: number; fallbacks?: Word[]; vocabularySets?: VocabularySet[] } = {},
 ): Promise<UserWordListItem[]> {
   const pageSize = Math.max(1, options.pageSize ?? 100);
   const collected: UserWordListItem[] = [];
   const seen = new Set<string>();
 
   for (let page = 1; page <= MAX_EXPORT_PAGES; page++) {
-    const result = await fetchUserWords({ page, pageSize, fallbacks: options.fallbacks });
+    const result = await fetchUserWords({
+      page,
+      pageSize,
+      fallbacks: options.fallbacks,
+      vocabularySets: options.vocabularySets,
+    });
     if (result.items.length === 0) break;
 
     let added = 0;
@@ -585,7 +535,9 @@ export function invalidateUserWordLibrary(): void {
  * This is what keeps the cache — and therefore the reminders that read it —
  * honest between two reads of `GET /words`. Every endpoint that reschedules a
  * word must call it: `/reviews/:id` here, `/exercises/:id/submit` in
- * `exercise-client`.
+ * `exercise-client`. `wordId` here is the *parent word* id (a review/exercise
+ * reschedules one definition, but the cached row only tracks one representative
+ * state for the whole word).
  */
 export function patchCachedUserWord(
   wordId: number | string,
@@ -641,10 +593,10 @@ export function readCachedUserWordLibrary(): UserWordLibrary | null {
  *
  * `fallbacks` fill the fields the backend has no column for, so they are baked
  * into the cached rows — a mnemonic typed after the fetch shows up on the next
- * refresh, not before.
+ * refresh, not before. `vocabularySets` resolves each word's category name.
  */
 export async function getUserWordLibrary(
-  options: { force?: boolean; fallbacks?: Word[] } = {},
+  options: { force?: boolean; fallbacks?: Word[]; vocabularySets?: VocabularySet[] } = {},
 ): Promise<UserWordLibrary> {
   const scope = String(getCurrentUserId() ?? ANON_SCOPE);
 
@@ -662,6 +614,7 @@ export async function getUserWordLibrary(
   const request = fetchAllUserWords({
     pageSize: LIBRARY_FETCH_PAGE_SIZE,
     fallbacks: options.fallbacks,
+    vocabularySets: options.vocabularySets,
   })
     .then((items) => {
       // The account may have changed while this was open; writing then would
@@ -682,15 +635,16 @@ export async function getUserWordLibrary(
   return { items, fetchedAt: Date.now(), fromCache: false };
 }
 
-export function mapBackendUserWordToSRS(userWord: BackendUserWord): SRSData {
+/** Maps one `/reviews/due` row straight to the SRS schedule it carries. */
+export function mapBackendUserWordToSRS(dueRow: BackendDueReview): SRSData {
   return {
-    userWordId: userWord.id,
-    wordId: String(userWord.wordId),
-    interval: userWord.interval,
-    easeFactor: userWord.easinessFactor,
-    repetitions: userWord.repetitions,
+    userWordId: dueRow.id,
+    wordId: String(dueRow.id),
+    interval: dueRow.interval,
+    easeFactor: dueRow.easinessFactor,
+    repetitions: dueRow.repetitions,
     lastReviewed: null,
-    nextReviewDate: userWord.dueAt,
-    state: (userWord.status as SRSState) || "new",
+    nextReviewDate: dueRow.dueAt,
+    state: (dueRow.status as SRSState) || "new",
   };
 }

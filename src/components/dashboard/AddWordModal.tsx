@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
-  Category,
+  VocabularySet,
   SRSData,
   Word,
   WordCategory,
@@ -48,13 +48,18 @@ import {
 } from "@/lib/api/dictionary-client";
 import { getCurrentUserId } from "@/lib/api/auth-client";
 import { ApiError } from "@/lib/api/client";
-import { AddBulkWordsRequest, AddWordRequest, BulkAddWordResult } from "@/types/word";
+import {
+  AddBulkWordsRequest,
+  AddWordRequest,
+  BulkAddWordResult,
+  WordDefinitionRequest,
+} from "@/types/word";
 import { ModalPortal } from "@/components/layout/ModalPortal";
 
 interface AddWordModalProps {
   isOpen: boolean;
-  /** The account's `/categories` list; fills the category picker and validates Excel rows. */
-  categories?: Category[];
+  /** The account's `/vocabulary-sets` list; fills the category picker and validates Excel rows. */
+  vocabularySets?: VocabularySet[];
   onClose: () => void;
   onAddWord: (word: Word) => void;
   onAddWords?: (words: Word[]) => void;
@@ -316,7 +321,7 @@ const getRowVal = (
 
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
-  categories = [],
+  vocabularySets = [],
   onClose,
   onAddWord,
   onAddWords,
@@ -326,13 +331,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   // The backend list when it has loaded, the shipped names until then.
   const CATEGORIES: WordCategory[] = useMemo(
-    () => categoryNames(categories),
-    [categories],
+    () => categoryNames(vocabularySets),
+    [vocabularySets],
   );
 
   // Single word form state
   const [word, setWord] = useState("");
   const [ipa, setIpa] = useState("");
+  // Only ever set from a dictionary/AI lookup's `phonetics[].audio` — `POST /words`
+  // requires the field, but there is nothing to send for a hand-typed word.
+  const [audioUrl, setAudioUrl] = useState("");
   const [pos, setPos] = useState("n.");
   const [meanings, setMeanings] = useState<MeaningDraft[]>([createMeaning()]);
   const [category, setCategory] = useState<WordCategory>(FALLBACK_CATEGORY);
@@ -513,6 +521,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     headword: string;
     options: DefinitionOption[];
     ipa: string;
+    audioUrl?: string;
     pos: string;
     definition: string;
     example: string;
@@ -520,6 +529,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   }) => {
     setDefinitionOptions(result.options);
     setIpa(result.ipa || `/${result.headword}/`);
+    setAudioUrl(result.audioUrl || "");
     setPos(result.pos);
     setMeanings((prev) => [
       {
@@ -578,6 +588,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           entry.phonetic?.trim() ||
           entry.phonetics?.find((p) => p.text?.trim())?.text?.trim() ||
           "",
+        audioUrl: entry.phonetics?.find((p) => p.audio?.trim())?.audio?.trim(),
         pos: mapPartOfSpeech(firstMeaning?.partOfSpeech),
         definition: firstDef?.definition?.trim() || "",
         example: firstDef?.example?.trim() || "",
@@ -610,6 +621,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     let options: DefinitionOption[] = [];
     const localDetails = getWordDetails(suggestedWord);
     let fetchedIpa = localDetails?.ipa || "";
+    let fetchedAudio = "";
     let fetchedPos = localDetails?.pos || "n.";
     let fetchedDef = localDetails?.vietnamese || "";
     let fetchedExample = localDetails?.example || "";
@@ -627,6 +639,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
             entry.phonetics?.find((p) => p.text)?.text ||
             `/${suggestedWord}/`;
         }
+        fetchedAudio = entry.phonetics?.find((p) => p.audio)?.audio || "";
 
         if (entry.meanings && entry.meanings.length > 0) {
           const firstMeaning = entry.meanings[0];
@@ -672,6 +685,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       headword: suggestedWord,
       options,
       ipa: fetchedIpa,
+      audioUrl: fetchedAudio,
       pos: fetchedPos,
       definition: fetchedDef,
       example: fetchedExample,
@@ -874,49 +888,53 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     onAddWord(newWordItem);
 
-    const definitions = meanings
+    const definitions: WordDefinitionRequest[] = meanings
       .filter((m) => m.definition.trim())
       .map((m) => {
-        // Send only real sentences — filler stored on the account reads back as a genuine
+        // Send only a real sentence — filler stored on the account reads back as a genuine
         // example forever after, and hides the "generate with AI" button next time.
-        const validExamples = m.examples
+        const example = m.examples
           .map((ex) => ex.trim())
-          .filter((ex) => !isPlaceholderExample(ex, word));
+          .find((ex) => !isPlaceholderExample(ex, word));
         return {
           definition: m.definition.trim(),
           partOfSpeech: pos,
-          examples: validExamples.map((example) => ({
-            example,
-            language: "en" as const,
-          })),
+          ...(example ? { example } : {}),
         };
       });
 
-    const userId = getCurrentUserId();
+    const vocabularySetId = vocabularySets.find(
+      (s) => s.name.toLowerCase() === category.toLowerCase(),
+    )?.id;
 
     try {
-      // Without a numeric account id the word can only live locally — sending
-      // the request anyway would file it under someone else's account.
-      if (userId === null) throw new Error("No signed-in user id available");
+      // Without a numeric account id the word can only live locally — a
+      // signed-out session has no bearer token to file it under.
+      if (getCurrentUserId() === null) throw new Error("No signed-in session");
 
       const request: AddWordRequest = {
-        userId,
         headword: newWordItem.word,
+        ...(vocabularySetId !== undefined ? { vocabularySetId } : {}),
         ipaPronunciation: newWordItem.ipa,
+        audioUrl,
+        cefrLevel: level,
         definitions,
       };
 
       const addWordResponse = await addWord(request);
-      if (addWordResponse?.word && addWordResponse?.userWord) {
+      if (addWordResponse?.word && addWordResponse?.definitions) {
         // The optimistic entry above carries a local-only id, so the backend's
         // id and `dueAt` have to replace it — otherwise the same word exists
         // twice (locally as `custom_…`, remotely as a number) and nothing that
         // keys off the backend id, review reminders included, can find it.
-        onWordSynced?.(
-          newWordItem.id,
-          mapAddWordResponseToWord(addWordResponse, newWordItem),
-          mapAddWordResponseToSRS(addWordResponse),
-        );
+        const srs = mapAddWordResponseToSRS(addWordResponse);
+        if (srs) {
+          onWordSynced?.(
+            newWordItem.id,
+            mapAddWordResponseToWord(addWordResponse, vocabularySets, newWordItem),
+            srs,
+          );
+        }
       }
     } catch (err) {
       console.error("API addWord error:", err);
@@ -940,6 +958,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     // Reset form
     setWord("");
     setIpa("");
+    setAudioUrl("");
     setDefinitionOptions([]);
     setLookedUpWord("");
     setMeanings([createMeaning()]);
@@ -1119,9 +1138,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     soundFX.playCorrect();
 
-    const userId = getCurrentUserId();
-    if (userId === null) {
-      // No signed-in account id — stays local-only, same as a signed-out
+    if (getCurrentUserId() === null) {
+      // No signed-in session — stays local-only, same as a signed-out
       // single-word add.
       setIsBulkSubmitting(false);
       handleModalClose();
@@ -1129,27 +1147,28 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     }
 
     const requests: AddBulkWordsRequest = {
-      words: validRows.map((r, index) => ({
-        userId,
-        headword: newWordsList[index].word,
-        ipaPronunciation: newWordsList[index].ipa,
-        definitions: [
-          {
-            // Mirrors the single-word form: the Vietnamese meaning is what gets
-            // written to the backend's `definition` column so it round-trips.
-            definition: r.vietnamese,
-            partOfSpeech: r.pos,
-            examples: [
-              ...(r.example.trim()
-                ? [{ example: r.example.trim(), language: "en" as const }]
-                : []),
-              ...(r.translation.trim()
-                ? [{ example: r.translation.trim(), language: "vi" as const }]
-                : []),
-            ],
-          },
-        ],
-      }))
+      words: validRows.map((r, index) => {
+        const vocabularySetId = vocabularySets.find(
+          (s) => s.name.toLowerCase() === r.category.toLowerCase(),
+        )?.id;
+        return {
+          headword: newWordsList[index].word,
+          ...(vocabularySetId !== undefined ? { vocabularySetId } : {}),
+          ipaPronunciation: newWordsList[index].ipa,
+          audioUrl: "",
+          cefrLevel: r.level,
+          definitions: [
+            {
+              // Mirrors the single-word form: the Vietnamese meaning is what gets
+              // written to the backend's `definition` column so it round-trips.
+              // `r.translation` has no backend slot anymore — it stays local-only.
+              definition: r.vietnamese,
+              partOfSpeech: r.pos,
+              ...(r.example.trim() ? { example: r.example.trim() } : {}),
+            },
+          ],
+        };
+      })
     };
 
     try {
@@ -1160,14 +1179,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         const localWord = newWordsList[index];
         if (!localWord) return;
 
-        if (result.success) {
-          onWordSynced?.(
-            localWord.id,
-            mapBackendWordToWord(result.word, localWord),
-            mapAddWordResponseToSRS({ word: result.word, userWord: result.userWord }),
-          );
+        if (result.success && result.word && result.definitions) {
+          const srs = mapAddWordResponseToSRS({
+            word: result.word,
+            definitions: result.definitions,
+          });
+          if (srs) {
+            onWordSynced?.(
+              localWord.id,
+              mapBackendWordToWord(result.word, result.definitions, vocabularySets, localWord),
+              srs,
+            );
+          }
         } else {
-          failures.push({ headword: result.headword, error: result.error });
+          failures.push({ headword: result.headword, error: result.error ?? "Không rõ lỗi" });
         }
       });
 

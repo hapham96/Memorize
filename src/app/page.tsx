@@ -26,7 +26,7 @@ import { AddWordModal } from '@/components/dashboard/AddWordModal';
 
 import {
   ActiveTab,
-  Category,
+  VocabularySet,
   QuizType,
   UserProgress,
   SRSData,
@@ -57,7 +57,7 @@ import {
   mapFlashcardExerciseToWord,
   QUIZ_TYPE_TO_EXERCISE_TYPE,
 } from '@/lib/api/exercise-client';
-import { syncCategories } from '@/lib/api/category-client';
+import { syncVocabularySets } from '@/lib/api/category-client';
 import { fetchStatsSummary } from '@/lib/api/stats-client';
 import {
   fetchSettings,
@@ -131,7 +131,7 @@ export default function Home() {
   const [userProgress, setUserProgress] = useState<UserProgress>(DEFAULT_USER_PROGRESS);
   const [srsMap, setSrsMap] = useState<Record<string, SRSData>>({});
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [vocabularySets, setVocabularySets] = useState<VocabularySet[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   /**
    * `GET /stats/summary` for the signed-in account, or null until it answers —
@@ -140,18 +140,18 @@ export default function Home() {
   const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
 
   /**
-   * Refreshes the cached `/categories` list. Only sign-in passes `force` — the
-   * list barely changes, so every other entry into the app reads the copy in
-   * localStorage and never touches the network.
+   * Refreshes the cached `/vocabulary-sets` list. Only sign-in passes `force`
+   * — the list barely changes, so every other entry into the app reads the
+   * copy in localStorage and never touches the network.
    *
-   * Failure is silent: `syncCategories` returns the cached list when it has
-   * one, and the pickers fall back to their shipped names when it does not.
+   * Failure is silent: `syncVocabularySets` returns the cached list when it
+   * has one, and the pickers fall back to their shipped names when it does not.
    */
-  const hydrateCategories = async (force: boolean) => {
+  const hydrateVocabularySets = async (force: boolean) => {
     try {
-      setCategories(await syncCategories({ force }));
+      setVocabularySets(await syncVocabularySets({ force }));
     } catch (err) {
-      console.warn('Could not load categories from API:', err);
+      console.warn('Could not load vocabulary sets from API:', err);
     }
   };
 
@@ -263,14 +263,14 @@ export default function Home() {
       setUserProgress(DEFAULT_USER_PROGRESS);
       setSrsMap({});
       setAllWords([]);
-      setCategories([]);
+      setVocabularySets([]);
       return;
     }
 
     // Render from the stored list first, then let the login fetch replace it —
     // the pickers must never wait on the network.
-    setCategories(loadCategories());
-    void hydrateCategories(isFreshLogin);
+    setVocabularySets(loadCategories());
+    void hydrateVocabularySets(isFreshLogin);
     void hydrateSettingsFromApi(loadedSettings);
 
     const loadedSRS = loadSRSData();
@@ -355,7 +355,7 @@ export default function Home() {
    */
   const hydrateFromApi = async (words: Word[]) => {
     try {
-      const { items } = await getUserWordLibrary({ fallbacks: words });
+      const { items } = await getUserWordLibrary({ fallbacks: words, vocabularySets });
       if (items.length === 0) return;
 
       // A library row carries the word itself, so one added on another device
@@ -632,8 +632,11 @@ export default function Home() {
     answer: string
   ): Promise<boolean> => {
     try {
-      const response = await submitExercise(exercise.userWordId, exercise.exerciseType, answer);
-      handleUpdateSRS(String(response.wordId), mapReviewResponseToSRS(response));
+      const response = await submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer);
+      // Keyed by the parent word id, matching how the library's own SRS
+      // entries are keyed — distinct from the flashcard flow, which keys by
+      // the definition id itself (see `handleRateFlashcardWord`).
+      handleUpdateSRS(String(response.userWordId), mapReviewResponseToSRS(response));
       return isExerciseAnswerCorrect(response);
     } catch (err) {
       console.error('API submitExercise error:', err);
@@ -945,7 +948,7 @@ export default function Home() {
       {activeTab === 'review' && (
         <ReviewDashboard
           allWords={allWords}
-          categories={categories}
+          vocabularySets={vocabularySets}
           srsMap={srsMap}
           summary={statsSummary}
           onUpdateSRS={handleUpdateSRS}
@@ -964,6 +967,7 @@ export default function Home() {
           progress={displayProgress}
           allWords={allWords}
           srsMap={srsMap}
+          vocabularySets={vocabularySets}
           onEditProfile={() => setIsEditProfileOpen(true)}
           onLogout={() => signOut()}
         />
@@ -974,7 +978,7 @@ export default function Home() {
       {isSettingsOpen && (
         <SettingsModal
           settings={settings}
-          categories={categories}
+          vocabularySets={vocabularySets}
           onUpdateSettings={handleUpdateSettings}
           onResetProgress={handleResetProgress}
           onClose={() => setIsSettingsOpen(false)}
@@ -1010,7 +1014,7 @@ export default function Home() {
 
       <AddWordModal
         isOpen={isAddWordOpen}
-        categories={categories}
+        vocabularySets={vocabularySets}
         onClose={() => setIsAddWordOpen(false)}
         onAddWord={(w) => handleAddWords([w])}
         onAddWords={handleAddWords}

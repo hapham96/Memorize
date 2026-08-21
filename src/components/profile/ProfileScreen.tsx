@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Pencil, LogOut } from 'lucide-react';
-import { SRSData, UserProgress, Word } from '@/types';
+import { SRSData, UserProgress, VocabularySet, Word } from '@/types';
 import { WordLibrarySection } from './WordLibrarySection';
 
 interface ProfileScreenProps {
@@ -10,6 +10,8 @@ interface ProfileScreenProps {
   /** Local library, used as the fallback for the word list below. */
   allWords: Word[];
   srsMap: Record<string, SRSData>;
+  /** The account's `/vocabulary-sets` list; resolves each word's category name. */
+  vocabularySets?: VocabularySet[];
   /** Opens the name/password editor. Settings live in the header bar instead. */
   onEditProfile: () => void;
   onLogout: () => void;
@@ -19,6 +21,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   progress,
   allWords,
   srsMap,
+  vocabularySets,
   onEditProfile,
   onLogout,
 }) => {
@@ -72,7 +75,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </div>
 
       {/* Every word the account has added, paged straight off `GET /words` */}
-      <WordLibrarySection allWords={allWords} srsMap={srsMap} />
+      <WordLibrarySection allWords={allWords} srsMap={srsMap} vocabularySets={vocabularySets} />
 
       {/* Logout Action Button — pinned to the bottom of the scroll area */}
       <button

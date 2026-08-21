@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Brain, CheckCircle2, ChevronLeft, ChevronRight, Clock, Sparkles, Volume2, ArrowLeft, RotateCw, Plus, Filter, RefreshCw } from 'lucide-react';
-import { Category, Word, SRSData, WordCategory } from '@/types';
+import { VocabularySet, Word, SRSData, WordCategory } from '@/types';
 import { StatsSummary } from '@/types/stats';
 import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
@@ -20,8 +20,8 @@ import {
 
 interface ReviewDashboardProps {
   allWords: Word[];
-  /** The account's `/categories` list; drives the filter chips. */
-  categories?: Category[];
+  /** The account's `/vocabulary-sets` list; drives the filter chips. */
+  vocabularySets?: VocabularySet[];
   srsMap: Record<string, SRSData>;
   /**
    * `GET /stats/summary`, or null while it has not answered. Its counters win
@@ -38,7 +38,7 @@ interface ReviewDashboardProps {
 }
 
 interface DueReviewItem {
-  userWordId: number | string;
+  userWordDefinitionId: number | string;
   word: Word;
   userWord?: BackendDueReview;
 }
@@ -75,7 +75,7 @@ function formatDueLabel(dueAt?: string | null, now: Date = new Date()): string |
 
 export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   allWords,
-  categories = [],
+  vocabularySets = [],
   srsMap,
   summary = null,
   onUpdateSRS,
@@ -119,7 +119,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       const data = await getDueReviews();
       if (Array.isArray(data)) {
         const items: DueReviewItem[] = data.map((userWord) => ({
-          userWordId: userWord.id,
+          userWordDefinitionId: userWord.id,
           word: resolveWordForUserWord(userWord, words),
           userWord,
         }));
@@ -232,8 +232,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     else goToMeaning(safeMeaningIndex - 1, -1);
   };
 
-  // The chips come from the account's `/categories` list, so a category the
-  // backend added shows up without a release. A category nothing is filed under
+  // The chips come from the account's `/vocabulary-sets` list, so a set the
+  // backend added shows up without a release. A set nothing is filed under
   // would only ever filter to an empty queue, so it is left out.
   //
   // "Filed under" counts the queue as well as the local library: a due word this
@@ -243,25 +243,25 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     const used = new Set<WordCategory>(allWords.map((w) => w.category));
     (apiDueItems ?? []).forEach((item) => used.add(item.word.category));
 
-    const known = categoryNames(categories).filter((name) => used.has(name));
-    // A queue category the `/categories` list does not name would otherwise be
-    // unreachable, so it is appended rather than dropped.
+    const known = categoryNames(vocabularySets).filter((name) => used.has(name));
+    // A queue category the `/vocabulary-sets` list does not name would otherwise
+    // be unreachable, so it is appended rather than dropped.
     const unnamed = Array.from(used).filter((name) => !known.includes(name)).sort();
     const listed = [...known, ...unnamed];
     // Whatever the current filter is must stay clickable, or it cannot be undone.
     const extra =
       selectedCategory !== 'All' && !listed.includes(selectedCategory) ? [selectedCategory] : [];
     return ['All', ...listed, ...extra];
-  }, [allWords, apiDueItems, categories, selectedCategory]);
+  }, [allWords, apiDueItems, vocabularySets, selectedCategory]);
 
   const handleRating = async (rating: ReviewQuality) => {
     if (!currentItem || !currentWord) return;
 
-    const userWordId = currentItem.userWordId;
+    const userWordDefinitionId = currentItem.userWordDefinitionId;
     const wordId = String(currentWord.id);
 
     const currentSRS = srsMap[wordId] || {
-      userWordId,
+      userWordId: userWordDefinitionId,
       wordId,
       interval: 0,
       easeFactor: 2.5,
@@ -276,7 +276,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     setIsFlipped(false);
 
     try {
-      const reviewResp = await submitReview(userWordId, rating);
+      const reviewResp = await submitReview(userWordDefinitionId, rating);
       if (reviewResp) {
         const backendSRS = mapReviewResponseToSRS(reviewResp);
         onUpdateSRS(wordId, backendSRS);
