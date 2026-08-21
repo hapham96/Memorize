@@ -184,6 +184,12 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
               </h2>
               <p className="text-sm font-mono text-slate-500 mt-2">{currentWord.ipa}</p>
 
+              {hasManyMeanings && (
+                <span className="inline-block mt-3 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">
+                  {meanings.length} nghĩa cần ôn tập
+                </span>
+              )}
+
               <button
                 onClick={handleAudio}
                 className="mt-4 px-4 py-2.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 inline-flex items-center gap-2 text-xs font-bold transition-colors"
@@ -328,6 +334,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
         <div className="space-y-2 pt-2">
           <div className="text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
             Đánh giá khả năng ghi nhớ để lên lịch ôn tiếp theo (Thang 0 - 5)
+            {hasManyMeanings && ' — áp dụng cho cả ' + meanings.length + ' nghĩa'}
           </div>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
             <button

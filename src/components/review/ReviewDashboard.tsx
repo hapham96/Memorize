@@ -11,11 +11,12 @@ import { speakWord, soundFX } from '@/lib/audio';
 import { getWordMeanings } from '@/lib/word';
 import { categoryNames } from '@/lib/api/category-client';
 import {
-  submitReview,
-  mapReviewResponseToSRS,
+  submitReviewWord,
+  mapWordRatingToSRS,
   getDueReviews,
   mapBackendUserWordToSRS,
   resolveWordForUserWord,
+  pickRepresentativeDefinition,
 } from '@/lib/api/word-client';
 
 interface ReviewDashboardProps {
@@ -38,7 +39,7 @@ interface ReviewDashboardProps {
 }
 
 interface DueReviewItem {
-  userWordDefinitionId: number | string;
+  userWordId: number | string;
   word: Word;
   userWord?: BackendDueReview;
 }
@@ -119,7 +120,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       const data = await getDueReviews();
       if (Array.isArray(data)) {
         const items: DueReviewItem[] = data.map((userWord) => ({
-          userWordDefinitionId: userWord.id,
+          userWordId: userWord.userWordId,
           word: resolveWordForUserWord(userWord, words),
           userWord,
         }));
@@ -129,9 +130,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
         // than one state update and one localStorage write per word.
         const entries: Record<string, SRSData> = {};
         items.forEach((item) => {
-          if (item.userWord) {
-            entries[String(item.word.id)] = mapBackendUserWordToSRS(item.userWord);
-          }
+          const srs = item.userWord ? mapBackendUserWordToSRS(item.userWord) : undefined;
+          if (srs) entries[String(item.word.id)] = srs;
         });
 
         if (mergeSRS) mergeSRS(entries);
@@ -257,11 +257,11 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   const handleRating = async (rating: ReviewQuality) => {
     if (!currentItem || !currentWord) return;
 
-    const userWordDefinitionId = currentItem.userWordDefinitionId;
+    const userWordId = currentItem.userWordId;
     const wordId = String(currentWord.id);
 
     const currentSRS = srsMap[wordId] || {
-      userWordId: userWordDefinitionId,
+      userWordId,
       wordId,
       interval: 0,
       easeFactor: 2.5,
@@ -276,13 +276,13 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     setIsFlipped(false);
 
     try {
-      const reviewResp = await submitReview(userWordDefinitionId, rating);
-      if (reviewResp) {
-        const backendSRS = mapReviewResponseToSRS(reviewResp);
-        onUpdateSRS(wordId, backendSRS);
-      }
+      // Reviewing-phase Flashcard: applies to every due meaning bundled under
+      // `userWordId` at once.
+      const definitions = await submitReviewWord(userWordId, rating);
+      const backendSRS = mapWordRatingToSRS(definitions);
+      if (backendSRS) onUpdateSRS(wordId, backendSRS);
     } catch (err) {
-      console.error('API submitReview error:', err);
+      console.error('API submitReviewWord error:', err);
     }
 
     if (currentIndex < dueItems.length - 1) {
@@ -364,6 +364,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                   {currentWord.word}
                 </h2>
                 <p className="text-sm font-mono text-slate-500 mt-2">{currentWord.ipa}</p>
+
+                {hasManyMeanings && (
+                  <span className="inline-block mt-3 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">
+                    {meanings.length} nghĩa cần ôn tập
+                  </span>
+                )}
 
                 <button
                   onClick={(e) => {
@@ -525,6 +531,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <div className="space-y-2 pt-2">
             <div className="text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Đánh giá khả năng ghi nhớ để lên lịch ôn tiếp theo (Thang 0 - 5)
+              {hasManyMeanings && ' — áp dụng cho cả ' + meanings.length + ' nghĩa'}
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
               <button
@@ -788,7 +795,9 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
         ) : (
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
             {dueItems.map((item) => {
-              const dueLabel = formatDueLabel(item.userWord?.dueAt);
+              const dueLabel = formatDueLabel(
+                pickRepresentativeDefinition(item.userWord?.definitions ?? [])?.dueAt
+              );
               return (
                 <div
                   key={item.word.id}

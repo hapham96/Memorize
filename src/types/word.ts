@@ -54,15 +54,19 @@ export type BackendUserWord = {
 };
 
 /**
- * A `/reviews/due` row — `DueReviewResponseDto`. Flat: one definition, plus the
- * word columns needed to render it without a second lookup. The account comes
- * from the bearer token, so the request carries no `userId`.
+ * A `/reviews/due` row — `DueReviewWord`. One per word (the Reviewing phase
+ * only ever serves the Flashcard exercise type), bundling every currently due
+ * meaning under `definitions` so a card can show and grade them together
+ * (`docs/adr/0013-flashcard-blends-grading-across-due-meanings`). The account
+ * comes from the bearer token, so the request carries no `userId`.
  */
-export type BackendDueReview = BackendWordDefinition & {
+export type BackendDueReview = {
+  userWordId: number;
   headword: string;
   ipaPronunciation: string | null;
   audioUrl: string | null;
   cefrLevel: string | null;
+  definitions: BackendWordDefinition[];
 };
 
 export type AddWordResponse = {
@@ -111,8 +115,15 @@ export type BackendWordListResponse = {
 
 export type ReviewQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
+/** Body shared by both word-level Flashcard rating endpoints below. */
 export type ReviewWordRequest = {
   quality: ReviewQuality;
 };
 
-export type ReviewWordResponse = BackendWordDefinition;
+/**
+ * Response shared by `POST /reviews/word/:userWordId` (Reviewing phase) and
+ * `POST /exercises/word/:userWordId/submit` (Learning phase): one `quality`
+ * rating is applied to every DUE meaning under the word, and the array reports
+ * one updated `BackendWordDefinition` per meaning that got touched.
+ */
+export type WordRatingResponse = BackendWordDefinition[];

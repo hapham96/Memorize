@@ -45,14 +45,15 @@ import {
 } from '@/types/exercise';
 import { calculateNextSRS } from '@/lib/srs';
 import {
-  submitReview,
   mapReviewResponseToSRS,
+  mapWordRatingToSRS,
   getUserWordLibrary,
   invalidateDueReviews,
 } from '@/lib/api/word-client';
 import {
   getDueExercises,
   submitExercise,
+  submitFlashcardExercise,
   isExerciseAnswerCorrect,
   mapFlashcardExerciseToWord,
   QUIZ_TYPE_TO_EXERCISE_TYPE,
@@ -677,13 +678,14 @@ export default function Home() {
     handleUpdateSRS(word.id, updated);
 
     try {
-      const reviewResp = await submitReview(word.id, rating);
-      if (reviewResp) {
-        const backendSRS = mapReviewResponseToSRS(reviewResp);
-        handleUpdateSRS(word.id, backendSRS);
-      }
+      // Learning-phase Flashcard: `word.id` is the `userWordId` from
+      // `getDueExercises('flashcard')`, and this rating applies to every due
+      // meaning bundled under it at once.
+      const definitions = await submitFlashcardExercise(word.id, rating);
+      const backendSRS = mapWordRatingToSRS(definitions);
+      if (backendSRS) handleUpdateSRS(word.id, backendSRS);
     } catch (err) {
-      console.error('API submitReview error:', err);
+      console.error('API submitFlashcardExercise error:', err);
     }
   };
 

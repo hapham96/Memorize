@@ -3,8 +3,7 @@ import { BackendWordDefinition } from './word';
 /**
  * The exercise types served by `GET /exercises/due`. Only the four below are
  * also graded by `POST /exercises/:userWordDefinitionId/submit` — flashcards
- * keep the existing `/reviews` flow, so they're excluded from
- * `AutoGradedExerciseType`.
+ * are graded word-level instead, via `POST /exercises/word/:userWordId/submit`.
  */
 export type AutoGradedExerciseType =
   | 'multiple_choice'
@@ -14,38 +13,33 @@ export type AutoGradedExerciseType =
 
 export type ExerciseType = 'flashcard' | AutoGradedExerciseType;
 
-interface BaseExercise<T extends ExerciseType> {
+interface BaseAutoGradedExercise<T extends AutoGradedExerciseType> {
   userWordDefinitionId: number;
   exerciseType: T;
   headword: string;
   ipaPronunciation: string | null;
 }
 
-export interface FlashcardExercise extends BaseExercise<'flashcard'> {
-  definition: string;
-  partOfSpeech: string | null;
-}
-
-export interface MultipleChoiceExercise extends BaseExercise<'multiple_choice'> {
+export interface MultipleChoiceExercise extends BaseAutoGradedExercise<'multiple_choice'> {
   options: string[];
   /** Not used for local grading — `/exercises/:id/submit` remains the source of truth. */
   correctAnswer?: string;
 }
 
-export interface FillInBlankExercise extends BaseExercise<'fill_in_blank'> {
+export interface FillInBlankExercise extends BaseAutoGradedExercise<'fill_in_blank'> {
   sentence: string;
   definitionHint: string | null;
   partOfSpeech: string | null;
   correctAnswer?: string;
 }
 
-export interface TypeMissingWordExercise extends BaseExercise<'type_missing_word'> {
+export interface TypeMissingWordExercise extends BaseAutoGradedExercise<'type_missing_word'> {
   sentence: string;
   options: string[];
   correctAnswer?: string;
 }
 
-export interface ListeningExercise extends BaseExercise<'listening'> {
+export interface ListeningExercise extends BaseAutoGradedExercise<'listening'> {
   audioUrl: string | null;
   correctAnswer?: string;
 }
@@ -55,6 +49,28 @@ export type AutoGradedExercise =
   | FillInBlankExercise
   | TypeMissingWordExercise
   | ListeningExercise;
+
+/** One DUE meaning within a `flashcard`-mode `GET /exercises/due` row. */
+export interface FlashcardExerciseDefinition {
+  userWordDefinitionId: number;
+  definition: string;
+  partOfSpeech: string | null;
+}
+
+/**
+ * A `flashcard`-mode `GET /exercises/due` row — one per word (not per
+ * meaning), bundling every currently due meaning under `definitions` so the
+ * card can show and grade them together
+ * (`docs/adr/0013-flashcard-blends-grading-across-due-meanings`). Rated as a
+ * whole via `POST /exercises/word/:userWordId/submit`.
+ */
+export interface FlashcardExercise {
+  userWordId: number;
+  exerciseType: 'flashcard';
+  headword: string;
+  ipaPronunciation: string | null;
+  definitions: FlashcardExerciseDefinition[];
+}
 
 /** The full union `GET /exercises/due` can answer with, across all five modes. */
 export type ExerciseItem = FlashcardExercise | AutoGradedExercise;

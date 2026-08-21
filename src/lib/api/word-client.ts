@@ -9,7 +9,8 @@ import {
   BackendWordListResponse,
   BulkAddWordResponse,
   ReviewQuality,
-  ReviewWordResponse,
+  ReviewWordRequest,
+  WordRatingResponse,
 } from "@/types/word";
 import {
   Word,
@@ -69,20 +70,31 @@ export async function addWordsBulk(
   return response;
 }
 
-export async function submitReview(
-  userWordDefinitionId: number | string,
+/**
+ * Rates a Flashcard in the Reviewing phase — one `quality` applied to every
+ * DUE meaning under `userWordId` at once
+ * (`docs/adr/0013-flashcard-blends-grading-across-due-meanings`). Supersedes
+ * the old per-definition `/reviews/:id`, which the Flashcard UI no longer
+ * calls.
+ */
+export async function submitReviewWord(
+  userWordId: number | string,
   quality: ReviewQuality,
-): Promise<ReviewWordResponse> {
-  const response = await postAsync<ReviewWordResponse>(
-    `/reviews/${userWordDefinitionId}`,
-    { quality },
+): Promise<WordRatingResponse> {
+  const body: ReviewWordRequest = { quality };
+  const response = await postAsync<WordRatingResponse>(
+    `/reviews/word/${userWordId}`,
+    body,
     { auth: true },
   );
   invalidateDueReviews();
-  // A review moves one definition's status and due date. Patching the parent
-  // word's cached row keeps the cached library honest without re-reading
-  // every page of it.
-  patchCachedUserWord(response.userWordId, response.status, response.dueAt);
+  // A rating moves every due definition's status and due date. Patching the
+  // parent word's cached row (by the soonest-due meaning) keeps the cached
+  // library honest without re-reading every page of it.
+  const representative = pickRepresentativeDefinition(response);
+  if (representative) {
+    patchCachedUserWord(userWordId, representative.status, representative.dueAt);
+  }
   return response;
 }
 
@@ -170,7 +182,7 @@ const POS_ABBREVIATIONS: Record<string, string> = {
 
 const LEVELS: LevelDifficulty[] = ["A1", "A2", "B1", "B2", "C1"];
 
-function normalizePos(partOfSpeech?: string | null): string | undefined {
+export function normalizePos(partOfSpeech?: string | null): string | undefined {
   const raw = partOfSpeech?.trim();
   if (!raw) return undefined;
   return POS_ABBREVIATIONS[raw.toLowerCase()] ?? raw;
@@ -293,7 +305,11 @@ export function mapAddWordResponseToSRS(
   };
 }
 
-export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
+/**
+ * Maps a single-definition grading response (`POST /exercises/:id/submit`,
+ * the auto-graded modes) to the app's SRS snapshot for that definition.
+ */
+export function mapReviewResponseToSRS(response: BackendWordDefinition): SRSData {
   return {
     userWordId: response.id,
     wordId: String(response.id),
@@ -303,6 +319,55 @@ export function mapReviewResponseToSRS(response: ReviewWordResponse): SRSData {
     lastReviewed: new Date().toISOString(),
     nextReviewDate: response.dueAt,
     state: (response.status as SRSState) || "learning",
+  };
+}
+
+/**
+ * Maps a word-level `WordRatingResponse` (`POST /reviews/word/:userWordId` or
+ * `POST /exercises/word/:userWordId/submit`) to one SRS snapshot for the
+ * whole word. SRS is tracked per meaning on the backend, so the soonest-due
+ * meaning stands in for the word — the same choice `pickRepresentativeDefinition`
+ * makes for a cached library row. `undefined` when the backend graded nothing
+ * (an empty array), which should not happen for a card that had due meanings.
+ */
+export function mapWordRatingToSRS(response: WordRatingResponse): SRSData | undefined {
+  const representative = pickRepresentativeDefinition(response);
+  if (!representative) return undefined;
+
+  return {
+    userWordId: representative.userWordId,
+    wordId: String(representative.userWordId),
+    interval: representative.interval,
+    easeFactor: representative.easinessFactor,
+    repetitions: representative.repetitions,
+    lastReviewed: new Date().toISOString(),
+    nextReviewDate: representative.dueAt,
+    state: (representative.status as SRSState) || "learning",
+  };
+}
+
+/**
+ * Maps one `/reviews/due` row's definitions to the SRS schedule they carry —
+ * the soonest-due meaning stands in for the whole word. `lastReviewed` stays
+ * `null`, unlike `mapWordRatingToSRS`: reading the due list is not a review
+ * event.
+ */
+function mapDueDefinitionsToSRS(
+  userWordId: number,
+  definitions: BackendWordDefinition[],
+): SRSData | undefined {
+  const representative = pickRepresentativeDefinition(definitions);
+  if (!representative) return undefined;
+
+  return {
+    userWordId,
+    wordId: String(userWordId),
+    interval: representative.interval,
+    easeFactor: representative.easinessFactor,
+    repetitions: representative.repetitions,
+    lastReviewed: null,
+    nextReviewDate: representative.dueAt,
+    state: (representative.status as SRSState) || "new",
   };
 }
 
@@ -337,29 +402,36 @@ export function createPlaceholderWord(wordId: string | number): Word {
 /**
  * Reconciles a `/reviews/due` row with the account's locally stored words.
  *
- * Each row is one definition (one card), so `Word.id` is the definition's own
- * id — the id `/reviews/:id` is posted to. The row's flat fields make the card
- * readable on a device that never added the word locally; a local copy
- * (matched by the parent word id) fills what those flat fields don't carry
- * (mnemonic, resolved category, etc).
+ * Each row is one word bundling every currently DUE meaning, so `Word.id` is
+ * the word's own id — the id `/reviews/word/:userWordId` is posted to, and
+ * `Word.meanings` is built from exactly the due definitions the row carries
+ * (grading applies to that same set — `docs/adr/0013-flashcard-blends-grading-
+ * across-due-meanings`). The row's flat fields make the card readable on a
+ * device that never added the word locally; a local copy fills what those
+ * flat fields don't carry (mnemonic, resolved category, etc).
  */
 export function resolveWordForUserWord(
   dueRow: BackendDueReview,
   allWords: Word[],
 ): Word {
   const local = findWordById(dueRow.userWordId, allWords);
+  const primary =
+    dueRow.definitions.find((d) => trimmed(d.definition)) ?? dueRow.definitions[0];
+  const meanings = mapBackendDefinitionsToMeanings(dueRow.definitions);
+
   return {
-    id: String(dueRow.id),
+    id: String(dueRow.userWordId),
     word: dueRow.headword,
     ipa: trimmed(dueRow.ipaPronunciation) ?? local?.ipa ?? `/${dueRow.headword}/`,
-    pos: normalizePos(dueRow.partOfSpeech) ?? local?.pos ?? "n.",
-    definition: trimmed(dueRow.definition) ?? local?.definition,
-    vietnamese: trimmed(dueRow.definition) ?? local?.vietnamese ?? "",
-    example: trimmed(dueRow.example) ?? local?.example ?? "",
+    pos: normalizePos(primary?.partOfSpeech) ?? local?.pos ?? "n.",
+    definition: trimmed(primary?.definition) ?? local?.definition,
+    vietnamese: trimmed(primary?.definition) ?? local?.vietnamese ?? "",
+    example: trimmed(primary?.example) ?? local?.example ?? "",
     translation: local?.translation ?? `Ví dụ với ${dueRow.headword}.`,
-    // The due row is one definition; the local copy (from `GET /words`)
-    // carries every sense, so the card still pages through all of them.
-    meanings: local?.meanings,
+    // Only the DUE meanings — a word with 3 senses but 1 due today shows (and
+    // grades) that one, not all 3. Falls back to the local copy's full list
+    // only when the backend reported none, which a due row shouldn't do.
+    meanings: meanings.length > 0 ? meanings : local?.meanings,
     audioUrl: trimmed(dueRow.audioUrl) ?? local?.audioUrl,
     level: normalizeLevel(dueRow.cefrLevel) ?? local?.level ?? "B1",
     category: local?.category ?? FALLBACK_CATEGORY,
@@ -397,7 +469,7 @@ function normalizeState(status?: string | null): SRSState | undefined {
  * card's single `state`/`dueAt` reflects whichever sense needs attention
  * first, and a reminder fires as soon as any sense is due.
  */
-function pickRepresentativeDefinition(
+export function pickRepresentativeDefinition(
   definitions: BackendWordDefinition[],
 ): BackendWordDefinition | undefined {
   return definitions.reduce<BackendWordDefinition | undefined>((soonest, d) => {
@@ -537,10 +609,10 @@ export function invalidateUserWordLibrary(): void {
  *
  * This is what keeps the cache — and therefore the reminders that read it —
  * honest between two reads of `GET /words`. Every endpoint that reschedules a
- * word must call it: `/reviews/:id` here, `/exercises/:id/submit` in
- * `exercise-client`. `wordId` here is the *parent word* id (a review/exercise
- * reschedules one definition, but the cached row only tracks one representative
- * state for the whole word).
+ * word must call it: `submitReviewWord` here, `submitExercise`/
+ * `submitFlashcardExercise` in `exercise-client`. `wordId` here is the
+ * *parent word* id (a review/exercise reschedules one or more definitions,
+ * but the cached row only tracks one representative state for the whole word).
  */
 export function patchCachedUserWord(
   wordId: number | string,
@@ -639,15 +711,6 @@ export async function getUserWordLibrary(
 }
 
 /** Maps one `/reviews/due` row straight to the SRS schedule it carries. */
-export function mapBackendUserWordToSRS(dueRow: BackendDueReview): SRSData {
-  return {
-    userWordId: dueRow.id,
-    wordId: String(dueRow.id),
-    interval: dueRow.interval,
-    easeFactor: dueRow.easinessFactor,
-    repetitions: dueRow.repetitions,
-    lastReviewed: null,
-    nextReviewDate: dueRow.dueAt,
-    state: (dueRow.status as SRSState) || "new",
-  };
+export function mapBackendUserWordToSRS(dueRow: BackendDueReview): SRSData | undefined {
+  return mapDueDefinitionsToSRS(dueRow.userWordId, dueRow.definitions);
 }
