@@ -11,13 +11,20 @@ import {
   Volume2,
   XCircle,
 } from 'lucide-react';
-import { ListeningExercise } from '@/types/exercise';
+import {
+  ExerciseAnswerResult,
+  ExerciseMistake,
+  ListeningExercise,
+} from '@/types/exercise';
 import { isSpeechSupported, speakWord, soundFX } from '@/lib/audio';
 
 interface ListeningQuizProps {
   exercises: ListeningExercise[];
-  onSubmitAnswer: (exercise: ListeningExercise, answer: string) => Promise<boolean>;
-  onComplete: (correctCount: number, mistakes: ListeningExercise[]) => void;
+  onSubmitAnswer: (
+    exercise: ListeningExercise,
+    answer: string
+  ) => Promise<ExerciseAnswerResult>;
+  onComplete: (correctCount: number, mistakes: ExerciseMistake[]) => void;
   onClose: () => void;
 }
 
@@ -39,7 +46,7 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [playCount, setPlayCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<ListeningExercise[]>([]);
+  const [mistakes, setMistakes] = useState<ExerciseMistake[]>([]);
 
   const currentExercise = exercises[currentIndex] || exercises[0];
   // A real recording never needs the TTS fallback or its browser-support check.
@@ -116,7 +123,15 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setMistakes((prev) => [...prev, currentExercise]);
+      setMistakes((prev) => [
+        ...prev,
+        {
+          exercise: currentExercise,
+          // A revealed answer is not an attempt — keep it out of the recap.
+          userAnswer: revealed ? '' : answer.trim(),
+          correctAnswer: currentExercise.headword,
+        },
+      ]);
     }
 
     void onSubmitAnswer(currentExercise, answer.trim());

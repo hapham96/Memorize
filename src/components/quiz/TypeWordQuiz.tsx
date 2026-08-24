@@ -2,13 +2,20 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle, XCircle, ArrowRight, Volume2 } from 'lucide-react';
-import { TypeMissingWordExercise } from '@/types/exercise';
+import {
+  ExerciseAnswerResult,
+  ExerciseMistake,
+  TypeMissingWordExercise,
+} from '@/types/exercise';
 import { speakWord, soundFX } from '@/lib/audio';
 
 interface TypeWordQuizProps {
   exercises: TypeMissingWordExercise[];
-  onSubmitAnswer: (exercise: TypeMissingWordExercise, answer: string) => Promise<boolean>;
-  onComplete: (correctCount: number, mistakes: TypeMissingWordExercise[]) => void;
+  onSubmitAnswer: (
+    exercise: TypeMissingWordExercise,
+    answer: string
+  ) => Promise<ExerciseAnswerResult>;
+  onComplete: (correctCount: number, mistakes: ExerciseMistake[]) => void;
   onClose: () => void;
 }
 
@@ -22,7 +29,7 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<TypeMissingWordExercise[]>([]);
+  const [mistakes, setMistakes] = useState<ExerciseMistake[]>([]);
 
   const currentExercise = exercises[currentIndex] || exercises[0];
 
@@ -41,7 +48,14 @@ export const TypeWordQuiz: React.FC<TypeWordQuizProps> = ({
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setMistakes((prev) => [...prev, currentExercise]);
+      setMistakes((prev) => [
+        ...prev,
+        {
+          exercise: currentExercise,
+          userAnswer: option,
+          correctAnswer: currentExercise.headword,
+        },
+      ]);
     }
 
     void onSubmitAnswer(currentExercise, option);

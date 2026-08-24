@@ -2,13 +2,20 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Lightbulb, CheckCircle2, XCircle, ArrowRight, Volume2 } from 'lucide-react';
-import { FillInBlankExercise } from '@/types/exercise';
+import {
+  ExerciseAnswerResult,
+  ExerciseMistake,
+  FillInBlankExercise,
+} from '@/types/exercise';
 import { speakWord, soundFX } from '@/lib/audio';
 
 interface FillBlankQuizProps {
   exercises: FillInBlankExercise[];
-  onSubmitAnswer: (exercise: FillInBlankExercise, answer: string) => Promise<boolean>;
-  onComplete: (correctCount: number, mistakes: FillInBlankExercise[]) => void;
+  onSubmitAnswer: (
+    exercise: FillInBlankExercise,
+    answer: string
+  ) => Promise<ExerciseAnswerResult>;
+  onComplete: (correctCount: number, mistakes: ExerciseMistake[]) => void;
   onClose: () => void;
 }
 
@@ -24,7 +31,7 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
-  const [mistakes, setMistakes] = useState<FillInBlankExercise[]>([]);
+  const [mistakes, setMistakes] = useState<ExerciseMistake[]>([]);
 
   const currentExercise = exercises[currentIndex] || exercises[0];
 
@@ -43,7 +50,15 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
       setCorrectCount((prev) => prev + 1);
     } else {
       soundFX.playIncorrect();
-      setMistakes((prev) => [...prev, currentExercise]);
+      setMistakes((prev) => [
+        ...prev,
+        {
+          exercise: currentExercise,
+          // A revealed answer is not an attempt — keep it out of the recap.
+          userAnswer: revealed ? '' : answer.trim(),
+          correctAnswer: currentExercise.headword,
+        },
+      ]);
     }
 
     void onSubmitAnswer(currentExercise, answer.trim());

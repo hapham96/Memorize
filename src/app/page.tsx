@@ -15,6 +15,7 @@ import { FillBlankQuiz } from '@/components/quiz/FillBlankQuiz';
 import { TypeWordQuiz } from '@/components/quiz/TypeWordQuiz';
 import { ListeningQuiz } from '@/components/quiz/ListeningQuiz';
 import { QuizResultModal } from '@/components/quiz/QuizResultModal';
+import { MistakeReviewScreen } from '@/components/quiz/MistakeReviewScreen';
 import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
 import { ProfileScreen } from '@/components/profile/ProfileScreen';
@@ -37,6 +38,8 @@ import { ReviewQuality } from '@/types/word';
 import { StatsSummary } from '@/types/stats';
 import {
   AutoGradedExercise,
+  ExerciseAnswerResult,
+  ExerciseMistake,
   isFlashcardExercise,
   isMultipleChoiceExercise,
   isFillInBlankExercise,
@@ -113,7 +116,9 @@ export default function Home() {
   // listening) get their question data from `/exercises/due` instead of the
   // local pool — flashcards are the only mode still using `quizSessionWords`.
   const [exerciseSessionItems, setExerciseSessionItems] = useState<AutoGradedExercise[]>([]);
-  const [exerciseMistakes, setExerciseMistakes] = useState<AutoGradedExercise[]>([]);
+  const [exerciseMistakes, setExerciseMistakes] = useState<ExerciseMistake[]>([]);
+  /** The read-only recap of `exerciseMistakes`, opened from the result modal. */
+  const [isReviewingMistakes, setIsReviewingMistakes] = useState(false);
   const [loadingQuizType, setLoadingQuizType] = useState<QuizType | null>(null);
   const [quizStartError, setQuizStartError] = useState<string | null>(null);
   const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
@@ -557,6 +562,10 @@ export default function Home() {
 
     setQuizStartError(null);
     setLoadingQuizType(type);
+    // Never carry the previous session's score or misses into a new one.
+    setSessionResult(null);
+    setExerciseMistakes([]);
+    setIsReviewingMistakes(false);
     try {
       const items = await getDueExercises(exerciseType);
       if (items.length === 0) {
@@ -580,7 +589,7 @@ export default function Home() {
     }
   };
 
-  const handleExerciseQuizComplete = (correctCount: number, mistakes: AutoGradedExercise[]) => {
+  const handleExerciseQuizComplete = (correctCount: number, mistakes: ExerciseMistake[]) => {
     const total = exerciseSessionItems.length;
     const xpEarned = correctCount * 5 + 10; // 5 XP per correct + 10 completion bonus
 
@@ -631,22 +640,29 @@ export default function Home() {
   const handleSubmitExerciseAnswer = async (
     exercise: AutoGradedExercise,
     answer: string
-  ): Promise<boolean> => {
+  ): Promise<ExerciseAnswerResult> => {
     try {
       const response = await submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer);
       // Keyed by the parent word id, matching how the library's own SRS
       // entries are keyed — distinct from the flashcard flow, which keys by
       // the definition id itself (see `handleRateFlashcardWord`).
       handleUpdateSRS(String(response.userWordId), mapReviewResponseToSRS(response));
-      return isExerciseAnswerCorrect(response);
+      return {
+        isCorrect: isExerciseAnswerCorrect(response),
+        // The graded row IS the meaning being tested, which is the answer
+        // `multiple_choice` needs to reveal (its question payload never says).
+        correctDefinition: response.definition,
+      };
     } catch (err) {
       console.error('API submitExercise error:', err);
       // No server verdict to trust. For the free-answer modes the headword IS
       // the answer, so grade locally rather than blocking the session — but
       // multiple_choice has no local fallback, so it counts as a miss.
-      return exercise.exerciseType !== 'multiple_choice'
-        ? answer.trim().toLowerCase() === exercise.headword.trim().toLowerCase()
-        : false;
+      return {
+        isCorrect:
+          exercise.exerciseType !== 'multiple_choice' &&
+          answer.trim().toLowerCase() === exercise.headword.trim().toLowerCase(),
+      };
     }
   };
 
@@ -905,14 +921,22 @@ export default function Home() {
             onContinue={() => {
               setSessionResult(null);
               setActiveQuizMode(null);
+              setIsReviewingMistakes(false);
+              setExerciseMistakes([]);
             }}
             onReviewMistakes={() => {
-              if (exerciseMistakes.length > 0) {
-                setExerciseSessionItems(exerciseMistakes);
-                setExerciseMistakes([]);
-                setSessionResult(null);
-              }
+              if (exerciseMistakes.length > 0) setIsReviewingMistakes(true);
             }}
+          />
+        )}
+
+        {/* Mounted after the result modal so it portals on top of it — the
+            modal stays alive underneath, so closing the recap lands back on
+            the score rather than out of the session. */}
+        {isReviewingMistakes && exerciseMistakes.length > 0 && (
+          <MistakeReviewScreen
+            mistakes={exerciseMistakes}
+            onClose={() => setIsReviewingMistakes(false)}
           />
         )}
       </MobileContainer>

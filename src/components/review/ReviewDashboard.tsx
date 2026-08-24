@@ -327,7 +327,9 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-700">
             <div
               className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
-              style={{ width: `${((currentIndex + 1) / dueWords.length) * 100}%` }}
+              style={{
+                width: `${((currentIndex + 1) / dueWords.length) * 100}%`,
+              }}
             />
           </div>
         </div>
@@ -345,11 +347,14 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
               soundFX.playFlip();
               setIsFlipped(!isFlipped);
             }}
-            className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-lg flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''
-              }`}
+            className={`w-full min-h-[300px] sm:min-h-[340px] rounded-[28px] p-6 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-lg flex flex-col justify-between cursor-pointer transition-all duration-500 transform-style-3d relative ${
+              isFlipped ? "rotate-y-180" : ""
+            }`}
           >
             {/* FRONT */}
-            <div className={`flex-1 flex flex-col justify-between backface-hidden ${isFlipped ? 'hidden' : 'flex'}`}>
+            <div
+              className={`flex-1 flex flex-col justify-between backface-hidden ${isFlipped ? "hidden" : "flex"}`}
+            >
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-clay border-emerald-300 dark:border-emerald-800">
                   SRS Review • {currentWord.category}
@@ -363,13 +368,9 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
                   {currentWord.word}
                 </h2>
-                <p className="text-sm font-mono text-slate-500 mt-2">{currentWord.ipa}</p>
-
-                {hasManyMeanings && (
-                  <span className="inline-block mt-3 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">
-                    {meanings.length} nghĩa cần ôn tập
-                  </span>
-                )}
+                <p className="text-sm font-mono text-slate-500 mt-2">
+                  {currentWord.ipa}
+                </p>
 
                 <button
                   onClick={(e) => {
@@ -382,6 +383,14 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 </button>
               </div>
 
+              <div className="text-center my-auto py-6">
+                {hasManyMeanings && (
+                  <span className="inline-block mt-3 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">
+                    {meanings.length} nghĩa cần ôn tập
+                  </span>
+                )}
+              </div>
+
               <div className="text-center text-xs text-slate-400 font-medium">
                 💡 Hãy nhẩm nghĩa trước khi xem đáp án
               </div>
@@ -389,8 +398,9 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
             {/* BACK */}
             <div
-              className={`flex-1 flex flex-col justify-between rotate-y-180 backface-hidden ${isFlipped ? 'flex' : 'hidden'
-                }`}
+              className={`flex-1 flex flex-col justify-between rotate-y-180 backface-hidden ${
+                isFlipped ? "flex" : "hidden"
+              }`}
             >
               <div className="flex justify-between items-center gap-2">
                 <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-clay border-blue-300 dark:border-blue-800">
@@ -421,7 +431,11 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 onTouchEnd={handleMeaningTouchEnd}
               >
                 <div className="min-h-[132px] flex items-center overflow-hidden">
-                  <AnimatePresence mode="wait" custom={slideDirection} initial={false}>
+                  <AnimatePresence
+                    mode="wait"
+                    custom={slideDirection}
+                    initial={false}
+                  >
                     <motion.div
                       key={safeMeaningIndex}
                       custom={slideDirection}
@@ -429,7 +443,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                       initial="enter"
                       animate="center"
                       exit="exit"
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
                       className="w-full text-center space-y-2.5"
                     >
                       {currentMeaning?.pos && (
@@ -442,8 +456,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                       </h3>
                       {currentMeaning?.example && (
                         <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-blue-100">
-                          <span className="font-bold">Example:</span>{' '}
-                          <span className="italic">"{currentMeaning.example}"</span>
+                          <span className="font-bold">Example:</span>{" "}
+                          <span className="italic">
+                            "{currentMeaning.example}"
+                          </span>
                         </p>
                       )}
                       {currentMeaning?.translation && (
@@ -475,13 +491,16 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                           key={`${meaning.pos}-${index}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            goToMeaning(index, index > safeMeaningIndex ? 1 : -1);
+                            goToMeaning(
+                              index,
+                              index > safeMeaningIndex ? 1 : -1,
+                            );
                           }}
                           aria-label={`Nghĩa ${index + 1}`}
                           className={`h-2 rounded-full transition-all ${
                             index === safeMeaningIndex
-                              ? 'w-5 bg-emerald-500'
-                              : 'w-2 bg-slate-300 dark:bg-slate-600'
+                              ? "w-5 bg-emerald-500"
+                              : "w-2 bg-slate-300 dark:bg-slate-600"
                           }`}
                         />
                       ))}
@@ -531,7 +550,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <div className="space-y-2 pt-2">
             <div className="text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
               Đánh giá khả năng ghi nhớ để lên lịch ôn tiếp theo (Thang 0 - 5)
-              {hasManyMeanings && ' — áp dụng cho cả ' + meanings.length + ' nghĩa'}
+              {hasManyMeanings &&
+                " — áp dụng cho cả " + meanings.length + " nghĩa"}
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
               <button
@@ -539,8 +559,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="0: Complete blackout - Quên hoàn toàn không nhận ra"
                 className="py-2.5 px-1 rounded-xl bg-slate-900/10 hover:bg-slate-900/20 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] border border-slate-400/30 active:scale-95 transition-all text-center leading-tight"
               >
-                0 • Blackout 🖤<br />
-                <span className="text-[9px] opacity-80 font-normal">Quên hẳn</span><br />
+                0 • Blackout 🖤
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Quên hẳn
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">1d</span>
               </button>
 
@@ -549,8 +573,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="1: Incorrect, remembered - Sai, nhưng nhớ lại khi xem đáp án"
                 className="py-2.5 px-1 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-extrabold text-[11px] border border-red-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                1 • Again 🔴<br />
-                <span className="text-[9px] opacity-80 font-normal">Nhớ khi xem</span><br />
+                1 • Again 🔴
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Nhớ khi xem
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">1d</span>
               </button>
 
@@ -559,8 +587,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="2: Incorrect, familiar - Sai, nhưng cảm thấy quen thuộc"
                 className="py-2.5 px-1 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 font-extrabold text-[11px] border border-orange-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                2 • Familiar 🟠<br />
-                <span className="text-[9px] opacity-80 font-normal">Thấy quen</span><br />
+                2 • Familiar 🟠
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Thấy quen
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">1d</span>
               </button>
 
@@ -569,8 +601,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="3: Correct with difficulty - Đúng, nhưng phải nỗ lực mới nhớ"
                 className="py-2.5 px-1 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold text-[11px] border border-amber-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                3 • Hard 🟡<br />
-                <span className="text-[9px] opacity-80 font-normal">Vật lộn nhớ</span><br />
+                3 • Hard 🟡
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Vật lộn nhớ
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">3d</span>
               </button>
 
@@ -579,8 +615,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="4: Correct with hesitation - Đúng, nhớ sau một chút ngập ngừng"
                 className="py-2.5 px-1 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-extrabold text-[11px] border border-blue-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                4 • Good 🔵<br />
-                <span className="text-[9px] opacity-80 font-normal">Hơi đắn đo</span><br />
+                4 • Good 🔵
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Hơi đắn đo
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">7d</span>
               </button>
 
@@ -589,8 +629,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 title="5: Perfect recall - Nhớ chính xác hoàn hảo không do dự"
                 className="py-2.5 px-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px] border border-emerald-500/20 active:scale-95 transition-all text-center leading-tight"
               >
-                5 • Easy 🟢<br />
-                <span className="text-[9px] opacity-80 font-normal">Hoàn hảo</span><br />
+                5 • Easy 🟢
+                <br />
+                <span className="text-[9px] opacity-80 font-normal">
+                  Hoàn hảo
+                </span>
+                <br />
                 <span className="text-[9px] opacity-60 font-mono">14d</span>
               </button>
             </div>

@@ -98,6 +98,32 @@ export interface SubmitExerciseRequest {
 }
 
 /**
+ * What one graded answer settles. `correctDefinition` is the graded
+ * definition's own text as `/exercises/:id/submit` answers it — for
+ * `multiple_choice`, whose question payload never reveals which option is
+ * right, that IS the correct option. The other three modes already know their
+ * answer (the headword) and ignore it.
+ */
+export interface ExerciseAnswerResult {
+  isCorrect: boolean;
+  correctDefinition?: string;
+}
+
+/**
+ * One missed question, kept so the post-session recap can show it back with
+ * the right answer instead of re-grading it. `correctAnswer` is resolved at
+ * answer time (definition for `multiple_choice`, headword otherwise) because
+ * the exercise payload alone cannot always produce it.
+ */
+export interface ExerciseMistake {
+  exercise: AutoGradedExercise;
+  /** What the learner answered — empty when they revealed the answer instead. */
+  userAnswer: string;
+  /** Empty when the backend never answered and the payload carried no answer. */
+  correctAnswer: string;
+}
+
+/**
  * `/exercises/:userWordDefinitionId/submit` grades into the same definition
  * row `/reviews/:id` does, so the response carries the same SRS columns plus
  * `isCorrect`. `userWordId` here is the *parent word*, not the definition —
