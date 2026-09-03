@@ -34,7 +34,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
       icon: Sparkles,
       color: 'bg-blue-500 border-blue-300',
       badgeBg: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-      active: true,
+      active: false,
     },
     {
       id: 'multiple-choice' as QuizType,
