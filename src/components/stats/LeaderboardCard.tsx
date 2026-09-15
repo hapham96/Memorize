@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, RefreshCw, Loader2, Crown, BookOpen } from 'lucide-react';
-import { LeaderboardEntry } from '@/types';
+import { Trophy, RefreshCw, Loader2, Crown, Sparkles } from 'lucide-react';
+import { Leaderboard } from '@/types';
 import { LEADERBOARD_LIMIT, fetchLeaderboard } from '@/lib/api/leaderboard-client';
 import { buildMockLeaderboard } from '@/data/mockLeaderboard';
 
@@ -51,18 +51,30 @@ function rowStyle(rank: number, isCurrentUser: boolean): string {
 }
 
 /**
- * Top learners by words added.
+ * The month the board covers. Formatted in UTC because the period is a UTC month
+ * start — read locally it would name the previous month west of Greenwich.
+ */
+function formatPeriod(period: Date): string {
+  return period.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
+ * This month's top learners by score.
  *
- * The endpoint is not built yet, so a failed fetch is the expected first state:
- * it falls back to a labelled sample board so the screen is reviewable, and
- * never takes the rest of the stats screen down with it. Once `/users/leaderboard`
- * answers, the real rows replace the sample and the badge disappears.
+ * The ranking resets every month, so the header names the period it covers —
+ * without it the rows read as an all-time board. A failed fetch falls back to a
+ * labelled sample board so the screen stays reviewable, and never takes the rest
+ * of the stats screen down with it.
  */
 export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   currentUserId,
   currentUserName,
 }) => {
-  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
+  const [board, setBoard] = useState<Leaderboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMock, setIsMock] = useState(false);
 
@@ -70,10 +82,10 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
     setIsLoading(true);
     setIsMock(false);
     try {
-      setEntries(await fetchLeaderboard(LEADERBOARD_LIMIT));
+      setBoard(await fetchLeaderboard(LEADERBOARD_LIMIT));
     } catch (err) {
       console.warn('Leaderboard unavailable, showing sample data:', err);
-      setEntries(buildMockLeaderboard(currentUserId, currentUserName));
+      setBoard(buildMockLeaderboard(currentUserId, currentUserName));
       setIsMock(true);
     } finally {
       setIsLoading(false);
@@ -85,25 +97,33 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
     // Re-reads when the account changes — the board highlights the current user.
   }, [currentUserId]);
 
-  const rows = entries ?? [];
+  const rows = board?.entries ?? [];
+  const period = board?.period ?? null;
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-amber-500" />
-          <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-            Top Learners
-          </h4>
+        <div className="flex items-center gap-2 min-w-0">
+          <Trophy className="w-4 h-4 shrink-0 text-amber-500" />
+          <div className="min-w-0">
+            <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              Top Learners
+            </h4>
+            {period && (
+              <p className="text-[11px] text-slate-400 font-bold truncate">
+                {formatPeriod(period)}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {isMock ? (
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded-full">
               Sample data
             </span>
           ) : (
             <span className="text-[11px] text-slate-400 font-medium">
-              Top {LEADERBOARD_LIMIT} by words
+              Top {LEADERBOARD_LIMIT} this month
             </span>
           )}
           <button
@@ -126,10 +146,10 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       ) : rows.length === 0 ? (
         <div className="clay-well px-4 py-6 text-center">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
-            No one is on the board yet.
+            No one is on the board this month.
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Add words and you could be first.
+            Score some points and you could be first.
           </p>
         </div>
       ) : (
@@ -165,16 +185,12 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
                       </span>
                     )}
                   </p>
-                  {entry.masteredCount !== undefined && (
-                    <span className="text-[10px] text-emerald-500 font-semibold">
-                      {entry.masteredCount} mastered
-                    </span>
-                  )}
                 </div>
 
-                <div className="shrink-0 flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
-                  <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-                  <span className="text-sm font-black">{entry.wordsLearned}</span>
+                <div className="shrink-0 flex items-baseline gap-1 text-slate-900 dark:text-slate-100">
+                  <Sparkles className="w-3.5 h-3.5 self-center text-blue-500" />
+                  <span className="text-sm font-black">{entry.score}</span>
+                  <span className="text-[10px] font-semibold text-slate-400">pts</span>
                 </div>
               </motion.li>
             );

@@ -154,8 +154,17 @@ export interface LeaderboardEntry {
   userId: number;
   rank: number;
   name: string;
-  wordsLearned: number;
-  masteredCount?: number;
+  /** Points earned inside the board's month — what the rows are ordered by. */
+  score: number;
+}
+
+/**
+ * The monthly board: the rows plus the month they belong to. `period` is null
+ * when the response carried no readable date, which only costs the month label.
+ */
+export interface Leaderboard {
+  period: Date | null;
+  entries: LeaderboardEntry[];
 }
 
 export type ActiveTab = 'home' | 'learn' | 'review' | 'stats' | 'profile';

@@ -1,11 +1,12 @@
 /**
- * Wire type for the ranking endpoint. The endpoint does not exist yet — this is
- * the shape the app reads, so it doubles as the contract the backend has to
- * meet. Everything but `userId` and `wordsLearned` is optional: a row still
- * renders with only an id and a count.
+ * Wire types for the ranking endpoint.
  *
- * `rank` is deliberately absent — the app numbers the rows itself from the
- * sorted order, so a backend that forgets to send one cannot break the list.
+ * The board is scoped to **one month**: the response is an envelope carrying the
+ * period it covers plus the rows for it, so the UI can name the month instead of
+ * implying an all-time ranking.
+ *
+ * `rank` is deliberately absent from a row — the app numbers the rows itself from
+ * the sorted order, so a backend that forgets to send one cannot break the list.
  */
 export type BackendLeaderboardEntry = {
   userId: number;
@@ -15,7 +16,17 @@ export type BackendLeaderboardEntry = {
   email?: string | null;
   /** Older/alternate spelling of `name`; kept so either shape renders. */
   displayName?: string | null;
-  /** Distinct words the account has added/learned — what the ranking sorts on. */
-  wordsLearned: number;
-  masteredCount?: number | null;
+  /** Points earned inside the period — what the ranking sorts on. */
+  score: number;
+};
+
+/**
+ * The envelope. `period` is an ISO timestamp pinned to the first day of the
+ * month the board covers (e.g. `2026-09-01T00:00:00.000Z`); it is optional here
+ * because a board with an unreadable period still renders, it just loses its
+ * month label.
+ */
+export type BackendLeaderboardResponse = {
+  period?: string | null;
+  entries?: BackendLeaderboardEntry[] | null;
 };
