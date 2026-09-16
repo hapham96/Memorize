@@ -10,6 +10,10 @@ import {
 import { AuthSession } from '@/types/auth';
 import { generateAvatar } from '@/lib/avatar';
 import { EMPTY_REMINDER_STATE, ReminderState } from '@/lib/notifications';
+// `srs` imports nothing but types, so this cannot close a cycle back to here.
+import { normalizeSRSState } from '@/lib/srs';
+// Same for `word` — types only.
+import { migrateStoredWord } from '@/lib/word';
 
 const STORAGE_KEYS = {
   PROGRESS: 'memorize_user_progress',
@@ -194,6 +198,28 @@ function pruneLegacyDatasetEntries(
   return { map: Object.fromEntries(kept), pruned: true };
 }
 
+/**
+ * Rewrites any backend-spelled `state` to the app's own spelling.
+ *
+ * Builds before `normalizeSRSState` cast the wire status straight into
+ * `SRSData.state`, so a device can hold `reviewing` where the app only ever
+ * tests for `review` — the upcoming count and the library filter would keep
+ * missing those words until they were reviewed again. Repaired on load and
+ * written back, so it happens once per device.
+ */
+function normalizeStoredStates(
+  srsMap: Record<string, SRSData>
+): { map: Record<string, SRSData>; changed: boolean } {
+  let changed = false;
+  const entries = Object.entries(srsMap).map(([wordId, srs]) => {
+    const state = normalizeSRSState(srs?.state);
+    if (!state || state === srs.state) return [wordId, srs] as const;
+    changed = true;
+    return [wordId, { ...srs, state }] as const;
+  });
+  return changed ? { map: Object.fromEntries(entries), changed } : { map: srsMap, changed };
+}
+
 export function loadSRSData(): Record<string, SRSData> {
   if (typeof window === 'undefined') return {};
   try {
@@ -201,8 +227,9 @@ export function loadSRSData(): Record<string, SRSData> {
     // No seeding: an account only has SRS entries for words it actually added.
     if (!data) return {};
 
-    const { map, pruned } = pruneLegacyDatasetEntries(JSON.parse(data));
-    if (pruned) saveSRSData(map);
+    const { map: kept, pruned } = pruneLegacyDatasetEntries(JSON.parse(data));
+    const { map, changed } = normalizeStoredStates(kept);
+    if (pruned || changed) saveSRSData(map);
     return map;
   } catch {
     return {};
@@ -245,7 +272,12 @@ export function loadCustomWords(): Word[] {
   try {
     const data = readScoped(STORAGE_KEYS.CUSTOM_WORDS);
     if (!data) return [];
-    return JSON.parse(data);
+
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) return [];
+    // A word stored before `vietnamese` was folded into `definition` keeps its
+    // meaning — see `migrateStoredWord`.
+    return parsed.map(migrateStoredWord);
   } catch {
     return [];
   }
@@ -291,8 +323,13 @@ export function saveCategories(categories: VocabularySet[]): void {
 /**
  * Bumped whenever a cached row's shape changes. An older payload is dropped
  * rather than read with missing fields.
+ *
+ * v2: rows written before `normalizeSRSState` dropped the backend's
+ * `reviewing` status on the floor, leaving `state` undefined — every graduated
+ * word in such a copy shows no pill and counts under the wrong filter, so the
+ * copy is refetched instead of read.
  */
-const WORD_LIBRARY_CACHE_VERSION = 1;
+const WORD_LIBRARY_CACHE_VERSION = 2;
 
 export interface WordLibraryCache {
   version: number;
@@ -318,7 +355,13 @@ export function loadWordLibraryCache(): WordLibraryCache | null {
     if (parsed?.version !== WORD_LIBRARY_CACHE_VERSION) return null;
     if (!Array.isArray(parsed.items)) return null;
 
-    return { ...parsed, fetchedAt: parsed.fetchedAt ?? 0 };
+    return {
+      ...parsed,
+      fetchedAt: parsed.fetchedAt ?? 0,
+      // `withLocalOnly` puts locally added words in here too, so a cached row
+      // can carry the legacy `vietnamese` and nothing else.
+      items: parsed.items.map((item) => ({ ...item, word: migrateStoredWord(item.word) })),
+    };
   } catch {
     return null;
   }

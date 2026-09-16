@@ -452,7 +452,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                         </span>
                       )}
                       <h3 className="text-2xl md:text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                        {currentMeaning?.definition || currentWord.vietnamese}
+                        {currentMeaning?.definition || currentWord.definition}
                       </h3>
                       {currentMeaning?.example && (
                         <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-2 rounded-lg border-blue-100">
@@ -856,7 +856,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                         {item.word.category}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">{item.word.vietnamese}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{item.word.definition}</p>
                   </div>
 
                   <div className="shrink-0 flex flex-col items-end gap-1">

@@ -86,7 +86,6 @@ export function mapFlashcardExerciseToWord(
     ipa: exercise.ipaPronunciation ?? local?.ipa ?? `/${exercise.headword}/`,
     pos: normalizePos(primary?.partOfSpeech) ?? local?.pos ?? "n.",
     definition: primary?.definition ?? local?.definition,
-    vietnamese: local?.vietnamese ?? primary?.definition ?? "",
     // The backend sends no example sentence for flashcard rows — local only.
     example: local?.example ?? "",
     translation: local?.translation ?? "",

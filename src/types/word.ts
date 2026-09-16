@@ -29,6 +29,12 @@ export type BackendWordDefinition = {
   definition: string;
   partOfSpeech: string | null;
   example: string | null;
+  /**
+   * `new` | `learning` | `reviewing` | `mastered` — the backend's spelling,
+   * which is **not** the app's: `SRSState` calls the third one `review`. Read
+   * it with `normalizeSRSState`, never with a cast. Typed as a string because
+   * an unknown value must reach that mapper rather than fail to compile.
+   */
   status: string;
   learningStep: number;
   easinessFactor: number;

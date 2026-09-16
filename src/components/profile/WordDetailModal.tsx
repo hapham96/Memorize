@@ -225,7 +225,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
                   >
                     <div className="text-center space-y-2">
                       <h3 className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                        {currentMeaning?.definition || word.vietnamese || "—"}
+                        {currentMeaning?.definition || "—"}
                       </h3>
                       {currentMeaning?.pos && (
                         <span className="inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 border-2 border-purple-200 dark:border-purple-900">

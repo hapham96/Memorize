@@ -15,7 +15,6 @@ import {
 import {
   Word,
   SRSData,
-  SRSState,
   LevelDifficulty,
   UserWordListItem,
   VocabularySet,
@@ -26,6 +25,7 @@ import {
   loadWordLibraryCache,
   saveWordLibraryCache,
 } from "@/lib/storage";
+import { normalizeSRSState } from "@/lib/srs";
 import { getAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
 import { FALLBACK_CATEGORY, resolveVocabularySetName } from "./category-client";
@@ -256,10 +256,9 @@ export function mapBackendWordToWord(
     ipa:
       trimmed(backendWord.ipaPronunciation) ?? fallback?.ipa ?? `/${headword}/`,
     pos: normalizePos(primary?.partOfSpeech) ?? fallback?.pos ?? "n.",
+    // The meaning shown on the back of the card. The app writes what the user
+    // typed into the backend's `definition`, so it round-trips.
     definition: meaning ?? fallback?.definition,
-    // `vietnamese` is the meaning shown on the back of the card; the app writes
-    // what the user typed into the backend's `definition`, so it round-trips.
-    vietnamese: meaning ?? fallback?.vietnamese ?? "",
     example: trimmed(primary?.example) ?? fallback?.example ?? "",
     translation: fallback?.translation ?? `Ví dụ với ${headword}.`,
     meanings: meanings.length > 0 ? meanings : fallback?.meanings,
@@ -301,7 +300,7 @@ export function mapAddWordResponseToSRS(
     repetitions: primary.repetitions,
     lastReviewed: null,
     nextReviewDate: primary.dueAt,
-    state: (primary.status as SRSState) || "new",
+    state: normalizeSRSState(primary.status) ?? "new",
   };
 }
 
@@ -318,7 +317,7 @@ export function mapReviewResponseToSRS(response: BackendWordDefinition): SRSData
     repetitions: response.repetitions,
     lastReviewed: new Date().toISOString(),
     nextReviewDate: response.dueAt,
-    state: (response.status as SRSState) || "learning",
+    state: normalizeSRSState(response.status) ?? "learning",
   };
 }
 
@@ -342,7 +341,7 @@ export function mapWordRatingToSRS(response: WordRatingResponse): SRSData | unde
     repetitions: representative.repetitions,
     lastReviewed: new Date().toISOString(),
     nextReviewDate: representative.dueAt,
-    state: (representative.status as SRSState) || "learning",
+    state: normalizeSRSState(representative.status) ?? "learning",
   };
 }
 
@@ -367,7 +366,7 @@ function mapDueDefinitionsToSRS(
     repetitions: representative.repetitions,
     lastReviewed: null,
     nextReviewDate: representative.dueAt,
-    state: (representative.status as SRSState) || "new",
+    state: normalizeSRSState(representative.status) ?? "new",
   };
 }
 
@@ -391,7 +390,7 @@ export function createPlaceholderWord(wordId: string | number): Word {
     word: `Word #${targetId}`,
     ipa: `/#${targetId}/`,
     pos: "n.",
-    vietnamese: `Từ vựng #${targetId}`,
+    definition: `Từ vựng #${targetId}`,
     example: `Example sentence for word #${targetId}.`,
     translation: `Ví dụ minh họa cho từ #${targetId}.`,
     level: "B1",
@@ -425,7 +424,6 @@ export function resolveWordForUserWord(
     ipa: trimmed(dueRow.ipaPronunciation) ?? local?.ipa ?? `/${dueRow.headword}/`,
     pos: normalizePos(primary?.partOfSpeech) ?? local?.pos ?? "n.",
     definition: trimmed(primary?.definition) ?? local?.definition,
-    vietnamese: trimmed(primary?.definition) ?? local?.vietnamese ?? "",
     example: trimmed(primary?.example) ?? local?.example ?? "",
     translation: local?.translation ?? `Ví dụ với ${dueRow.headword}.`,
     // Only the DUE meanings — a word with 3 senses but 1 due today shows (and
@@ -456,13 +454,6 @@ export interface UserWordsPage {
   totalPages: number;
 }
 
-const SRS_STATES: SRSState[] = ["new", "learning", "review", "mastered"];
-
-/** The status column is a free string; anything the app has no pill for is dropped. */
-function normalizeState(status?: string | null): SRSState | undefined {
-  const raw = trimmed(status)?.toLowerCase() as SRSState | undefined;
-  return raw && SRS_STATES.includes(raw) ? raw : undefined;
-}
 
 /**
  * The word's "worst case" definition — the one due soonest — so a library
@@ -495,7 +486,7 @@ function mapListRow(
     // The word-level response reports no `createdAt` of its own; the earliest
     // definition's is the closest stand-in.
     addedAt: trimmed(representative?.createdAt),
-    state: normalizeState(representative?.status),
+    state: normalizeSRSState(representative?.status),
     dueAt: trimmed(representative?.dueAt),
     isFavorite: row.isFavorite,
   };
@@ -506,12 +497,15 @@ function mapListRow(
  *
  * `fallbacks` are the locally stored words, used to fill the fields the
  * backend has no column for. `vocabularySets` resolves each word's single
- * `vocabularySetId` to a display name.
+ * `vocabularySetId` to a display name. `search` is the endpoint's optional
+ * `search` query param — the backend decides what a match is, so nothing is
+ * filtered again on this side.
  */
 export async function fetchUserWords(
   options: {
     page?: number;
     pageSize?: number;
+    search?: string;
     fallbacks?: Word[];
     vocabularySets?: VocabularySet[];
   } = {},
@@ -521,8 +515,17 @@ export async function fetchUserWords(
   const fallbacks = options.fallbacks ?? [];
   const vocabularySets = options.vocabularySets ?? [];
 
+  const params = new URLSearchParams({
+    pageNumber: String(page),
+    pageSize: String(pageSize),
+  });
+  // Built through URLSearchParams because the term is user-typed — a space or
+  // an apostrophe must not break the query string.
+  const search = trimmed(options.search);
+  if (search) params.set("search", search);
+
   const data = await getAsync<BackendWordListResponse>(
-    `/words?pageNumber=${page}&pageSize=${pageSize}`,
+    `/words?${params.toString()}`,
     { auth: true },
   );
 
@@ -549,7 +552,12 @@ export async function fetchUserWords(
  * calls on a miss.
  */
 export async function fetchAllUserWords(
-  options: { pageSize?: number; fallbacks?: Word[]; vocabularySets?: VocabularySet[] } = {},
+  options: {
+    pageSize?: number;
+    search?: string;
+    fallbacks?: Word[];
+    vocabularySets?: VocabularySet[];
+  } = {},
 ): Promise<UserWordListItem[]> {
   const pageSize = Math.max(1, options.pageSize ?? 100);
   const collected: UserWordListItem[] = [];
@@ -559,6 +567,7 @@ export async function fetchAllUserWords(
     const result = await fetchUserWords({
       page,
       pageSize,
+      search: options.search,
       fallbacks: options.fallbacks,
       vocabularySets: options.vocabularySets,
     });
@@ -583,6 +592,35 @@ export async function fetchAllUserWords(
 
 /** How many words one `GET /words` request asks for while filling the cache. */
 const LIBRARY_FETCH_PAGE_SIZE = 100;
+
+/**
+ * Every word in the account matching `search`, from `GET /words?search=`.
+ *
+ * Deliberately **not** cached: the library cache holds one thing, the whole
+ * library, and keying it per term would let a stale term answer a later
+ * search. A search is an explicit user action, so it is the one read here that
+ * always goes to the network.
+ *
+ * The whole match set is collected rather than one page of it, so the caller
+ * pages, filters and counts results the same way it does the full library —
+ * one paging model, not two. `search` is expected to be narrow; an empty term
+ * would fetch the entire library and is rejected instead, since that is what
+ * `getUserWordLibrary` is for.
+ */
+export async function searchUserWords(
+  search: string,
+  options: { fallbacks?: Word[]; vocabularySets?: VocabularySet[] } = {},
+): Promise<UserWordListItem[]> {
+  const term = trimmed(search);
+  if (!term) return [];
+
+  return fetchAllUserWords({
+    pageSize: LIBRARY_FETCH_PAGE_SIZE,
+    search: term,
+    fallbacks: options.fallbacks,
+    vocabularySets: options.vocabularySets,
+  });
+}
 
 /**
  * Concurrent readers of the library share one network read, keyed per account so
@@ -629,7 +667,7 @@ export function patchCachedUserWord(
     changed = true;
     return {
       ...item,
-      state: normalizeState(status) ?? item.state,
+      state: normalizeSRSState(status) ?? item.state,
       dueAt: trimmed(dueAt) ?? item.dueAt,
     };
   });

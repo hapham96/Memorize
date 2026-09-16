@@ -86,11 +86,23 @@ A backend rejection is permanent, unlike a network error, so the add-word paths 
 |---|---|
 | `easinessFactor` | `easeFactor` |
 | `dueAt` | `nextReviewDate` |
-| `status` | `state` |
+| `status` | `state` (**`reviewing` → `review`**) |
 | `headword` | `word` |
 | `ipaPronunciation` | `ipa` |
 
 Backend responses are sparse relative to `Word`, so mappers take a `fallback?: Partial<Word>` and fill gaps with locally-entered values.
+
+#### One meaning field: `definition`
+
+`Word.vietnamese` is **gone**. It held the same string as `definition` (the backend has one meaning column, and every mapper wrote it to both), and the UI had already settled on `currentMeaning?.definition` with `vietnamese` as a dead fallback. The meaning now lives in `definition` and in `meanings[].definition`, and `getWordMeanings()` ([src/lib/word.ts](src/lib/word.ts)) is what readers go through.
+
+Locally added words used to store the meaning *only* in `vietnamese` — the add form never set `definition` — so `migrateStoredWord()` moves it across on read, in both `loadCustomWords()` and `loadWordLibraryCache()` (the cache holds local-only rows too, via `withLocalOnly`). It runs on read rather than as a one-off rewrite so an older backup is migrated as well; the word-library cache version was **not** bumped, since that would have discarded exactly the rows that need migrating.
+
+#### `status` is read by one function, never cast
+
+The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new | learning | **review** | mastered`. `normalizeSRSState()` in [src/lib/srs.ts](src/lib/srs.ts) owns that one-word difference and is the **only** way a status may enter the app — `BackendWordDefinition.status` stays typed `string` so an unknown value reaches the mapper instead of failing to compile, and an unrecognised one returns `undefined` rather than a guess.
+
+`as SRSState` is the bug this replaced: it wrote `reviewing` into `SRSData.state`, which matches nothing the app compares against — `ReviewDashboard`'s `upcomingCount` (`state === 'review'`), the library status filter, and both status pills all missed every graduated word. Two migrations clean up what those casts persisted: `loadSRSData()` rewrites stored states through the mapper once per device, and `WORD_LIBRARY_CACHE_VERSION` went to **2** so a cached library whose `reviewing` rows were dropped to `undefined` is refetched rather than read.
 
 `GET /reviews/due` sends no `userId` — the account comes from the bearer token. Each row is a `BackendDueReview` (`BackendUserWord` + an optional embedded `word` carrying `definitions[].examples[]`); `mapBackendWordToWord` turns that into a full `Word`, and `resolveWordForUserWord` prefers it over the local copy, falling back to `createPlaceholderWord` only when the row has no embed and the device has never seen the word. `hydrateFromApi` adopts words the local library is missing — from `GET /words` now, not from the due list.
 
@@ -135,9 +147,26 @@ Two details worth keeping:
 - The mount effect keys off `allWords.length`, so a word added while the profile is open reloads the list — and since the add already dropped the cache, that reload is the one request that goes out. `allWords`/`srsMap` are read through a ref precisely so a new object identity does *not* re-run it.
 - `readCachedUserWordLibrary()` is synchronous so a cache hit never flashes a spinner, and `withLocalOnly()` prepends any local word the cached list has never heard of — a word added while the backend was unreachable must not vanish from the library.
 
+#### Search is the backend's; the status filter is not
+
+The section's two controls are deliberately asymmetric, because `GET /words` takes a `search` param and has **no** status param.
+
+- **Search** goes to the backend. `searchUserWords()` is `fetchAllUserWords({ search })` — it collects the whole match set (not one page) so the result set is paged, counted and exported by exactly the code that does it for the full library; there is one paging model, not two. It is the one read here that is **never cached**: keying the library cache per term would let a stale term answer a later search, and `getUserWordLibrary` must keep meaning "the whole library". Typing is debounced `SEARCH_DEBOUNCE_MS`, Enter skips the wait, and the query is built with `URLSearchParams` since the term is user-typed.
+- **The status filter** is applied client-side to the rows already in hand. `filterState()` reads a missing `state` as `new` — a local-only row has no backend status, and it must still land under a chip or "Tất cả" would out-count the four chips together.
+
+`items` therefore holds *the current result set* — the library, or the match set — and `filtered` is that narrowed by the chip. Consequences worth keeping:
+
+- A failed search falls back to matching `matchesLocally()` against the cached library, behind the same amber offline notice. `matchesLocally` is only for rows the backend never returned (local-only words, and this fallback) — the server decides what matches everything else.
+- **Export follows the filter.** `handleExport` writes `filtered`, so an active search or chip narrows the sheet to what is on screen.
+- The load effect keys off `activeQuery` as well as `allWords.length`; clearing the term falls back to the synchronous cache read, so leaving a search costs no request.
+
 ### Excel columns live in one place
 
-[src/lib/wordExcel.ts](src/lib/wordExcel.ts) owns `VOCAB_HEADERS`, and both the import template (`downloadSampleExcel` in `AddWordModal`) and the profile export build their sheets from it. The importer's `getRowVal` matches incoming columns against these exact labels, so an export must use them verbatim or it will not import back. The two export-only columns (`Trạng thái`, `Ngày thêm`) are appended last and match none of the importer's aliases, so they are ignored on re-import.
+[src/lib/wordExcel.ts](src/lib/wordExcel.ts) owns `VOCAB_HEADERS`, the column widths, and **both** writers: `downloadVocabTemplate()` (the import template the `AddWordModal` button downloads) and `exportWordsToExcel()` (the profile export). Both write their sheet in `VOCAB_HEADERS` order, so a column added or dropped lands in both files. The importer's `getRowVal` matches incoming columns against these exact labels, so an export must use them verbatim or it will not import back. The two export-only columns (`Trạng thái`, `Ngày thêm`) are appended last and match none of the importer's aliases, so they are ignored on re-import.
+
+The sheet has **one meaning column**, `Nghĩa của từ (Definition)`, and it is required alongside the headword — it maps to `Word.definition` and is what `POST /words/bulk` sends as each definition. The importer still lists the retired `Nghĩa tiếng Việt`/`Vietnamese` labels among that column's aliases so a sheet filled in from an older template keeps importing.
+
+The guide accordion in `AddWordModal` is rendered from `EXCEL_COLUMN_GUIDE`, whose aliases and notes restate what `processFile` does — update both together or the guide starts lying.
 
 ### Auth is mandatory
 
@@ -166,7 +195,7 @@ It also handles bulk Excel/CSV import and template export via `xlsx`.
 
 ## Conventions
 
-- **UI copy is Vietnamese**; vocabulary data is English with Vietnamese `vietnamese`/`translation` fields. Match the surrounding language when adding strings.
+- **UI copy is Vietnamese**; vocabulary data is English, and the meaning the user studies is whatever they typed into `definition` (usually Vietnamese). Match the surrounding language when adding strings.
 - **Code comments are English** — JSDoc, inline `//`, and JSX `{/* */}` alike. This is independent of the Vietnamese UI copy above.
 - **Dark mode** is Tailwind `darkMode: 'class'`, toggled by directly adding/removing `dark` on `document.documentElement` in `page.tsx` (`handleUpdateSettings` and the mount effect). There is no theme provider. The `'system'` theme option exists in `AppSettings` but is treated as light.
 - **Styling** is a **Claymorphism** theme defined entirely in [tailwind.config.ts](tailwind.config.ts) + [src/app/globals.css](src/app/globals.css). Read the header comment in the config before touching colors.

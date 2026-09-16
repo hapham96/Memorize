@@ -30,7 +30,7 @@ import {
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
-import { VOCAB_HEADERS } from "@/lib/wordExcel";
+import { downloadVocabTemplate } from "@/lib/wordExcel";
 import {
   addWord,
   addWordsBulk,
@@ -201,15 +201,25 @@ const buildDefinitionOptionsFromDefs = (defs: string[]): DefinitionOption[] => {
   }));
 };
 
+/** One column card in the Excel/CSV import guide. */
+interface ExcelColumnGuide {
+  /** Column label, as the downloadable template writes it. */
+  label: string;
+  /** Header keywords `getRowVal` matches this column on. */
+  aliases: string[];
+  /** What the importer does with the column — including its default. */
+  note: string;
+  required?: boolean;
+}
+
 interface ParsedWordRow {
   raw: Record<string, any>;
   word: string;
-  vietnamese: string;
-  definition?: string;
+  /** The word's meaning — the sheet's one meaning column, and required. */
+  definition: string;
   ipa: string;
   pos: string;
   example: string;
-  translation: string;
   category: WordCategory;
   level: LevelDifficulty;
   mnemonic?: string;
@@ -217,70 +227,11 @@ interface ParsedWordRow {
   errorReason?: string;
 }
 
-// Download sample Excel template
+// Download sample Excel template — the sheet itself is built in `wordExcel`,
+// alongside the profile screen's export, so both files keep the same columns.
 const downloadSampleExcel = () => {
   soundFX.playPop();
-  // Keyed off the shared headers so the template and the profile screen's
-  // export stay one format — an export has to import back without editing.
-  const H = VOCAB_HEADERS;
-  const sampleData = [
-    {
-      [H.word]: "resilient",
-      [H.vietnamese]: "kiên cường, phục hồi nhanh",
-      [H.definition]:
-        "Able to withstand or recover quickly from difficult conditions.",
-      [H.ipa]: "/rɪˈzɪl.jənt/",
-      [H.pos]: "adj.",
-      [H.example]: "He is resilient in the face of hardship.",
-      [H.translation]: "Anh ấy rất kiên cường trước khó khăn.",
-      [H.category]: "IELTS",
-      [H.level]: "B2",
-      [H.mnemonic]: "Re + silient -> Lại nổi lên nhẹ nhàng",
-    },
-    {
-      [H.word]: "perseverance",
-      [H.vietnamese]: "sự kiên trì, nhẫn nại",
-      [H.definition]:
-        "Persistence in doing something despite difficulty or delay.",
-      [H.ipa]: "/ˌpɜː.sɪˈvɪə.rəns/",
-      [H.pos]: "n.",
-      [H.example]: "Perseverance is key to success.",
-      [H.translation]: "Sự kiên trì là chìa khóa tới thành công.",
-      [H.category]: "Academic",
-      [H.level]: "C1",
-      [H.mnemonic]: "Per + sever -> Vượt qua khó khăn bằng nhẫn nại",
-    },
-    {
-      [H.word]: "ubiquitous",
-      [H.vietnamese]: "có mặt ở khắp nơi",
-      [H.definition]: "Present, appearing, or found everywhere.",
-      [H.ipa]: "/juːˈbɪk.wɪ.təs/",
-      [H.pos]: "adj.",
-      [H.example]: "Smartphones are ubiquitous today.",
-      [H.translation]: "Điện thoại thông minh hiện có mặt ở khắp mọi nơi.",
-      [H.category]: "TOEIC",
-      [H.level]: "C1",
-      [H.mnemonic]: "U + bi + qui -> Đi đâu cũng quẹo thấy",
-    },
-  ];
-
-  const worksheet = XLSX.utils.json_to_sheet(sampleData);
-  worksheet["!cols"] = [
-    { wch: 22 }, // Word
-    { wch: 32 }, // Vietnamese
-    { wch: 45 }, // Definition
-    { wch: 18 }, // IPA
-    { wch: 12 }, // POS
-    { wch: 42 }, // Example
-    { wch: 42 }, // Translation
-    { wch: 16 }, // Category
-    { wch: 10 }, // Level
-    { wch: 40 }, // Mnemonic
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Mau_Import_Tu_Vung");
-  XLSX.writeFile(workbook, "Memorize_Vocab_Template.xlsx");
+  downloadVocabTemplate();
 };
 
 // Extract field value flexibly matching English & Vietnamese header keys
@@ -333,6 +284,57 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const CATEGORIES: WordCategory[] = useMemo(
     () => categoryNames(vocabularySets),
     [vocabularySets],
+  );
+
+  // The import guide, written from what `processFile` actually reads — the
+  // aliases below are the ones `getRowVal` is called with, and the notes are
+  // the defaults it falls back to, so the guide cannot drift from the parser.
+  const EXCEL_COLUMN_GUIDE: ExcelColumnGuide[] = useMemo(
+    () => [
+      {
+        label: "Từ tiếng Anh (Word)",
+        aliases: ["Word", "Từ tiếng Anh", "Từ vựng", "English"],
+        note: "Từ cần học, ví dụ: opportunity. Được tự động chuyển thành chữ thường.",
+        required: true,
+      },
+      {
+        label: "Nghĩa của từ (Definition)",
+        aliases: ["Definition", "Nghĩa của từ", "Nghĩa tiếng Việt", "Meaning"],
+        note: "Nghĩa hiển thị ở mặt sau thẻ, ví dụ: cơ hội. Viết tiếng Việt hay tiếng Anh đều được.",
+        required: true,
+      },
+      {
+        label: "Phiên âm (IPA)",
+        aliases: ["IPA", "Phiên âm"],
+        note: "Để trống thì app tự điền /từ-của-bạn/.",
+      },
+      {
+        label: "Từ loại (POS)",
+        aliases: ["POS", "Từ loại", "Part of speech"],
+        note: "n., v., adj., adv., phrase... Để trống thì mặc định là n.",
+      },
+      {
+        label: "Ví dụ (Example)",
+        aliases: ["Example", "Ví dụ", "Câu ví dụ"],
+        note: "Câu ví dụ tiếng Anh chứa từ đó.",
+      },
+      {
+        label: "Bộ từ (Category)",
+        aliases: ["Category", "Bộ từ", "Danh mục"],
+        note: `${CATEGORIES.join(", ")}. Tên không có trong tài khoản sẽ được xếp vào ${FALLBACK_CATEGORY}.`,
+      },
+      {
+        label: "Cấp độ (Level)",
+        aliases: ["Level", "Cấp độ", "Trình độ"],
+        note: `${LEVELS.join(", ")}. Để trống hoặc ghi sai thì mặc định là B1.`,
+      },
+      {
+        label: "Mẹo nhớ (Mnemonic)",
+        aliases: ["Mnemonic", "Mẹo nhớ", "Ghi nhớ"],
+        note: "Mẹo ghi nhớ từ, hiển thị khi học. Không bắt buộc.",
+      },
+    ],
+    [CATEGORIES],
   );
 
   // Single word form state
@@ -547,6 +549,47 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   };
 
   /**
+   * `POST /words/generate`, flattened into the same fields a dictionary lookup produces.
+   * Returns null when AI carried no usable meaning, so each caller keeps its own fallback.
+   */
+  const fetchAIEntry = async (
+    headword: string,
+    cefrLevel: LevelDifficulty,
+  ): Promise<{
+    word: string;
+    options: DefinitionOption[];
+    ipa: string;
+    audioUrl: string;
+    pos: string;
+    definition: string;
+    example: string;
+  } | null> => {
+    const data = await generateWordEntry({ headword, cefrLevel });
+    const entry = data[0];
+    if (!entry) return null;
+
+    const options = buildDefinitionOptions(entry);
+    if (options.length === 0) return null;
+
+    const firstMeaning = entry.meanings?.[0];
+    const firstDef = firstMeaning?.definitions?.[0];
+
+    return {
+      word: entry.word?.trim() || headword,
+      options,
+      ipa:
+        entry.phonetic?.trim() ||
+        entry.phonetics?.find((p) => p.text?.trim())?.text?.trim() ||
+        "",
+      audioUrl:
+        entry.phonetics?.find((p) => p.audio?.trim())?.audio?.trim() || "",
+      pos: mapPartOfSpeech(firstMeaning?.partOfSpeech),
+      definition: firstDef?.definition?.trim() || "",
+      example: firstDef?.example?.trim() || "",
+    };
+  };
+
+  /**
    * The AI word generator, offered when Datamuse has no match for what was typed —
    * `POST /words/generate` writes the entry the dictionary does not carry.
    */
@@ -561,11 +604,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setIsGeneratingWord(true);
 
     try {
-      const data = await generateWordEntry({ headword, cefrLevel: level });
-      const entry = data[0];
-      const options = entry ? buildDefinitionOptions(entry) : [];
+      const ai = await fetchAIEntry(headword, level);
 
-      if (!entry || options.length === 0) {
+      if (!ai) {
         setAiNotice(
           `AI chưa tạo được nghĩa cho “${headword}” — thử lại hoặc tự điền nhé.`,
         );
@@ -574,24 +615,17 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
       // The generator may normalize the spelling (`runing` -> `running`). Move the input with
       // it, otherwise the field's own guard reads the panel as stale and clears it.
-      const finalWord = entry.word?.trim() || headword;
-      setWord(finalWord);
-      setLookedUpWord(finalWord);
-
-      const firstMeaning = entry.meanings?.[0];
-      const firstDef = firstMeaning?.definitions?.[0];
+      setWord(ai.word);
+      setLookedUpWord(ai.word);
 
       applyLookup({
-        headword: finalWord,
-        options,
-        ipa:
-          entry.phonetic?.trim() ||
-          entry.phonetics?.find((p) => p.text?.trim())?.text?.trim() ||
-          "",
-        audioUrl: entry.phonetics?.find((p) => p.audio?.trim())?.audio?.trim(),
-        pos: mapPartOfSpeech(firstMeaning?.partOfSpeech),
-        definition: firstDef?.definition?.trim() || "",
-        example: firstDef?.example?.trim() || "",
+        headword: ai.word,
+        options: ai.options,
+        ipa: ai.ipa,
+        audioUrl: ai.audioUrl,
+        pos: ai.pos,
+        definition: ai.definition,
+        example: ai.example,
         level,
       });
     } catch (err) {
@@ -660,6 +694,33 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       }
     } catch (err) {
       console.warn("Dictionary API fetch error:", err);
+    }
+
+    // `/words/dictionary/:word` answering `success: false` throws (503 `Upstream service is
+    // unreachable` is the common one), and a 200 carrying no meanings fills nothing either —
+    // both mean the dictionary has no definition, so AI writes the entry instead of leaving
+    // the form empty. It runs before Datamuse because it also carries IPA, audio and examples.
+    if (options.length === 0) {
+      setIsGeneratingWord(true);
+      try {
+        const ai = await fetchAIEntry(
+          suggestedWord,
+          fetchedLevel as LevelDifficulty,
+        );
+        if (ai) {
+          options = ai.options;
+          // A local entry is the user's own wording — AI only fills what is still missing.
+          if (!fetchedIpa) fetchedIpa = ai.ipa;
+          if (!fetchedAudio) fetchedAudio = ai.audioUrl;
+          if (!localDetails) fetchedPos = ai.pos;
+          if (!fetchedDef) fetchedDef = ai.definition;
+          if (!fetchedExample) fetchedExample = ai.example;
+        }
+      } catch (err) {
+        console.warn("Generate word fallback error:", err);
+      } finally {
+        setIsGeneratingWord(false);
+      }
     }
 
     // The backend dictionary lookup fails often (rate limits) — Datamuse already has defs + POS.
@@ -877,7 +938,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       word: word.trim().toLowerCase(),
       ipa: ipa.trim() || `/${word.trim().toLowerCase()}/`,
       pos: pos || "n.",
-      vietnamese: firstDefinition,
+      definition: firstDefinition,
       example: firstExample || "",
       translation: `Ví dụ với ${word.trim()}.`,
       meanings: wordMeanings,
@@ -987,19 +1048,20 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           "tu vung",
           "english",
         ]);
-        const vnVal = getRowVal(row, [
-          "vietnamese",
+        // One meaning column. The Vietnamese-side aliases are kept so a sheet
+        // filled in from an older template — which had a separate "Nghĩa tiếng
+        // Việt" column — still imports.
+        const defVal = getRowVal(row, [
+          "definition",
+          "nghĩa của từ",
+          "định nghĩa",
+          "dịnh nghĩa",
+          "dinh nghia",
           "nghĩa tiếng việt",
           "nghĩa",
           "nghia",
           "meaning",
-        ]);
-        const defVal = getRowVal(row, [
-          "definition",
-          "định nghĩa",
-          "dịnh nghĩa",
-          "dinh nghia",
-          "english definition",
+          "vietnamese",
           "diễn giải",
         ]);
         const ipaVal = getRowVal(row, ["ipa", "phiên âm", "phien am"]);
@@ -1014,12 +1076,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           "ví dụ",
           "vi du",
           "câu ví dụ",
-        ]);
-        const trVal = getRowVal(row, [
-          "translation",
-          "dịch",
-          "dich",
-          "dịch câu ví dụ",
         ]);
         const catVal = getRowVal(row, [
           "category",
@@ -1041,16 +1097,16 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         ]);
 
         const isValidWord = wordVal.length > 0;
-        const isValidVn = vnVal.length > 0;
-        const isValid = isValidWord && isValidVn;
+        const isValidDef = defVal.length > 0;
+        const isValid = isValidWord && isValidDef;
 
         let errorReason = "";
-        if (!isValidWord && !isValidVn) {
-          errorReason = "Thiếu cả từ tiếng Anh và Nghĩa tiếng Việt";
+        if (!isValidWord && !isValidDef) {
+          errorReason = "Thiếu cả Từ tiếng Anh và Nghĩa của từ";
         } else if (!isValidWord) {
           errorReason = "Thiếu Từ tiếng Anh";
-        } else if (!isValidVn) {
-          errorReason = "Thiếu Nghĩa tiếng Việt";
+        } else if (!isValidDef) {
+          errorReason = "Thiếu Nghĩa của từ";
         }
 
         // Validate Category — a name the account does not have falls back to Custom.
@@ -1070,12 +1126,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         return {
           raw: row,
           word: wordVal.toLowerCase(),
-          vietnamese: vnVal,
-          definition: defVal || undefined,
+          definition: defVal,
           ipa: ipaVal || `/${wordVal.toLowerCase()}/`,
           pos: posVal || "n.",
           example: exVal || "",
-          translation: trVal || "",
           category: finalCat,
           level: finalLvl,
           mnemonic: mneVal || undefined,
@@ -1119,12 +1173,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     const newWordsList: Word[] = validRows.map((r, index) => ({
       id: `custom_import_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 5)}`,
       word: r.word,
-      vietnamese: r.vietnamese,
       definition: r.definition,
       ipa: r.ipa,
       pos: r.pos,
       example: r.example,
-      translation: r.translation,
+      // The sheet no longer carries a translation column; the example's
+      // Vietnamese meaning is not imported.
+      translation: "",
       category: r.category,
       level: r.level,
       mnemonic: r.mnemonic,
@@ -1159,10 +1214,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           cefrLevel: r.level,
           definitions: [
             {
-              // Mirrors the single-word form: the Vietnamese meaning is what gets
-              // written to the backend's `definition` column so it round-trips.
-              // `r.translation` has no backend slot anymore — it stays local-only.
-              definition: r.vietnamese,
+              // Mirrors the single-word form: the meaning the user typed is what
+              // gets written to the backend's `definition` column so it
+              // round-trips. The example's translation has no backend slot.
+              definition: r.definition,
               partOfSpeech: r.pos,
               ...(r.example.trim() ? { example: r.example.trim() } : {}),
             },
@@ -1454,8 +1509,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         <div className="flex items-center gap-2 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-100/70 dark:bg-blue-900/40 p-2.5 rounded-xl border-clay border-blue-300 dark:border-blue-800 animate-pulse">
                           <RefreshCw className="w-3.5 h-3.5 animate-spin text-blue-600" />
                           <span>
-                            Đang tự động tải Phiên âm (IPA), Từ loại & Định
-                            nghĩa...
+                            {isGeneratingWord
+                              ? "Từ điển chưa có từ này — đang tạo nghĩa bằng AI..."
+                              : "Đang tự động tải Phiên âm (IPA), Từ loại & Định nghĩa..."}
                           </span>
                         </div>
                       )}
@@ -1774,106 +1830,68 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   </div>
 
                   <p className="leading-relaxed">
-                    File Excel cần chứa dòng đầu tiên là{" "}
+                    Dòng đầu tiên của file phải là{" "}
                     <span className="font-bold text-blue-600 dark:text-blue-400">
                       Tiêu đề cột (Header)
                     </span>
-                    . Bạn có thể dùng tên cột tiếng Anh hoặc tiếng Việt (không
-                    phân biệt chữ hoa/thường):
+                    , mỗi dòng sau là một từ. App chỉ đọc{" "}
+                    <span className="font-semibold">sheet đầu tiên</span> và hỗ
+                    trợ <code className="text-emerald-600">.xlsx</code>,{" "}
+                    <code className="text-emerald-600">.xls</code>,{" "}
+                    <code className="text-emerald-600">.csv</code>. Thứ tự cột
+                    không quan trọng, cột thừa sẽ được bỏ qua — tên cột chỉ cần{" "}
+                    <span className="font-semibold">chứa</span> một trong các từ
+                    khóa dưới đây (không phân biệt hoa/thường, tiếng Anh hay
+                    tiếng Việt đều được):
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                        <span className="text-red-500 font-bold">*</span> Word /
-                        Từ tiếng Anh
+                    {EXCEL_COLUMN_GUIDE.map((column) => (
+                      <div
+                        key={column.label}
+                        className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1.5"
+                      >
+                        <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          {column.required && (
+                            <span className="text-red-500 font-bold">*</span>
+                          )}
+                          <span>{column.label}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {column.aliases.map((alias) => (
+                            <code
+                              key={alias}
+                              className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-900 text-blue-600 dark:text-blue-400"
+                            >
+                              {alias}
+                            </code>
+                          ))}
+                        </div>
+                        <p className="text-slate-500 leading-relaxed">
+                          {column.note}
+                        </p>
                       </div>
-                      <p className="text-slate-500">
-                        Từ vựng cần học (Ví dụ:{" "}
-                        <code className="text-blue-600 dark:text-blue-400">
-                          opportunity
-                        </code>
-                        )
-                      </p>
-                    </div>
+                    ))}
+                  </div>
 
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                        <span className="text-red-500 font-bold">*</span>{" "}
-                        Vietnamese / Nghĩa tiếng Việt
-                      </div>
-                      <p className="text-slate-500">
-                        Nghĩa tiếng Việt (Ví dụ:{" "}
-                        <code className="text-blue-600 dark:text-blue-400">
-                          cơ hội
-                        </code>
-                        )
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        Definition / Định nghĩa
-                      </div>
-                      <p className="text-slate-500">
-                        Định nghĩa tiếng Anh (Không bắt buộc)
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        IPA / Phiên âm
-                      </div>
-                      <p className="text-slate-500">
-                        Không bắt buộc (Tự tạo nếu trống)
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        POS / Từ loại
-                      </div>
-                      <p className="text-slate-500">
-                        <code className="text-emerald-600">n.</code>,{" "}
-                        <code className="text-emerald-600">v.</code>,{" "}
-                        <code className="text-emerald-600">adj.</code>,{" "}
-                        <code className="text-emerald-600">adv.</code>,{" "}
-                        <code className="text-emerald-600">phrase</code>{" "}
-                        (Default: n.)
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        Example / Câu ví dụ
-                      </div>
-                      <p className="text-slate-500">Câu ví dụ tiếng Anh</p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        Translation / Dịch câu ví dụ
-                      </div>
-                      <p className="text-slate-500">Bản dịch nghĩa câu ví dụ</p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        Category / Bộ từ
-                      </div>
-                      <p className="text-slate-500">
-                        IELTS, TOEIC, Daily Life, Academic, Custom...
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border-clay border-blue-200 dark:border-slate-700 space-y-1">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">
-                        Level / Cấp độ & Mnemonic
-                      </div>
-                      <p className="text-slate-500">
-                        A1, A2, B1, B2, C1 & Mẹo ghi nhớ từ
-                      </p>
-                    </div>
+                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border-clay border-amber-300 dark:border-amber-900/50 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+                    <p>
+                      <span className="font-bold">Lưu ý:</span> dòng thiếu{" "}
+                      <span className="font-semibold">Từ tiếng Anh</span> hoặc{" "}
+                      <span className="font-semibold">Nghĩa của từ</span> sẽ bị
+                      đánh dấu lỗi và không được import — bạn vẫn xem trước được
+                      toàn bộ danh sách trước khi lưu.
+                    </p>
+                    <p>
+                      File Excel xuất ra từ mục{" "}
+                      <span className="font-semibold">Kho từ vựng</span> dùng
+                      đúng bộ cột này nên import ngược lại được ngay; hai cột{" "}
+                      <span className="font-semibold">Trạng thái</span> và{" "}
+                      <span className="font-semibold">Ngày thêm</span> sẽ được
+                      bỏ qua. File tải về từ bản cũ (còn cột{" "}
+                      <span className="font-semibold">Nghĩa tiếng Việt</span>)
+                      vẫn import được bình thường.
+                    </p>
                   </div>
                 </div>
               )}
@@ -1973,7 +1991,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                         <tr>
                           <th className="py-2 px-3">STT</th>
                           <th className="py-2 px-3">Từ (Word)</th>
-                          <th className="py-2 px-3">Nghĩa tiếng Việt</th>
+                          <th className="py-2 px-3">Nghĩa của từ</th>
                           <th className="py-2 px-3">POS</th>
                           <th className="py-2 px-3">Bộ từ</th>
                           <th className="py-2 px-3 text-right">Trạng thái</th>
@@ -2000,7 +2018,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                               )}
                             </td>
                             <td className="py-2 px-3 font-medium">
-                              {row.vietnamese || (
+                              {row.definition || (
                                 <span className="text-red-500 italic">
                                   (Trống)
                                 </span>

@@ -68,8 +68,12 @@ export interface Word {
   word: string;
   ipa: string;
   pos: string; // Part of speech: n., v., adj., adv.
+  /**
+   * The primary sense's meaning — what the back of a card shows. Optional
+   * because a placeholder built for a word this device has never seen carries
+   * none; `getWordMeanings` is what readers should go through.
+   */
   definition?: string;
-  vietnamese: string;
   example: string;
   translation: string;
   /** Every sense the word carries, primary first. Absent on older stored words. */

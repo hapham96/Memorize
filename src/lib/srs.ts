@@ -64,6 +64,40 @@ export function calculateNextSRS(
   };
 }
 
+/**
+ * The backend's `status` values, mapped to the app's four `SRSState`s.
+ *
+ * The two vocabularies differ by exactly one word: the backend calls the
+ * graduated state `reviewing`, the app calls it `review` (the state
+ * `calculateNextSRS` assigns above). The app's own spelling is accepted too, so
+ * a state read back out of localStorage round-trips unchanged.
+ */
+const BACKEND_SRS_STATUSES: Record<string, SRSState> = {
+  new: 'new',
+  learning: 'learning',
+  reviewing: 'review',
+  review: 'review',
+  mastered: 'mastered',
+};
+
+/**
+ * Reads a backend `status` string as an `SRSState` — the single place that
+ * translation happens.
+ *
+ * Every path that takes a status off the wire must come through here. A raw
+ * `as SRSState` cast puts `reviewing` into `SRSData.state`, where it matches no
+ * comparison the app makes: `ReviewDashboard`'s upcoming count, the library's
+ * status filter and both status pills all test for `review` and would silently
+ * miss every graduated word.
+ *
+ * An unrecognised status is `undefined`, never a guess — the caller decides
+ * whether that means `new`, `learning`, or no pill at all.
+ */
+export function normalizeSRSState(status?: string | null): SRSState | undefined {
+  const raw = status?.trim().toLowerCase();
+  return raw ? BACKEND_SRS_STATUSES[raw] : undefined;
+}
+
 export function createInitialSRS(wordId: string): SRSData {
   return {
     wordId,
