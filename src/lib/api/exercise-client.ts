@@ -42,19 +42,27 @@ export async function getDueExercises(
   );
 }
 
-/** One `WordMeaning` per DUE flashcard definition that carries text. */
+/**
+ * One `WordMeaning` per DUE flashcard definition that carries text. The row's
+ * own `example` wins; a local copy of the same sense (matched on definition
+ * text) fills in when the backend row has none.
+ */
 function mapFlashcardDefinitionsToMeanings(
   definitions: FlashcardExerciseDefinition[],
+  local?: Word,
 ): WordMeaning[] {
   const meanings: WordMeaning[] = [];
   definitions.forEach((definition) => {
     const text = definition.definition?.trim();
     if (!text) return;
+    const localMeaning = local?.meanings?.find(
+      (meaning) => meaning.definition?.trim() === text,
+    );
     meanings.push({
       pos: normalizePos(definition.partOfSpeech) ?? "",
       definition: text,
-      example: "",
-      translation: "",
+      example: definition.example?.trim() || localMeaning?.example || "",
+      translation: localMeaning?.translation ?? "",
     });
   });
   return meanings;
@@ -68,7 +76,7 @@ function mapFlashcardDefinitionsToMeanings(
  * applies to that same set —
  * `docs/adr/0013-flashcard-blends-grading-across-due-meanings`). A local copy
  * (matched by id) fills what the row doesn't carry (level, category,
- * mnemonic, example sentences). Unmatched words (never synced to this device)
+ * mnemonic, translations). Unmatched words (never synced to this device)
  * fall back to synthetic gaps; rating them still updates local SRS state,
  * just not through a real backend id.
  */
@@ -78,7 +86,7 @@ export function mapFlashcardExerciseToWord(
 ): Word {
   const local = findWordById(exercise.userWordId, allWords);
   const primary = exercise.definitions[0];
-  const meanings = mapFlashcardDefinitionsToMeanings(exercise.definitions);
+  const meanings = mapFlashcardDefinitionsToMeanings(exercise.definitions, local);
 
   return {
     id: `${exercise.userWordId}`,
@@ -86,8 +94,7 @@ export function mapFlashcardExerciseToWord(
     ipa: exercise.ipaPronunciation ?? local?.ipa ?? `/${exercise.headword}/`,
     pos: normalizePos(primary?.partOfSpeech) ?? local?.pos ?? "n.",
     definition: primary?.definition ?? local?.definition,
-    // The backend sends no example sentence for flashcard rows — local only.
-    example: local?.example ?? "",
+    example: primary?.example?.trim() || local?.example || "",
     translation: local?.translation ?? "",
     // Only the DUE meanings — a word with 3 senses but 1 due today shows (and
     // grades) that one, not all 3.

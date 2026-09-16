@@ -55,6 +55,8 @@ export interface FlashcardExerciseDefinition {
   userWordDefinitionId: number;
   definition: string;
   partOfSpeech: string | null;
+  /** The sense's example sentence; absent on rows added without one. */
+  example?: string | null;
 }
 
 /**
