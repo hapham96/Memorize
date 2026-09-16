@@ -116,7 +116,21 @@ The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new |
 
 ### The profile word library reads `GET /words`
 
-[src/components/profile/WordLibrarySection.tsx](src/components/profile/WordLibrarySection.tsx) pages the account's whole library, 10 per page, off `fetchUserWords()` in [src/lib/api/word-client.ts](src/lib/api/word-client.ts), and exports every page via `fetchAllUserWords()`. A row opens [WordDetailModal](src/components/profile/WordDetailModal.tsx), which is the flashcard laid out as a read-only detail view: headword + IPA + audio on top, then the senses paged one at a time — except it lists *every* example of the current sense instead of only the primary one, and has nothing to flip or rate.
+[src/components/profile/WordLibrarySection.tsx](src/components/profile/WordLibrarySection.tsx) pages the account's whole library, 10 per page, off `fetchUserWords()` in [src/lib/api/word-client.ts](src/lib/api/word-client.ts), and exports every page via `fetchAllUserWords()`. A row opens [WordDetailModal](src/components/profile/WordDetailModal.tsx), which is the flashcard laid out as a detail view: headword + IPA + audio on top, then the senses paged one at a time — except it lists *every* example of the current sense instead of only the primary one, and has nothing to flip or rate.
+
+#### The detail modal is also where a word is maintained
+
+Its pencil and trash buttons drive three endpoints, all keyed by the backend's **definition id**:
+
+- `PATCH /words/:id/definitions/:definitionId` — rewrites the sense on screen (`{ definition, partOfSpeech, example }`).
+- `DELETE /words/:id/definitions/:definitionId` — removes that one sense. Offered only while the word has more than one: a word with no meaning left is not a word, so the last one is the whole-word delete instead.
+- `DELETE /words/:id` — removes the word and its whole schedule.
+
+That id is why `WordMeaning` carries `definitionId` — `mapBackendDefinitionsToMeanings` is what puts it there, and a sense without one (a word still holding its optimistic `custom_…` id, or a sense rebuilt from the flat fields by `getWordMeanings`) cannot be addressed, so **edit is disabled** for it while delete falls back to dropping the local copy with no request. `WORD_LIBRARY_CACHE_VERSION` went to **3** so a cached library written before the id existed is refetched rather than read as uneditable.
+
+`updateWordDefinition`/`deleteWordDefinition` take and return the app `Word`: `removeWordMeaning`/`updateWordMeaning` in [src/lib/word.ts](src/lib/word.ts) compute the new word **once**, and that same value is written to the cache and handed to the caller, so what is stored and what is rendered cannot drift. Those two also restate the flat `definition`/`example`/`pos` from the first sense, which is what every list row, card front and export column actually reads. `expandPos` is the inverse of `normalizePos`: an untouched part of speech is written back as `noun`, not as the app's `n.`.
+
+A rejection keeps the panel open and names the reason (`ApiError.isNetworkError` picks the Vietnamese wording for a failure that carries only the browser's "Failed to fetch"), since deleting locally what the backend still holds is worse than failing. On success `WordLibrarySection` drops or rewrites the row and `page.tsx` follows in `allWords`, `loadCustomWords()` and `srsMap` — a schedule for a deleted word would keep firing reminders.
 
 The endpoint answers `{ items, pageNumber, pageSize, totalItems, totalPages }`, and each row is a **flattened** word: the word's own columns plus the account's `status` / `dueAt` / `isFavorite` folded in at the top level, with no `createdAt` and no other user-word column. That is why `BackendWord.createdAt` is optional and `BackendWordListItem` carries the three progress fields.
 
@@ -139,6 +153,7 @@ What invalidates it:
 
 - **Adding words** — `addWord`/`addWordsBulk` call `invalidateUserWordLibrary()` alongside `invalidateDueReviews()`. This is the only thing that drops the cache.
 - **A review** does *not* refetch: `submitReview` and `submitExercise` patch that one cached row's `state`/`dueAt` via `patchCachedUserWord`, keeping `fetchedAt` so the row rewrite does not pose as a fresh read.
+- **An edit or a deletion** does *not* refetch either: `updateWordDefinition`, `deleteWordDefinition` and `deleteUserWord` rewrite (or drop) that one row. Every in-place cache write — those three and `patchCachedUserWord` — goes through `updateCachedUserWordRow`, which keeps `fetchedAt` for the same reason.
 - **The refresh button** in the section header (`force: true`).
 - **Sign-out**, through `clearScopedData()`.
 

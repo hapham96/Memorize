@@ -22,6 +22,59 @@ export function getWordMeanings(word: Word): WordMeaning[] {
   ];
 }
 
+/**
+ * Restates the flat primary fields from the sense list.
+ *
+ * `Word.definition`/`example`/`pos` are the first sense repeated flat — every
+ * list row, card front and export column reads them rather than `meanings`. So
+ * a sense edited or removed has to be written back to both, or the library row
+ * would keep showing the sense the user just changed.
+ */
+function withPrimarySense(word: Word, meanings: WordMeaning[]): Word {
+  const primary = meanings[0];
+  if (!primary) return { ...word, meanings };
+
+  return {
+    ...word,
+    meanings,
+    definition: primary.definition,
+    example: primary.example,
+    // Only the sense's own text is authoritative here — `translation` and `pos`
+    // have local-only sources (the add form, the POS fallback) that an empty
+    // backend field must not wipe.
+    translation: primary.translation || word.translation,
+    pos: primary.pos || word.pos,
+  };
+}
+
+/** The word without the sense `definitionId` addresses. */
+export function removeWordMeaning(word: Word, definitionId: number): Word {
+  const meanings = getWordMeanings(word).filter(
+    (meaning) => meaning.definitionId !== definitionId,
+  );
+  return withPrimarySense(word, meanings);
+}
+
+/** The word with `definitionId`'s sense replaced by what was just saved. */
+export function updateWordMeaning(
+  word: Word,
+  definitionId: number,
+  patch: { definition: string; pos: string; example: string },
+): Word {
+  const meanings = getWordMeanings(word).map((meaning) =>
+    meaning.definitionId === definitionId
+      ? {
+          ...meaning,
+          ...patch,
+          // `examples` mirrors the single backend `example`, so an edit replaces
+          // the list rather than leaving the old sentence listed beneath it.
+          examples: patch.example ? [patch.example] : [],
+        }
+      : meaning,
+  );
+  return withPrimarySense(word, meanings);
+}
+
 /** A stored `Word` written before `vietnamese` was folded into `definition`. */
 type LegacyWord = Word & { vietnamese?: string };
 

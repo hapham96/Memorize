@@ -12,6 +12,10 @@ interface ProfileScreenProps {
   srsMap: Record<string, SRSData>;
   /** The account's `/vocabulary-sets` list; resolves each word's category name. */
   vocabularySets?: VocabularySet[];
+  /** A word was edited in the library below — the local copy must follow. */
+  onWordUpdated?: (word: Word) => void;
+  /** A word was deleted in the library below. */
+  onWordDeleted?: (wordId: string) => void;
   /** Opens the name/password editor. Settings live in the header bar instead. */
   onEditProfile: () => void;
   onLogout: () => void;
@@ -22,6 +26,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   allWords,
   srsMap,
   vocabularySets,
+  onWordUpdated,
+  onWordDeleted,
   onEditProfile,
   onLogout,
 }) => {
@@ -75,7 +81,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </div>
 
       {/* Every word the account has added, paged straight off `GET /words` */}
-      <WordLibrarySection allWords={allWords} srsMap={srsMap} vocabularySets={vocabularySets} />
+      <WordLibrarySection
+        allWords={allWords}
+        srsMap={srsMap}
+        vocabularySets={vocabularySets}
+        onWordUpdated={onWordUpdated}
+        onWordDeleted={onWordDeleted}
+      />
 
       {/* Logout Action Button — pinned to the bottom of the scroll area */}
       <button

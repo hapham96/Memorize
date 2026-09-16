@@ -36,6 +36,13 @@ interface WordLibrarySectionProps {
   srsMap: Record<string, SRSData>;
   /** The account's `/vocabulary-sets` list; resolves each word's category name. */
   vocabularySets?: VocabularySet[];
+  /**
+   * A word was edited in the detail modal. The row here is updated on the spot;
+   * this is what lets the copy `page.tsx` owns follow.
+   */
+  onWordUpdated?: (word: Word) => void;
+  /** A word was deleted — it has already left this list and the cached library. */
+  onWordDeleted?: (wordId: string) => void;
 }
 
 const STATE_STYLES: Record<SRSState, string> = {
@@ -123,6 +130,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   allWords,
   srsMap,
   vocabularySets = [],
+  onWordUpdated,
+  onWordDeleted,
 }) => {
   const [page, setPage] = useState(1);
   // What is typed in the box, updated on every keystroke.
@@ -339,6 +348,34 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   const openDetail = (item: UserWordListItem) => {
     soundFX.playPop();
     setSelected(item);
+  };
+
+  /**
+   * Folds an edited word back into the result set and into the open modal, so
+   * neither shows the sense that was just rewritten. The cached library was
+   * already patched by the client that sent the request — nothing is refetched.
+   */
+  const handleWordUpdated = (updated: Word) => {
+    const targetId = String(updated.id);
+    setItems((prev) =>
+      prev === null
+        ? prev
+        : prev.map((item) =>
+            String(item.word.id) === targetId ? { ...item, word: updated } : item,
+          ),
+    );
+    setSelected((prev) => (prev ? { ...prev, word: updated } : prev));
+    onWordUpdated?.(updated);
+  };
+
+  /** Drops a deleted word's row; the modal closes itself. */
+  const handleWordDeleted = (wordId: string) => {
+    const targetId = String(wordId);
+    setItems((prev) =>
+      prev === null ? prev : prev.filter((item) => String(item.word.id) !== targetId),
+    );
+    setSelected(null);
+    onWordDeleted?.(targetId);
   };
 
   const goToPage = (next: number) => {
@@ -607,6 +644,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           state={selected.state}
           dueAt={selected.dueAt}
           isFavorite={selected.isFavorite}
+          onWordUpdated={handleWordUpdated}
+          onWordDeleted={handleWordDeleted}
           onClose={() => setSelected(null)}
         />
       )}

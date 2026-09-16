@@ -779,6 +779,38 @@ export default function Home() {
     onOpenReview: openReview,
   });
 
+  /**
+   * A sense was rewritten or removed in the word detail modal. The backend and
+   * the cached library are already updated by the time this runs — what is left
+   * is the copy this screen owns and the one on disk, which is what every quiz
+   * and card reads from.
+   */
+  const handleWordEdited = (updated: Word) => {
+    setAllWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
+    saveCustomWords(loadCustomWords().map((w) => (w.id === updated.id ? updated : w)));
+  };
+
+  /**
+   * A word was deleted. Its SRS entry goes with it — a schedule for a word that
+   * no longer exists would keep announcing a reminder for it — and the home
+   * counters are re-asked, since the backend's totals just moved.
+   */
+  const handleWordRemoved = (wordId: string) => {
+    setAllWords((prev) => prev.filter((w) => w.id !== wordId));
+    saveCustomWords(loadCustomWords().filter((w) => w.id !== wordId));
+
+    setSrsMap((prev) => {
+      if (!(wordId in prev)) return prev;
+      const updatedMap = { ...prev };
+      delete updatedMap[wordId];
+      saveSRSData(updatedMap);
+      return updatedMap;
+    });
+
+    void refreshStats();
+    refreshDue();
+  };
+
   // A tab change is the cheapest honest moment to recompute what is due. This
   // costs a localStorage read, not a request — the due state comes from the
   // cached word library, which `submitReview` patches as reviews land.
@@ -994,6 +1026,8 @@ export default function Home() {
           allWords={allWords}
           srsMap={srsMap}
           vocabularySets={vocabularySets}
+          onWordUpdated={handleWordEdited}
+          onWordDeleted={handleWordRemoved}
           onEditProfile={() => setIsEditProfileOpen(true)}
           onLogout={() => signOut()}
         />

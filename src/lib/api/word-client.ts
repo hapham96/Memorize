@@ -10,6 +10,7 @@ import {
   BulkAddWordResponse,
   ReviewQuality,
   ReviewWordRequest,
+  UpdateWordDefinitionRequest,
   WordRatingResponse,
 } from "@/types/word";
 import {
@@ -26,7 +27,8 @@ import {
   saveWordLibraryCache,
 } from "@/lib/storage";
 import { normalizeSRSState } from "@/lib/srs";
-import { getAsync, postAsync } from "./client";
+import { removeWordMeaning, updateWordMeaning } from "@/lib/word";
+import { deleteAsync, getAsync, patchAsync, postAsync } from "./client";
 import { getCurrentUserId } from "./auth-client";
 import { FALLBACK_CATEGORY, resolveVocabularySetName } from "./category-client";
 
@@ -68,6 +70,73 @@ export async function addWordsBulk(
   invalidateDueReviews();
   invalidateUserWordLibrary();
   return response;
+}
+
+/**
+ * Deletes one word and everything under it (`DELETE /words/{id}`).
+ *
+ * The cached library row goes with it rather than the whole cache: dropping the
+ * cache would cost a full refetch on the next reminder tick, and the one row
+ * that changed is known here. `invalidateDueReviews` still runs because a
+ * deleted word must not be served as due.
+ */
+export async function deleteUserWord(wordId: number | string): Promise<void> {
+  await deleteAsync<void>(`/words/${wordId}`, { auth: true });
+  invalidateDueReviews();
+  updateCachedUserWordRow(wordId, () => null);
+}
+
+/**
+ * Deletes one sense of a word
+ * (`DELETE /words/{id}/definitions/{definitionId}`).
+ *
+ * SRS is scheduled per sense, so removing one can change which sense the row's
+ * `state`/`dueAt` stand for — but only the backend knows the new representative,
+ * so the cached row keeps its schedule and the sense list is what is rewritten.
+ * The due list is invalidated for the same reason. Answers the word as it now
+ * stands, so the caller renders exactly what was cached.
+ */
+export async function deleteWordDefinition(
+  word: Word,
+  definitionId: number,
+): Promise<Word> {
+  await deleteAsync<void>(`/words/${word.id}/definitions/${definitionId}`, {
+    auth: true,
+  });
+  invalidateDueReviews();
+
+  const updated = removeWordMeaning(word, definitionId);
+  updateCachedUserWordRow(word.id, (item) => ({ ...item, word: updated }));
+  return updated;
+}
+
+/**
+ * Rewrites one sense's text
+ * (`PATCH /words/{id}/definitions/{definitionId}`).
+ *
+ * The response is not read: the endpoint echoes what was just sent (plus SRS
+ * columns this screen does not show), so the word is rebuilt from the request
+ * body, written to the cache and handed back — one computation, so what is
+ * cached and what is rendered cannot drift apart.
+ */
+export async function updateWordDefinition(
+  word: Word,
+  definitionId: number,
+  body: UpdateWordDefinitionRequest,
+): Promise<Word> {
+  await patchAsync<BackendWordDefinition | undefined>(
+    `/words/${word.id}/definitions/${definitionId}`,
+    body,
+    { auth: true },
+  );
+
+  const updated = updateWordMeaning(word, definitionId, {
+    definition: body.definition,
+    pos: normalizePos(body.partOfSpeech) ?? "",
+    example: body.example,
+  });
+  updateCachedUserWordRow(word.id, (item) => ({ ...item, word: updated }));
+  return updated;
 }
 
 /**
@@ -188,6 +257,21 @@ export function normalizePos(partOfSpeech?: string | null): string | undefined {
   return POS_ABBREVIATIONS[raw.toLowerCase()] ?? raw;
 }
 
+/**
+ * The inverse of `normalizePos` — what a sense's part of speech is written back
+ * to the backend as. Without it an untouched field would be saved as the app's
+ * abbreviation (`n.`), overwriting the backend's own spelling (`noun`) on every
+ * edit. Anything the table above does not know is sent through unchanged.
+ */
+export function expandPos(pos?: string | null): string {
+  const raw = pos?.trim();
+  if (!raw) return "";
+  const known = Object.entries(POS_ABBREVIATIONS).find(
+    ([, short]) => short === raw.toLowerCase(),
+  );
+  return known ? known[0] : raw;
+}
+
 /** The backend column is a free string; anything outside the app's ramp is dropped. */
 function normalizeLevel(
   cefrLevel?: string | null,
@@ -216,6 +300,9 @@ function mapBackendDefinitionsToMeanings(
     if (!text) return;
     const example = trimmed(definition.example);
     meanings.push({
+      // Kept so the detail view can edit or delete this exact sense — it is the
+      // id `/words/:id/definitions/:definitionId` is addressed with.
+      definitionId: definition.id,
       pos: normalizePos(definition.partOfSpeech) ?? "",
       definition: text,
       example: example ?? "",
@@ -657,19 +744,40 @@ export function patchCachedUserWord(
   status?: string | null,
   dueAt?: string | null,
 ): void {
+  updateCachedUserWordRow(wordId, (item) => ({
+    ...item,
+    state: normalizeSRSState(status) ?? item.state,
+    dueAt: trimmed(dueAt) ?? item.dueAt,
+  }));
+}
+
+/**
+ * Rewrites — or, when `update` answers `null`, drops — the cached row for one
+ * word, keeping `fetchedAt` so the rewrite does not pose as a fresh read of
+ * `GET /words`.
+ *
+ * Every in-place edit of the cache goes through here: a review's new schedule,
+ * an edited sense, a deleted sense, a deleted word. A no-op when nothing is
+ * cached or the word is not in the copy on disk.
+ */
+function updateCachedUserWordRow(
+  wordId: number | string,
+  update: (item: UserWordListItem) => UserWordListItem | null,
+): void {
   const cached = loadWordLibraryCache();
   if (!cached) return;
 
   const targetId = String(wordId);
   let changed = false;
-  const items = cached.items.map((item) => {
-    if (String(item.word.id) !== targetId) return item;
+  const items: UserWordListItem[] = [];
+  cached.items.forEach((item) => {
+    if (String(item.word.id) !== targetId) {
+      items.push(item);
+      return;
+    }
     changed = true;
-    return {
-      ...item,
-      state: normalizeSRSState(status) ?? item.state,
-      dueAt: trimmed(dueAt) ?? item.dueAt,
-    };
+    const next = update(item);
+    if (next) items.push(next);
   });
 
   if (changed) saveWordLibraryCache(items, cached.fetchedAt);

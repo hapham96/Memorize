@@ -175,3 +175,15 @@ export async function getAsync<T>(
 ): Promise<T> {
   return requestAsync<T>(path, "GET", undefined, options);
 }
+
+/**
+ * A deletion answers `204` as often as it answers a body, and `requestAsync`
+ * already maps that to `undefined` — so callers should treat the result as
+ * "may be nothing" rather than reading it.
+ */
+export async function deleteAsync<T>(
+  path: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  return requestAsync<T>(path, "DELETE", undefined, options);
+}

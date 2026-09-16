@@ -4,6 +4,16 @@ export type WordDefinitionRequest = {
   example?: string;
 };
 
+/**
+ * `PATCH /words/{id}/definitions/{definitionId}` — the editable half of one
+ * sense. The SRS columns are the backend's own and are never sent from here.
+ */
+export type UpdateWordDefinitionRequest = {
+  definition: string;
+  partOfSpeech: string;
+  example: string;
+};
+
 export type AddWordRequest = {
   headword: string;
   /** Omit to use (or lazily create) the caller's default vocabulary set. */

@@ -48,6 +48,14 @@ export interface VocabularySet {
  * working; cards that can show more read this list instead.
  */
 export interface WordMeaning {
+  /**
+   * The backend `definitions[]` row this sense came from — the id
+   * `/words/:id/definitions/:definitionId` addresses. Absent on a sense that
+   * only exists on this device (a locally added word not yet synced, or one
+   * rebuilt from the flat fields), which is exactly when it cannot be edited or
+   * deleted on the server.
+   */
+  definitionId?: number;
   /** Part of speech in the app's short form (`n.`, `v.`); empty when unknown. */
   pos: string;
   definition: string;

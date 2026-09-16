@@ -328,8 +328,12 @@ export function saveCategories(categories: VocabularySet[]): void {
  * `reviewing` status on the floor, leaving `state` undefined — every graduated
  * word in such a copy shows no pill and counts under the wrong filter, so the
  * copy is refetched instead of read.
+ *
+ * v3: rows written before `WordMeaning.definitionId` existed carry senses with
+ * no backend id, and the detail view cannot edit or delete a sense it cannot
+ * address — so such a copy is refetched rather than read as uneditable.
  */
-const WORD_LIBRARY_CACHE_VERSION = 2;
+const WORD_LIBRARY_CACHE_VERSION = 3;
 
 export interface WordLibraryCache {
   version: number;
