@@ -73,9 +73,16 @@ type DetailMode = 'view' | 'edit' | 'delete';
 const FIELD_CLASS =
   'w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60';
 
-/** The prev/next word buttons: over the card's edge on a phone, beside it on md+. */
+/**
+ * The prev/next word buttons beside the card, md+ only: a phone has no room
+ * outside the card, and over its edge they would cover the examples — the
+ * phone gets `WORD_NAV_BTN_CLASS` in a bar under the card instead.
+ */
 const WORD_ARROW_CLASS =
-  'absolute top-1/2 -translate-y-1/2 z-10 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-95 transition-all ease-clay disabled:opacity-30 disabled:pointer-events-none';
+  'hidden md:flex absolute top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-95 transition-all ease-clay disabled:opacity-30 disabled:pointer-events-none';
+
+const WORD_NAV_BTN_CLASS =
+  'w-9 h-9 flex items-center justify-center rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 active:scale-90 transition-all ease-clay disabled:opacity-30 disabled:active:scale-100';
 
 const LABEL_CLASS =
   'block text-[10px] font-extrabold uppercase tracking-wide text-slate-400 mb-1';
@@ -183,6 +190,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   // Only the plain view moves to another word — a form or a confirmation
   // belongs to the word it was opened on.
   const canStepWord = mode === 'view' && !isBusy;
+  const hasWordNav = Boolean(onPrev || onNext);
 
   const goToWord = (direction: 1 | -1) => {
     const step = direction > 0 ? onNext : onPrev;
@@ -372,13 +380,13 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
           className="relative w-full max-w-md"
           onClick={(e) => e.stopPropagation()}
         >
-          {(onPrev || onNext) && (
+          {hasWordNav && (
             <>
               <button
                 onClick={() => goToWord(-1)}
                 disabled={!onPrev || !canStepWord}
                 aria-label="Từ trước"
-                className={`${WORD_ARROW_CLASS} -left-2 md:-left-16`}
+                className={`${WORD_ARROW_CLASS} -left-14`}
               >
                 <ChevronLeft className="w-5 h-5 stroke-[3]" />
               </button>
@@ -386,7 +394,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
                 onClick={() => goToWord(1)}
                 disabled={!onNext || !canStepWord}
                 aria-label="Từ tiếp theo"
-                className={`${WORD_ARROW_CLASS} -right-2 md:-right-16`}
+                className={`${WORD_ARROW_CLASS} -right-14`}
               >
                 <ChevronRight className="w-5 h-5 stroke-[3]" />
               </button>
@@ -402,7 +410,10 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label={`Chi tiết từ ${word.word}`}
-            className="w-full bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-6 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 max-h-[92dvh] overflow-y-auto overflow-x-hidden overscroll-contain"
+            // On a phone the nav bar sits under the card, so the card gives up its height.
+            className={`w-full bg-white dark:bg-slate-800 rounded-[32px] p-5 md:p-6 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 overflow-y-auto overflow-x-hidden overscroll-contain ${
+              hasWordNav ? 'max-h-[calc(92dvh-3.75rem)] md:max-h-[92dvh]' : 'max-h-[92dvh]'
+            }`}
           >
             <motion.div
               key={word.id}
@@ -414,7 +425,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {position && position.total > 1 && (
-                    <span className="text-[11px] font-extrabold text-slate-400 whitespace-nowrap">
+                    <span className="hidden md:inline text-[11px] font-extrabold text-slate-400 whitespace-nowrap">
                       {position.index + 1}/{position.total}
                     </span>
                   )}
@@ -737,6 +748,35 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
               )}
             </motion.div>
           </motion.div>
+
+          {/* Phone word nav — under the card, where it covers nothing */}
+          {hasWordNav && (
+            <div className="md:hidden mt-3 flex justify-center">
+              <div className="flex items-center gap-1 p-1 rounded-full bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm">
+                <button
+                  onClick={() => goToWord(-1)}
+                  disabled={!onPrev || !canStepWord}
+                  aria-label="Từ trước"
+                  className={WORD_NAV_BTN_CLASS}
+                >
+                  <ChevronLeft className="w-5 h-5 stroke-[3]" />
+                </button>
+                {position && (
+                  <span className="min-w-[3.5rem] text-center text-xs font-extrabold text-slate-600 dark:text-slate-300 tabular-nums">
+                    {position.index + 1}/{position.total}
+                  </span>
+                )}
+                <button
+                  onClick={() => goToWord(1)}
+                  disabled={!onNext || !canStepWord}
+                  aria-label="Từ tiếp theo"
+                  className={WORD_NAV_BTN_CLASS}
+                >
+                  <ChevronRight className="w-5 h-5 stroke-[3]" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </ModalPortal>
