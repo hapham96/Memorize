@@ -350,6 +350,24 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
     setSelected(item);
   };
 
+  /** Where the open word sits in the listed rows, or -1 once it has left them. */
+  const selectedIndex = useMemo(() => {
+    if (!selected) return -1;
+    const targetId = String(selected.word.id);
+    return filtered.findIndex((item) => String(item.word.id) === targetId);
+  }, [filtered, selected]);
+
+  /**
+   * Steps the modal to the neighbouring row of the filtered list, and moves the
+   * list's page along with it so closing the modal lands on the word last seen.
+   */
+  const stepSelected = (delta: number) => {
+    const nextIndex = selectedIndex + delta;
+    if (selectedIndex < 0 || nextIndex < 0 || nextIndex >= filtered.length) return;
+    setSelected(filtered[nextIndex]);
+    setPage(Math.floor(nextIndex / WORDS_PAGE_SIZE) + 1);
+  };
+
   /**
    * Folds an edited word back into the result set and into the open modal, so
    * neither shows the sense that was just rewritten. The cached library was
@@ -644,6 +662,15 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           state={selected.state}
           dueAt={selected.dueAt}
           isFavorite={selected.isFavorite}
+          position={
+            selectedIndex >= 0 ? { index: selectedIndex, total: filtered.length } : undefined
+          }
+          onPrev={selectedIndex > 0 ? () => stepSelected(-1) : undefined}
+          onNext={
+            selectedIndex >= 0 && selectedIndex < filtered.length - 1
+              ? () => stepSelected(1)
+              : undefined
+          }
           onWordUpdated={handleWordUpdated}
           onWordDeleted={handleWordDeleted}
           onClose={() => setSelected(null)}
