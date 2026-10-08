@@ -1,0 +1,15 @@
+services:
+  memoraise-web:
+    image: ${DOCKERHUB_USER:-caodangkhoa600}/memoraise-web:${TAG:-latest}
+    container_name: memoraise-web
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - proxy
+
+networks:
+  # Must be the same Docker network Caddy (and memoraise-app) are attached to.
+  proxy:
+    external: true
+    name: proxy
