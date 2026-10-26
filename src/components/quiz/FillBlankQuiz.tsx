@@ -161,7 +161,11 @@ export const FillBlankQuiz: React.FC<FillBlankQuizProps> = ({
               <button
                 type="button"
                 onClick={() => setShowHint(true)}
-                className="flex-1 py-2.5 rounded-button bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 font-semibold text-xs border-clay border-purple-300 flex items-center justify-center gap-1.5"
+                aria-pressed={showHint}
+                className={`flex-1 py-2.5 rounded-button bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 font-semibold text-xs border-clay flex items-center justify-center gap-1.5 transition-colors ${
+                  // The bright border marks the hint as already used
+                  showHint ? 'border-purple-300' : 'border-transparent'
+                }`}
               >
                 <Lightbulb className="w-4 h-4" />
                 <span>Hint</span>
