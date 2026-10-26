@@ -16,6 +16,8 @@ import { TypeWordQuiz } from '@/components/quiz/TypeWordQuiz';
 import { ListeningQuiz } from '@/components/quiz/ListeningQuiz';
 import { QuizResultModal } from '@/components/quiz/QuizResultModal';
 import { MistakeReviewScreen } from '@/components/quiz/MistakeReviewScreen';
+import { BattleGame } from '@/components/battle/BattleGame';
+import { BATTLE_INVITE_PARAM, normalizeRoomCode } from '@/lib/battle';
 import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
 import { ProfileScreen } from '@/components/profile/ProfileScreen';
@@ -84,6 +86,8 @@ import {
   saveCustomWords,
   setStorageScope,
   clearScopedData,
+  savePendingBattleCode,
+  takePendingBattleCode,
   AppSettings,
   DEFAULT_SETTINGS,
   DEFAULT_USER_PROGRESS,
@@ -111,6 +115,10 @@ export default function Home() {
   const [authView, setAuthView] = useState<AuthView>('onboarding');
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
+  /** Battle Game is online-only and owns its own socket, so it is a screen of its own rather than a quiz mode. */
+  const [isBattleOpen, setIsBattleOpen] = useState(false);
+  /** The room code an invite link brought in, pre-filled into the join box. */
+  const [battleInviteCode, setBattleInviteCode] = useState('');
   const [quizSessionWords, setQuizSessionWords] = useState<Word[]>([]);
   // Backend-driven exercise modes (multiple-choice, fill-blank, type-word,
   // listening) get their question data from `/exercises/due` instead of the
@@ -334,6 +342,7 @@ export default function Home() {
 
     loadAccountState(null);
     setActiveQuizMode(null);
+    setIsBattleOpen(false);
     setSessionResult(null);
     setIsSettingsOpen(false);
     setIsAddWordOpen(false);
@@ -481,7 +490,28 @@ export default function Home() {
     setIsMounted(true);
 
     if (existingSession) void syncProfile(existingSession);
+
+    // A Battle invite link (`/?battle=CODE`). Parked in sessionStorage so it
+    // survives the sign-in screen, and stripped from the URL so a reload does
+    // not reopen the Battle.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has(BATTLE_INVITE_PARAM)) {
+      const code = normalizeRoomCode(url.searchParams.get(BATTLE_INVITE_PARAM));
+      if (code) savePendingBattleCode(code);
+      url.searchParams.delete(BATTLE_INVITE_PARAM);
+      window.history.replaceState(null, '', url.toString());
+    }
   }, []);
+
+  // Opens a pending invite as soon as there is a session to play it with —
+  // right after mount for a signed-in user, or after login/registration.
+  useEffect(() => {
+    if (!session) return;
+    const code = takePendingBattleCode();
+    if (!code) return;
+    setBattleInviteCode(code);
+    setIsBattleOpen(true);
+  }, [session]);
 
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
@@ -893,6 +923,23 @@ export default function Home() {
     );
   }
 
+  if (isBattleOpen) {
+    return (
+      <MobileContainer>
+        <BattleGame
+          accessToken={session.accessToken}
+          meId={session.userId}
+          initialCode={battleInviteCode}
+          onClose={() => {
+            setIsBattleOpen(false);
+            setBattleInviteCode('');
+          }}
+          onSessionExpired={() => signOut()}
+        />
+      </MobileContainer>
+    );
+  }
+
   // Render Active Quiz Mode
   if (activeQuizMode) {
     return (
@@ -998,6 +1045,7 @@ export default function Home() {
       {activeTab === 'learn' && (
         <QuizSelection
           onSelectQuiz={handleStartQuiz}
+          onOpenBattle={() => setIsBattleOpen(true)}
           loadingQuizType={loadingQuizType}
           errorMessage={quizStartError}
         />
