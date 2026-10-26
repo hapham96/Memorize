@@ -467,6 +467,34 @@ export function loadAuthSession(): AuthSession | null {
   }
 }
 
+/**
+ * A Battle invite code from the URL, held until there is a session to use it
+ * with. sessionStorage rather than localStorage: it only has to survive the
+ * sign-in screen in this tab, and must not resurface in some later visit.
+ */
+const PENDING_BATTLE_CODE_KEY = 'memorize_pending_battle_code';
+
+export function savePendingBattleCode(code: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(PENDING_BATTLE_CODE_KEY, code);
+  } catch {
+    // Storage blocked (private mode): the invite simply won't outlive a sign-in.
+  }
+}
+
+/** Returns the pending code and forgets it, so an invite opens the Battle once. */
+export function takePendingBattleCode(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const code = sessionStorage.getItem(PENDING_BATTLE_CODE_KEY);
+    sessionStorage.removeItem(PENDING_BATTLE_CODE_KEY);
+    return code;
+  } catch {
+    return null;
+  }
+}
+
 export function saveAuthSession(session: AuthSession): void {
   if (typeof window === 'undefined') return;
   try {

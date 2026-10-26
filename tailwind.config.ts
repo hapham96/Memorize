@@ -135,11 +135,39 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-6px)' },
         },
+        // Vocabulary Battle feedback: a wrong answer, a closed Stake, a win.
+        battleShake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-5px)' },
+          '40%, 80%': { transform: 'translateX(5px)' },
+        },
+        battleStamp: {
+          '0%': { transform: 'scale(2.2) rotate(-14deg)', opacity: '0' },
+          '60%': { transform: 'scale(0.92) rotate(6deg)', opacity: '1' },
+          '100%': { transform: 'scale(1) rotate(6deg)', opacity: '1' },
+        },
+        battleFloatUp: {
+          '0%': { transform: 'translateY(6px)', opacity: '0' },
+          '30%': { opacity: '1' },
+          '100%': { transform: 'translateY(-18px)', opacity: '0' },
+        },
+        // Each piece reads its own --dx / --dy / --rot (see BattleChrome's Confetti).
+        battleConfetti: {
+          '0%': { transform: 'translate(-50%, -50%) rotate(0)', opacity: '1' },
+          '100%': {
+            transform: 'translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot))',
+            opacity: '0',
+          },
+        },
       },
       animation: {
         'clay-pop': 'clayPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         'clay-squish': 'claySquish 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'clay-float': 'clayFloat 3.5s ease-in-out infinite',
+        'battle-shake': 'battleShake 0.4s ease-in-out',
+        'battle-stamp': 'battleStamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'battle-float-up': 'battleFloatUp 1.1s ease-out forwards',
+        'battle-confetti': 'battleConfetti 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards',
       },
     },
   },

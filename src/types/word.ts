@@ -19,8 +19,9 @@ export type AddWordRequest = {
   /** Omit to use (or lazily create) the caller's default vocabulary set. */
   vocabularySetId?: number;
   ipaPronunciation: string;
-  audioUrl: string;
-  cefrLevel: string;
+  /** Optional: a word kept from a Battle recap has no recording or level to send. */
+  audioUrl?: string;
+  cefrLevel?: string;
   definitions: WordDefinitionRequest[];
 };
 

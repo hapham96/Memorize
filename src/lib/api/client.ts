@@ -1,6 +1,7 @@
 import { clearAuthSession, loadAuthSession } from "@/lib/storage";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+/** Also the origin of the `/battles` socket — see `useBattle`. */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 /** Status used when the request never reached the backend (offline, DNS, CORS). */
 export const NETWORK_ERROR_STATUS = 0;

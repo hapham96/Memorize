@@ -11,21 +11,41 @@ import {
   Play,
   Lock,
   Loader2,
+  Swords,
 } from 'lucide-react';
 import { QuizType } from '@/types';
 
+/** Battle Game is not a quiz — it opens its own online screen — so it is not a `QuizType`. */
+type PracticeId = QuizType | 'battle';
+
 interface QuizSelectionProps {
   onSelectQuiz: (type: QuizType) => void;
+  onOpenBattle: () => void;
   loadingQuizType?: QuizType | null;
   errorMessage?: string | null;
 }
 
 export const QuizSelection: React.FC<QuizSelectionProps> = ({
   onSelectQuiz,
+  onOpenBattle,
   loadingQuizType = null,
   errorMessage = null,
 }) => {
-  const modes = [
+  const handleSelect = (id: PracticeId) => {
+    if (id === 'battle') onOpenBattle();
+    else onSelectQuiz(id);
+  };
+
+  const modes: {
+    id: PracticeId;
+    title: string;
+    badge: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    badgeBg: string;
+    active: boolean;
+  }[] = [
     {
       id: 'flashcards' as QuizType,
       title: 'Flashcards',
@@ -77,6 +97,16 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
       active: true,
     },
     {
+      id: 'battle',
+      title: 'Battle Game',
+      badge: 'Chơi cùng bạn bè',
+      description: 'Đấu từ vựng trực tiếp với 1–3 người: Recall, Match, Word Chain và Word Heist.',
+      icon: Swords,
+      color: 'bg-rose-500 border-rose-300',
+      badgeBg: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300',
+      active: true,
+    },
+    {
       id: 'image' as QuizType,
       title: 'Image Quiz',
       badge: 'Coming Soon',
@@ -110,7 +140,7 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
           return (
             <div
               key={mode.id}
-              onClick={() => mode.active && !isLoading && onSelectQuiz(mode.id)}
+              onClick={() => mode.active && !isLoading && handleSelect(mode.id)}
               className={`bg-white dark:bg-slate-800 rounded-[28px] p-6 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${mode.active
                 ? 'cursor-pointer hover:border-blue-500/50 hover:shadow-clay-lg hover:-translate-y-0.5 active:scale-[0.99] group'
                 : 'opacity-70 cursor-not-allowed'
