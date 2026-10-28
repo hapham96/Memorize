@@ -69,6 +69,10 @@ interface AddWordModalProps {
 
 const LEVELS: LevelDifficulty[] = ["A1", "A2", "B1", "B2", "C1"];
 
+/** Limits on an imported sheet — the file is untrusted input to the xlsx parser. */
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 2000;
+
 interface MeaningDraft {
   id: string;
   definition: string;
@@ -1030,6 +1034,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
   // Parse uploaded Excel or CSV file
   const processFile = async (file: File) => {
+    // Cap the input before it reaches the spreadsheet parser: the file is untrusted.
+    if (file.size > MAX_IMPORT_BYTES) {
+      alert("File quá lớn (tối đa 5 MB). Vui lòng chia nhỏ file!");
+      return;
+    }
     setExcelFile(file);
     try {
       const buffer = await file.arrayBuffer();
@@ -1038,6 +1047,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       const worksheet = workbook.Sheets[firstSheetName];
       const rawData: Record<string, any>[] =
         XLSX.utils.sheet_to_json(worksheet);
+      if (rawData.length > MAX_IMPORT_ROWS) {
+        alert(`File có quá nhiều dòng (tối đa ${MAX_IMPORT_ROWS}).`);
+        return;
+      }
 
       const parsed: ParsedWordRow[] = rawData.map((row) => {
         const wordVal = getRowVal(row, [
