@@ -5,6 +5,7 @@ import { MobileContainer } from '@/components/layout/MobileContainer';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { OnboardingScreen } from '@/components/auth/OnboardingScreen';
+import { AppGuideModal } from '@/components/layout/AppGuideModal';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { LevelSelectModal } from '@/components/auth/LevelSelectModal';
 import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
@@ -139,6 +140,11 @@ export default function Home() {
    * was ever given (it can be set any time from settings).
    */
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
+  /**
+   * The app tour. A new account sees it right after the CEFR question; anyone
+   * can replay it from settings.
+   */
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // App Persistent State
   const [allWords, setAllWords] = useState<Word[]>([]);
@@ -347,6 +353,7 @@ export default function Home() {
     setIsSettingsOpen(false);
     setIsAddWordOpen(false);
     setIsLevelPickerOpen(false);
+    setIsGuideOpen(false);
     setActiveTab('home');
     setAuthView(view);
 
@@ -1090,6 +1097,10 @@ export default function Home() {
           onUpdateSettings={handleUpdateSettings}
           onResetProgress={handleResetProgress}
           onClose={() => setIsSettingsOpen(false)}
+          onOpenGuide={() => {
+            setIsSettingsOpen(false);
+            setIsGuideOpen(true);
+          }}
           notificationPermission={notificationPermission}
           onRequestNotificationPermission={() => {
             void requestNotificationPermission();
@@ -1115,8 +1126,24 @@ export default function Home() {
             // `PATCH /settings`, so the answer survives this device.
             handleUpdateSettings({ cefrLevel: level });
             setIsLevelPickerOpen(false);
+            // Only a new account is asked for its level, so either way out of
+            // the question leads straight into the tour.
+            setIsGuideOpen(true);
           }}
-          onSkip={() => setIsLevelPickerOpen(false)}
+          onSkip={() => {
+            setIsLevelPickerOpen(false);
+            setIsGuideOpen(true);
+          }}
+        />
+      )}
+
+      {isGuideOpen && (
+        <AppGuideModal
+          onClose={() => setIsGuideOpen(false)}
+          onAddFirstWord={() => {
+            setIsGuideOpen(false);
+            setIsAddWordOpen(true);
+          }}
         />
       )}
 

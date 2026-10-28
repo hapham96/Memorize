@@ -12,6 +12,7 @@ import {
   Check,
   AlertCircle,
   GraduationCap,
+  HelpCircle,
 } from 'lucide-react';
 import { VocabularySet, WordCategory } from '@/types';
 import { CEFR_LEVELS, cefrLevelInfo } from '@/data/cefrLevels';
@@ -28,6 +29,8 @@ interface SettingsModalProps {
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetProgress: () => void;
   onClose: () => void;
+  /** Replays the app tour a new account is shown after sign-up. */
+  onOpenGuide?: () => void;
   notificationPermission?: NotificationPermissionState;
   /** Must be triggered by this click — browsers reject the prompt otherwise. */
   onRequestNotificationPermission?: () => void;
@@ -68,6 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onUpdateSettings,
   onResetProgress,
   onClose,
+  onOpenGuide,
   notificationPermission = 'unsupported',
   onRequestNotificationPermission,
   pushStatus = 'idle',
@@ -392,6 +396,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             })}
           </div>
         </div>
+
+        {/* App tour */}
+        {onOpenGuide && (
+          <button
+            onClick={onOpenGuide}
+            className="w-full py-3 rounded-button bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold border-2 border-blue-200 dark:border-slate-700 flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-all"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span>Hướng dẫn sử dụng</span>
+          </button>
+        )}
 
         {/* Reset Data Option */}
         <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
