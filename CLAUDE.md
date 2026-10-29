@@ -17,9 +17,15 @@ Env: copy `.env.example` → `.env`. Only `NEXT_PUBLIC_API_URL` exists (defaults
 
 ## Architecture
 
-### Single-page, state-driven, no routing
+### Public landing at `/`, the app at `/app`
 
-Despite being Next.js 14 App Router, the entire app is one client component: [src/app/page.tsx](src/app/page.tsx). There is exactly one route. Navigation is `useState` in that file:
+[src/app/page.tsx](src/app/page.tsx) is a **server-rendered landing page** — the only page search engines index. It carries the SEO content (hero, features, FAQ mirrored into JSON-LD) and every CTA links to `/app`. `SignedInRedirect` forwards a signed-in visitor (session in localStorage, so only after hydration) and any legacy `/?battle=CODE` invite to `/app`, query string included.
+
+SEO plumbing: site constants (production origin `https://app.memoraise.pro.vn`, title, description) live in [src/lib/site.ts](src/lib/site.ts); `layout.tsx` sets `metadataBase`, Open Graph and the title template; `robots.ts`, `sitemap.ts` and `opengraph-image.tsx` sit next to it. [src/app/app/layout.tsx](src/app/app/layout.tsx) marks `/app` `noindex, follow` — it is **not** disallowed in robots.txt, since a blocked page's `noindex` is never seen. New public pages go into `sitemap.ts`.
+
+### The app: single-page, state-driven, no routing
+
+The entire app is one client component: [src/app/app/page.tsx](src/app/app/page.tsx). Inside it there is no routing. The manifest `start_url`, Battle invite links (`battleInviteLink`) and the service worker's default notification URL all point at `/app`. Navigation is `useState` in that file:
 
 - `session` is `null` → early return renders onboarding or the auth screen (`authView`); **nothing below is reachable signed out**
 - `activeQuizMode` → early return renders the active quiz
@@ -37,7 +43,7 @@ Per-account keys (progress, SRS, custom words, reminders, categories, word libra
 
 ### SRS: local-first, backend-overwrites
 
-Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([src/app/page.tsx](src/app/page.tsx)) and `ReviewDashboard`:
+Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([src/app/app/page.tsx](src/app/app/page.tsx)) and `ReviewDashboard`:
 
 1. `calculateNextSRS()` ([src/lib/srs.ts](src/lib/srs.ts)) computes SM-2 locally and updates state immediately
 2. `submitReview()` POSTs to the backend

@@ -33,7 +33,7 @@ self.addEventListener('push', (event) => {
     // a 404 here just falls back to the browser's default icon.
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    data: { url: data.url || '/' },
+    data: { url: data.url || '/app' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -41,7 +41,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/app';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

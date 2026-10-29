@@ -1,1174 +1,229 @@
-'use client';
-
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { MobileContainer } from '@/components/layout/MobileContainer';
-import { HeaderBar } from '@/components/layout/HeaderBar';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { OnboardingScreen } from '@/components/auth/OnboardingScreen';
-import { AppGuideModal } from '@/components/layout/AppGuideModal';
-import { AuthScreen } from '@/components/auth/AuthScreen';
-import { LevelSelectModal } from '@/components/auth/LevelSelectModal';
-import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
-import { QuizSelection } from '@/components/quiz/QuizSelection';
-import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
-import { MultipleChoiceQuiz } from '@/components/quiz/MultipleChoiceQuiz';
-import { FillBlankQuiz } from '@/components/quiz/FillBlankQuiz';
-import { TypeWordQuiz } from '@/components/quiz/TypeWordQuiz';
-import { ListeningQuiz } from '@/components/quiz/ListeningQuiz';
-import { QuizResultModal } from '@/components/quiz/QuizResultModal';
-import { MistakeReviewScreen } from '@/components/quiz/MistakeReviewScreen';
-import { BattleGame } from '@/components/battle/BattleGame';
-import { BATTLE_INVITE_PARAM, normalizeRoomCode } from '@/lib/battle';
-import { ReviewDashboard } from '@/components/review/ReviewDashboard';
-import { StatsDashboard } from '@/components/stats/StatsDashboard';
-import { ProfileScreen } from '@/components/profile/ProfileScreen';
-import { SettingsModal } from '@/components/profile/SettingsModal';
-import { EditProfileModal } from '@/components/profile/EditProfileModal';
-import { DueReminderToast } from '@/components/layout/DueReminderToast';
-
-import { AddWordModal } from '@/components/dashboard/AddWordModal';
-
+import Link from 'next/link';
 import {
-  ActiveTab,
-  VocabularySet,
-  QuizType,
-  UserProgress,
-  SRSData,
-  QuizSessionResult,
-  Word,
-} from '@/types';
-import { ReviewQuality } from '@/types/word';
-import { StatsSummary } from '@/types/stats';
-import {
-  AutoGradedExercise,
-  ExerciseAnswerResult,
-  ExerciseMistake,
-  isFlashcardExercise,
-  isMultipleChoiceExercise,
-  isFillInBlankExercise,
-  isTypeMissingWordExercise,
-  isListeningExercise,
-} from '@/types/exercise';
-import { calculateNextSRS } from '@/lib/srs';
-import {
-  mapReviewResponseToSRS,
-  mapWordRatingToSRS,
-  getUserWordLibrary,
-  invalidateDueReviews,
-} from '@/lib/api/word-client';
-import {
-  getDueExercises,
-  submitExercise,
-  submitFlashcardExercise,
-  isExerciseAnswerCorrect,
-  mapFlashcardExerciseToWord,
-  QUIZ_TYPE_TO_EXERCISE_TYPE,
-} from '@/lib/api/exercise-client';
-import { syncVocabularySets } from '@/lib/api/category-client';
-import { fetchStatsSummary } from '@/lib/api/stats-client';
-import {
-  fetchSettings,
-  mapSettingsToRequest,
-  updateSettings,
-} from '@/lib/api/settings-client';
-import { ApiError } from '@/lib/api/client';
-import { getCurrentSession, getDisplayName, logout, refreshProfile } from '@/lib/api/auth-client';
-import { AuthSession } from '@/types/auth';
-import {
-  loadCategories,
-  loadUserProgress,
-  saveUserProgress,
-  loadSRSData,
-  saveSRSData,
-  loadSettings,
-  saveSettings,
-  loadAllWords,
-  loadCustomWords,
-  saveCustomWords,
-  setStorageScope,
-  clearScopedData,
-  savePendingBattleCode,
-  takePendingBattleCode,
-  AppSettings,
-  DEFAULT_SETTINGS,
-  DEFAULT_USER_PROGRESS,
-} from '@/lib/storage';
-import { createInitialSRS } from '@/lib/srs';
-import { soundFX } from '@/lib/audio';
-import { generateAvatar } from '@/lib/avatar';
-import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
-import { useDueReminders } from '@/hooks/useDueReminders';
-import { usePushSubscription } from '@/hooks/usePushSubscription';
-import { unsubscribeFromPush } from '@/lib/push';
+  ArrowRight,
+  BellRing,
+  Brain,
+  FileSpreadsheet,
+  Flame,
+  Layers,
+  Swords,
+  Volume2,
+} from 'lucide-react';
+import { SignedInRedirect } from '@/components/landing/SignedInRedirect';
+import { APP_PATH, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
+
+// The public, server-rendered face of the site — the one page search engines
+// index. The app itself lives at `/app` behind sign-in (see app/app/layout.tsx).
+
+const FEATURES = [
+  {
+    icon: Brain,
+    title: 'Lặp lại ngắt quãng (SRS)',
+    body: 'Thuật toán SuperMemo SM-2 tính đúng thời điểm bạn sắp quên một từ và nhắc ôn lại ngay lúc đó — ôn ít hơn, nhớ lâu hơn.',
+  },
+  {
+    icon: Layers,
+    title: 'Flashcard & 5 dạng bài tập',
+    body: 'Flashcard lật, trắc nghiệm, điền từ vào chỗ trống, gõ lại từ và nghe chép — mỗi từ được luyện theo nhiều cách khác nhau.',
+  },
+  {
+    icon: Volume2,
+    title: 'Phiên âm IPA & phát âm',
+    body: 'Mỗi từ có phiên âm IPA, loại từ, nghĩa và câu ví dụ, kèm phát âm để bạn học đúng ngay từ đầu.',
+  },
+  {
+    icon: FileSpreadsheet,
+    title: 'Bộ từ của riêng bạn',
+    body: 'Thêm từ chỉ với vài ký tự nhờ gợi ý tự động, hoặc nhập cả danh sách từ file Excel / CSV và xuất lại bất cứ lúc nào.',
+  },
+  {
+    icon: Swords,
+    title: 'Đấu từ vựng cùng bạn bè',
+    body: 'Tạo phòng Battle, gửi mã mời và thi xem ai nhớ từ nhanh hơn — học mà như chơi.',
+  },
+  {
+    icon: BellRing,
+    title: 'Nhắc ôn tập đúng lúc',
+    body: 'Thông báo khi có từ đến hạn ôn, cùng chuỗi ngày học (streak), XP và thống kê tiến độ theo tuần.',
+  },
+];
+
+const STEPS = [
+  { title: 'Thêm từ cần học', body: 'Gõ từ mới, chọn từ gợi ý hoặc nhập cả bộ từ file Excel.' },
+  { title: 'Học qua flashcard & quiz', body: 'Tự đánh giá mức độ nhớ sau mỗi từ — dễ, vừa hay khó.' },
+  { title: 'Ôn đúng hạn, nhớ lâu', body: 'Hệ thống tự xếp lịch ôn: từ khó gặp lại sớm, từ đã thuộc giãn dần đến hàng tháng.' },
+];
+
+const FAQ = [
+  {
+    q: 'Lặp lại ngắt quãng (spaced repetition) là gì?',
+    a: 'Là phương pháp ôn tập theo các khoảng thời gian tăng dần — ngay trước thời điểm bạn sắp quên. Mỗi lần nhớ lại thành công, khoảng cách đến lần ôn tiếp theo được kéo dài, nhờ vậy từ vựng chuyển dần vào trí nhớ dài hạn với ít thời gian ôn nhất.',
+  },
+  {
+    q: 'Memorize khác gì so với học từ vựng bằng sổ tay?',
+    a: 'Thay vì đọc lại cả cuốn sổ, Memorize chỉ đưa ra những từ thực sự đến hạn ôn và luyện chúng qua nhiều dạng bài: flashcard, trắc nghiệm, điền từ, gõ từ và nghe. Tiến độ của từng từ được theo dõi tự động.',
+  },
+  {
+    q: 'Mỗi ngày nên học bao lâu?',
+    a: 'Chỉ khoảng 5–15 phút. Điều quan trọng là học đều đặn mỗi ngày để giữ chuỗi streak và ôn đúng các từ đến hạn.',
+  },
+  {
+    q: 'Tôi có thể học từ vựng IELTS, TOEIC hay từ vựng chuyên ngành không?',
+    a: 'Có. Bạn tự xây bộ từ của mình — gõ từng từ hoặc nhập cả danh sách từ file Excel / CSV — nên có thể học bất kỳ chủ đề nào: IELTS, TOEIC, giao tiếp hay chuyên ngành.',
+  },
+  {
+    q: 'Có dùng được trên điện thoại không?',
+    a: 'Có. Memorize chạy ngay trên trình duyệt điện thoại và máy tính, và có thể cài lên màn hình chính như một ứng dụng.',
+  },
+];
+
+// Structured data: what the site is, plus the FAQ above, so Google can show
+// rich results. Kept in sync with the visible FAQ — Google penalises markup
+// that does not match the page.
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebApplication',
+      name: SITE_NAME,
+      url: SITE_URL,
+      description: SITE_DESCRIPTION,
+      applicationCategory: 'EducationalApplication',
+      operatingSystem: 'Web, iOS, Android',
+      inLanguage: 'vi',
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: FAQ.map(({ q, a }) => ({
+        '@type': 'Question',
+        name: q,
+        acceptedAnswer: { '@type': 'Answer', text: a },
+      })),
+    },
+  ],
+};
 
-/**
- * How long sign-out holds the auth token open so the push endpoint can be
- * deregistered. Past this the token is cleared anyway — a stale endpoint on the
- * backend is a smaller problem than a token that outlives the sign-out.
- */
-const LOGOUT_UNSUBSCRIBE_TIMEOUT_MS = 3000;
-
-/** Which signed-out screen to show. The app itself is unreachable without a session. */
-type AuthView = 'onboarding' | 'login' | 'register';
-
-export default function Home() {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [authView, setAuthView] = useState<AuthView>('onboarding');
-  const [activeTab, setActiveTab] = useState<ActiveTab>('home');
-  const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
-  /** Battle Game is online-only and owns its own socket, so it is a screen of its own rather than a quiz mode. */
-  const [isBattleOpen, setIsBattleOpen] = useState(false);
-  /** The room code an invite link brought in, pre-filled into the join box. */
-  const [battleInviteCode, setBattleInviteCode] = useState('');
-  const [quizSessionWords, setQuizSessionWords] = useState<Word[]>([]);
-  // Backend-driven exercise modes (multiple-choice, fill-blank, type-word,
-  // listening) get their question data from `/exercises/due` instead of the
-  // local pool — flashcards are the only mode still using `quizSessionWords`.
-  const [exerciseSessionItems, setExerciseSessionItems] = useState<AutoGradedExercise[]>([]);
-  const [exerciseMistakes, setExerciseMistakes] = useState<ExerciseMistake[]>([]);
-  /** The read-only recap of `exerciseMistakes`, opened from the result modal. */
-  const [isReviewingMistakes, setIsReviewingMistakes] = useState(false);
-  const [loadingQuizType, setLoadingQuizType] = useState<QuizType | null>(null);
-  const [quizStartError, setQuizStartError] = useState<string | null>(null);
-  const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isAddWordOpen, setIsAddWordOpen] = useState(false);
-  /**
-   * The one-time CEFR question. Opened by a successful registration only — a
-   * returning sign-in must not be interrogated again, whether or not the answer
-   * was ever given (it can be set any time from settings).
-   */
-  const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
-  /**
-   * The app tour. A new account sees it right after the CEFR question; anyone
-   * can replay it from settings.
-   */
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
-
-  // App Persistent State
-  const [allWords, setAllWords] = useState<Word[]>([]);
-  const [userProgress, setUserProgress] = useState<UserProgress>(DEFAULT_USER_PROGRESS);
-  const [srsMap, setSrsMap] = useState<Record<string, SRSData>>({});
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [vocabularySets, setVocabularySets] = useState<VocabularySet[]>([]);
-  const [isMounted, setIsMounted] = useState(false);
-  /**
-   * `GET /stats/summary` for the signed-in account, or null until it answers —
-   * the home screen falls back to its locally derived counters while it is null.
-   */
-  const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
-
-  /**
-   * Refreshes the cached `/vocabulary-sets` list. Only sign-in passes `force`
-   * — the list barely changes, so every other entry into the app reads the
-   * copy in localStorage and never touches the network.
-   *
-   * Failure is silent: `syncVocabularySets` returns the cached list when it
-   * has one, and the pickers fall back to their shipped names when it does not.
-   */
-  const hydrateVocabularySets = async (force: boolean) => {
-    try {
-      setVocabularySets(await syncVocabularySets({ force }));
-    } catch (err) {
-      console.warn('Could not load vocabulary sets from API:', err);
-    }
-  };
-
-  /**
-   * The side effects a settings value implies, applied outside React: the dark
-   * class lives on `<html>` and the sound engine is a module singleton, so both
-   * have to be pushed whenever settings arrive — from storage, from the backend
-   * or from the user.
-   */
-  const applySettingsEffects = (active: AppSettings) => {
-    if (active.theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-
-    soundFX.setEnabled(active.soundEnabled);
-  };
-
-  /**
-   * Adopts the account's preferences from `GET /settings`, so a device that has
-   * never seen this account inherits them instead of showing the defaults.
-   *
-   * `local` is what storage just answered; the backend wins on every field it
-   * actually sends and the local value stands for the rest. Failure is silent —
-   * settings are readable locally, so there is nothing to block the session for.
-   */
-  const hydrateSettingsFromApi = async (local: AppSettings) => {
-    try {
-      const remote = await fetchSettings();
-      if (Object.keys(remote).length === 0) return;
-
-      const merged = { ...local, ...remote };
-      setSettings(merged);
-      saveSettings(merged);
-      applySettingsEffects(merged);
-    } catch (err) {
-      console.warn('Could not load settings from API, using local copy:', err);
-    }
-  };
-
-  /**
-   * Mirrors a settings change to `PATCH /settings`, which takes the settings
-   * whole — so this sends every field, not just the one that changed.
-   *
-   * Deliberately not awaited by its callers: the local write has already happened
-   * and the UI already shows the new value, so a failed sync must not undo the
-   * user's choice.
-   */
-  const pushSettingsToApi = async (merged: AppSettings) => {
-    // No token, no account to write against — the signed-out screens also load
-    // settings, and those changes are local-only until someone signs in.
-    if (!getCurrentSession()) return;
-
-    try {
-      await updateSettings(mapSettingsToRequest(merged));
-    } catch (err) {
-      console.warn('Could not save settings to API, keeping the local copy:', err);
-    }
-  };
-
-  /**
-   * Re-asks `GET /stats/summary` for the home screen's counters. The account is
-   * the whole request — it comes from the bearer token — so there is nothing to
-   * ask without a session.
-   *
-   * Failure is silent and leaves the last good summary (or null) in place: these
-   * numbers all have a local equivalent, so a missing answer degrades to the
-   * device's own view instead of blanking the screen.
-   */
-  const refreshStats = useCallback(async () => {
-    if (!getCurrentSession()) return;
-
-    try {
-      setStatsSummary(await fetchStatsSummary());
-    } catch (err) {
-      console.warn('Could not load stats summary from API:', err);
-    }
-  }, []);
-
-  /**
-   * Loads the state belonging to `activeSession`. Storage is scoped by user id
-   * first, so one account never reads another's progress, and identity fields
-   * always come from the API session rather than whatever was stored earlier.
-   *
-   * Called with `null` on sign-out, which resets every in-memory slice back to
-   * its empty default so the next account never inherits a stale screen.
-   *
-   * `isFreshLogin` marks the one entry point that just authenticated — the
-   * moment the category list is pulled from the backend.
-   */
-  const loadAccountState = (
-    activeSession: AuthSession | null,
-    displayName?: string,
-    isFreshLogin = false
-  ) => {
-    setStorageScope(activeSession?.userId ?? null);
-    setSession(activeSession);
-    // Sign-in and sign-out both land here; the previous account's due list and
-    // summary must not answer for the new one.
-    invalidateDueReviews();
-    setStatsSummary(null);
-
-    const loadedSettings = loadSettings();
-    applySettingsEffects(loadedSettings);
-    setSettings(loadedSettings);
-
-    if (!activeSession) {
-      setUserProgress(DEFAULT_USER_PROGRESS);
-      setSrsMap({});
-      setAllWords([]);
-      setVocabularySets([]);
-      return;
-    }
-
-    // Render from the stored list first, then let the login fetch replace it —
-    // the pickers must never wait on the network.
-    setVocabularySets(loadCategories());
-    void hydrateVocabularySets(isFreshLogin);
-    void hydrateSettingsFromApi(loadedSettings);
-
-    const loadedSRS = loadSRSData();
-    const loadedWords = loadAllWords();
-    const rolledOver = applyDailyRollover(loadUserProgress());
-
-    // What the user typed at registration wins, then the account's own name from
-    // `/users/profile`, then whatever this device recorded before.
-    const name =
-      displayName?.trim() ||
-      activeSession.name?.trim() ||
-      rolledOver.name ||
-      getDisplayName(activeSession);
-    const loadedProgress = {
-      ...rolledOver,
-      name,
-      email: activeSession.email,
-      userId: activeSession.userId,
-      avatar: generateAvatar(name || activeSession.email),
-    };
-
-    setUserProgress(loadedProgress);
-    saveUserProgress(loadedProgress);
-    setSrsMap(loadedSRS);
-    setAllWords(loadedWords);
-
-    hydrateFromApi(loadedWords);
-    void refreshStats();
-  };
-
-  /**
-   * Drops the session and returns to the sign-in screen. Used both for an
-   * explicit sign-out and for a token the backend rejected — either way nothing
-   * account-specific may stay on screen.
-   *
-   * The push endpoint goes with it, and the order matters:
-   * `/notification/unsubscribe` is authenticated and `unsubscribeFromPush` only
-   * reaches for the token after awaiting the service worker, so clearing the
-   * session first would send the request unauthenticated and leave the backend
-   * pushing review reminders at a device nobody is signed in on.
-   *
-   * The screen flips right away regardless — only `logout` waits, and only
-   * until `LOGOUT_UNSUBSCRIBE_TIMEOUT_MS`, so a hung request can never strand a
-   * live token in localStorage.
-   */
-  const signOut = (view: AuthView = 'login') => {
-    const previousToken = getCurrentSession()?.accessToken;
-
-    const deregistered = unsubscribeFromPush().catch((e) => {
-      console.warn('Push unsubscribe on sign-out failed:', e);
-    });
-    const deadline = new Promise((resolve) =>
-      setTimeout(resolve, LOGOUT_UNSUBSCRIBE_TIMEOUT_MS)
-    );
-
-    loadAccountState(null);
-    setActiveQuizMode(null);
-    setIsBattleOpen(false);
-    setSessionResult(null);
-    setIsSettingsOpen(false);
-    setIsAddWordOpen(false);
-    setIsLevelPickerOpen(false);
-    setIsGuideOpen(false);
-    setActiveTab('home');
-    setAuthView(view);
-
-    void Promise.race([deregistered, deadline]).then(() => {
-      // Signing back in while the unsubscribe was still in flight leaves a fresh
-      // token in localStorage — this stale sign-out must not clear it.
-      if (getCurrentSession()?.accessToken === previousToken) logout();
-    });
-  };
-
-  /**
-   * Pulls the account's real word state from the backend and folds it into the
-   * local library and SRS map. Failure is non-fatal — local data stays
-   * authoritative.
-   *
-   * Reads the word library (`GET /words`, served from its localStorage cache),
-   * not `/reviews/due`: the library covers the account's *whole* vocabulary
-   * rather than only what happens to be due, and it costs no request when the
-   * cache is warm. The one thing it lacks is `userWordId`, which only the review
-   * tab needs.
-   */
-  const hydrateFromApi = async (words: Word[]) => {
-    try {
-      const { items } = await getUserWordLibrary({ fallbacks: words, vocabularySets });
-      if (items.length === 0) return;
-
-      // A library row carries the word itself, so one added on another device
-      // can join this device's library instead of showing as a placeholder.
-      const knownIds = new Set(words.map((w) => String(w.id)));
-      const adopted = items
-        .filter((item) => !knownIds.has(String(item.word.id)))
-        .map((item) => item.word);
-
-      if (adopted.length > 0) {
-        setAllWords((prev) => {
-          const existing = new Set(prev.map((w) => String(w.id)));
-          const additions = adopted.filter((w) => !existing.has(String(w.id)));
-          if (additions.length === 0) return prev;
-
-          const next = [...additions, ...prev];
-          saveCustomWords(next);
-          return next;
-        });
-      }
-
-      setSrsMap((prev) => {
-        const merged = { ...prev };
-        items.forEach((item) => {
-          const wordId = String(item.word.id);
-          const existing = merged[wordId];
-          // The backend owns the schedule and the status; everything else on the
-          // entry — above all `userWordId`, which is what `/reviews/:id` is
-          // posted to — is only known locally and must survive this merge.
-          merged[wordId] = {
-            userWordId: existing?.userWordId,
-            wordId,
-            interval: existing?.interval ?? 0,
-            easeFactor: existing?.easeFactor ?? 2.5,
-            repetitions: existing?.repetitions ?? 0,
-            lastReviewed: existing?.lastReviewed ?? null,
-            nextReviewDate: item.dueAt ?? existing?.nextReviewDate ?? new Date().toISOString(),
-            state: item.state ?? existing?.state ?? 'new',
-          };
-        });
-        saveSRSData(merged);
-        return merged;
-      });
-
-      const favorites = items
-        .filter((item) => item.isFavorite)
-        .map((item) => String(item.word.id));
-
-      if (favorites.length > 0) {
-        setUserProgress((prev) => {
-          const updated = {
-            ...prev,
-            favorites: Array.from(new Set([...prev.favorites, ...favorites])),
-          };
-          saveUserProgress(updated);
-          return updated;
-        });
-      }
-    } catch (err) {
-      // A rejected token means the stored session is dead — the app has no
-      // signed-out mode, so send the user back to sign in rather than showing
-      // an account view backed by nothing.
-      if (err instanceof ApiError && err.status === 401) {
-        signOut();
-        return;
-      }
-      console.warn('Could not hydrate progress from API, using local data:', err);
-    }
-  };
-
-  /**
-   * Re-reads `/users/profile` for a session restored from storage — it carries
-   * the name from the last sign-in, which may since have changed elsewhere.
-   * A different user id means the token now answers for another account, so the
-   * whole scoped state is reloaded rather than patched.
-   */
-  const syncProfile = async (restored: AuthSession) => {
-    const updated = await refreshProfile();
-    if (!updated) return;
-
-    if (updated.userId !== restored.userId) {
-      loadAccountState(updated);
-      return;
-    }
-
-    applySession(updated);
-  };
-
-  /**
-   * Folds a session the backend just confirmed — `/users/profile` or
-   * `PATCH /users/name` — into the on-screen progress. The avatar is derived
-   * from the name, so it has to be regenerated alongside it.
-   */
-  const applySession = (updated: AuthSession) => {
-    setSession(updated);
-
-    const name = updated.name?.trim();
-    if (!name) return;
-
-    setUserProgress((prev) => {
-      if (prev.name === name && prev.email === updated.email) return prev;
-
-      const next = {
-        ...prev,
-        name,
-        email: updated.email,
-        avatar: generateAvatar(name || updated.email),
-      };
-      saveUserProgress(next);
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    const existingSession = getCurrentSession();
-    loadAccountState(existingSession);
-    setIsMounted(true);
-
-    if (existingSession) void syncProfile(existingSession);
-
-    // A Battle invite link (`/?battle=CODE`). Parked in sessionStorage so it
-    // survives the sign-in screen, and stripped from the URL so a reload does
-    // not reopen the Battle.
-    const url = new URL(window.location.href);
-    if (url.searchParams.has(BATTLE_INVITE_PARAM)) {
-      const code = normalizeRoomCode(url.searchParams.get(BATTLE_INVITE_PARAM));
-      if (code) savePendingBattleCode(code);
-      url.searchParams.delete(BATTLE_INVITE_PARAM);
-      window.history.replaceState(null, '', url.toString());
-    }
-  }, []);
-
-  // Opens a pending invite as soon as there is a session to play it with —
-  // right after mount for a signed-in user, or after login/registration.
-  useEffect(() => {
-    if (!session) return;
-    const code = takePendingBattleCode();
-    if (!code) return;
-    setBattleInviteCode(code);
-    setIsBattleOpen(true);
-  }, [session]);
-
-  // Everything derivable is recomputed here, so the UI can never render a
-  // counter that drifted away from the SRS map, the XP total or the settings.
-  const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
-
-  // The streak belongs to the account, not the device: a fresh install has no
-  // local history to count one from, so `/stats/summary` wins wherever it
-  // answered. `bestStreak` follows it up, never down.
-  const displayProgress: UserProgress =
-    statsSummary?.streak === undefined
-      ? derivedProgress
-      : {
-          ...derivedProgress,
-          streak: statsSummary.streak,
-          bestStreak: Math.max(derivedProgress.bestStreak, statsSummary.streak),
-        };
-
-  // Filter word dataset according to user's focusCategories setting. Memoised
-  // because `useDueReminders` scans this list on every identity change.
-  const focusCategories = useMemo(
-    () => settings.focusCategories || [],
-    [settings.focusCategories]
-  );
-
-  const openReview = () => {
-    setActiveQuizMode(null);
-    setSessionResult(null);
-    setIsSettingsOpen(false);
-    setActiveTab('review');
-  };
-
-  const openPractice = () => {
-    setActiveQuizMode(null);
-    setSessionResult(null);
-    setIsSettingsOpen(false);
-    setActiveTab('learn');
-  };
-
-  const handleAddWords = (newWords: Word[]) => {
-    if (newWords.length === 0) return;
-
-    const existingCustom = loadCustomWords();
-    const updatedCustom = [...newWords, ...existingCustom];
-    saveCustomWords(updatedCustom);
-
-    const updatedAll = [...newWords, ...allWords];
-    setAllWords(updatedAll);
-
-    // Initialize SRS entries for all new words
-    const updatedSRSMap = { ...srsMap };
-    newWords.forEach((w) => {
-      updatedSRSMap[w.id] = createInitialSRS(w.id);
-    });
-    setSrsMap(updatedSRSMap);
-    saveSRSData(updatedSRSMap);
-
-    // Reward user with 20 XP per added custom word. wordsLearned is derived
-    // from the SRS map, so it is not incremented by hand here.
-    setUserProgress((prev) => {
-      const xp = prev.xp + newWords.length * 20;
-      const updated = recordActivity({ ...prev, xp, level: levelFromXp(xp) });
-      saveUserProgress(updated);
-      return updated;
-    });
-  };
-
-  const handleStartQuiz = async (type: QuizType) => {
-    // Nothing to quiz on yet — every word in the library is one the user
-    // added, so send them to add some instead of opening an empty session.
-    if (allWords.length === 0) {
-      setIsAddWordOpen(true);
-      return;
-    }
-
-    const exerciseType = QUIZ_TYPE_TO_EXERCISE_TYPE[type];
-    // 'image' (and any other not-yet-implemented mode) has no backend flow.
-    if (!exerciseType) return;
-
-    setQuizStartError(null);
-    setLoadingQuizType(type);
-    // Never carry the previous session's score or misses into a new one.
-    setSessionResult(null);
-    setExerciseMistakes([]);
-    setIsReviewingMistakes(false);
-    try {
-      const items = await getDueExercises(exerciseType);
-      if (items.length === 0) {
-        setQuizStartError('Không có từ nào cần luyện tập cho chế độ này ngay bây giờ.');
-        return;
-      }
-
-      if (type === 'flashcards') {
-        setQuizSessionWords(
-          items.filter(isFlashcardExercise).map((item) => mapFlashcardExerciseToWord(item, allWords))
-        );
-      } else {
-        setExerciseSessionItems(items as AutoGradedExercise[]);
-      }
-      setActiveQuizMode(type);
-    } catch (err) {
-      console.error('getDueExercises error:', err);
-      setQuizStartError('Không thể tải bài tập. Vui lòng thử lại sau.');
-    } finally {
-      setLoadingQuizType(null);
-    }
-  };
-
-  const handleExerciseQuizComplete = (correctCount: number, mistakes: ExerciseMistake[]) => {
-    const total = exerciseSessionItems.length;
-    const xpEarned = correctCount * 5 + 10; // 5 XP per correct + 10 completion bonus
-
-    setExerciseMistakes(mistakes);
-    setSessionResult({
-      quizType: activeQuizMode || 'multiple-choice',
-      total,
-      correct: correctCount,
-      xpEarned,
-      mistakeCount: mistakes.length,
-    });
-
-    // Update User Progress. wordsLearned/masteredCount/level are derived at
-    // render time from the SRS map and XP, so only real events are stored.
-    const active = recordActivity(userProgress);
-    const xp = active.xp + xpEarned;
-    const updatedProgress: UserProgress = {
-      ...active,
-      xp,
-      level: levelFromXp(xp),
-      dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + total),
-      totalCorrect: active.totalCorrect + correctCount,
-      totalAttempted: active.totalAttempted + total,
-      history: [
-        {
-          id: `h_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          quizType: activeQuizMode?.replace('-', ' ') || 'Quiz',
-          totalQuestions: total,
-          correctCount,
-          xpEarned,
-        },
-        ...active.history,
-      ],
-    };
-
-    setUserProgress(updatedProgress);
-    saveUserProgress(updatedProgress);
-  };
-
-  /**
-   * Grades one exercise answer against the backend, which is the only source
-   * of truth for `multiple_choice` (the payload never reveals which option is
-   * correct). For the other exercise types the caller already graded locally
-   * against the known headword — this call exists mainly to sync the SRS
-   * schedule, and its resolved value is unused by those callers.
-   */
-  const handleSubmitExerciseAnswer = async (
-    exercise: AutoGradedExercise,
-    answer: string
-  ): Promise<ExerciseAnswerResult> => {
-    try {
-      const response = await submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer);
-      // Keyed by the parent word id, matching how the library's own SRS
-      // entries are keyed — distinct from the flashcard flow, which keys by
-      // the definition id itself (see `handleRateFlashcardWord`).
-      handleUpdateSRS(String(response.userWordId), mapReviewResponseToSRS(response));
-      return {
-        isCorrect: isExerciseAnswerCorrect(response),
-        // The graded row IS the meaning being tested, which is the answer
-        // `multiple_choice` needs to reveal (its question payload never says).
-        correctDefinition: response.definition,
-      };
-    } catch (err) {
-      console.error('API submitExercise error:', err);
-      // No server verdict to trust. For the free-answer modes the headword IS
-      // the answer, so grade locally rather than blocking the session — but
-      // multiple_choice has no local fallback, so it counts as a miss.
-      return {
-        isCorrect:
-          exercise.exerciseType !== 'multiple_choice' &&
-          answer.trim().toLowerCase() === exercise.headword.trim().toLowerCase(),
-      };
-    }
-  };
-
-  const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
-    // Increment daily goal progress on flashcard view
-    setUserProgress((prev) => {
-      const active = recordActivity(prev);
-      const updated = {
-        ...active,
-        dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + 1),
-        totalAttempted: active.totalAttempted + 1,
-        totalCorrect: active.totalCorrect + (rating >= 3 ? 1 : 0),
-      };
-      saveUserProgress(updated);
-      return updated;
-    });
-
-    const currentSRS = srsMap[word.id] || {
-      wordId: word.id,
-      interval: 0,
-      easeFactor: 2.5,
-      repetitions: 0,
-      lastReviewed: null,
-      nextReviewDate: new Date().toISOString(),
-      state: 'new',
-    };
-
-    const updated = calculateNextSRS(currentSRS, rating);
-    handleUpdateSRS(word.id, updated);
-
-    try {
-      // Learning-phase Flashcard: `word.id` is the `userWordId` from
-      // `getDueExercises('flashcard')`, and this rating applies to every due
-      // meaning bundled under it at once.
-      const definitions = await submitFlashcardExercise(word.id, rating);
-      const backendSRS = mapWordRatingToSRS(definitions);
-      if (backendSRS) handleUpdateSRS(word.id, backendSRS);
-    } catch (err) {
-      console.error('API submitFlashcardExercise error:', err);
-    }
-  };
-
-  const handleToggleFavorite = (wordId: string) => {
-    setUserProgress((prev) => {
-      const isFav = prev.favorites.includes(wordId);
-      const updatedFavs = isFav
-        ? prev.favorites.filter((id) => id !== wordId)
-        : [...prev.favorites, wordId];
-      const updated = { ...prev, favorites: updatedFavs };
-      saveUserProgress(updated);
-      return updated;
-    });
-  };
-
-  const handleUpdateSRS = (wordId: string, updatedSRS: SRSData) => {
-    setSrsMap((prev) => {
-      const updatedMap = { ...prev, [wordId]: updatedSRS };
-      saveSRSData(updatedMap);
-      return updatedMap;
-    });
-  };
-
-  /**
-   * Folds a whole batch of backend SRS rows in at once. The review tab reads a
-   * due list of arbitrary length, and calling `handleUpdateSRS` per row would
-   * mean one state update and one localStorage write each.
-   */
-  const handleMergeSRS = useCallback((entries: Record<string, SRSData>) => {
-    if (Object.keys(entries).length === 0) return;
-    setSrsMap((prev) => {
-      const updatedMap = { ...prev, ...entries };
-      saveSRSData(updatedMap);
-      return updatedMap;
-    });
-  }, []);
-
-  /**
-   * Re-keys a word from its optimistic local id to the id the backend assigned.
-   * Without this the app holds two identities for one word and anything driven
-   * by the backend — `dueAt`, review reminders — cannot match it locally.
-   */
-  const handleWordSynced = (localId: string, syncedWord: Word, syncedSRS: SRSData) => {
-    // The word reached the backend, so its totals moved — even when the id came
-    // back unchanged and there is nothing local to re-key.
-    void refreshStats();
-
-    if (syncedWord.id === localId) return;
-
-    setAllWords((prev) => prev.map((w) => (w.id === localId ? syncedWord : w)));
-    saveCustomWords(loadCustomWords().map((w) => (w.id === localId ? syncedWord : w)));
-
-    setSrsMap((prev) => {
-      const updatedMap = { ...prev };
-      delete updatedMap[localId];
-      updatedMap[syncedWord.id] = syncedSRS;
-      saveSRSData(updatedMap);
-      return updatedMap;
-    });
-  };
-
-  const {
-    permission: notificationPermission,
-    requestPermission: requestNotificationPermission,
-    activeReminder,
-    dismissReminder,
-    refreshDue,
-  } = useDueReminders({
-    allWords,
-    focusCategories,
-    srsMap,
-    settings,
-    isReady: isMounted,
-    userId: session?.userId ?? null,
-    onOpenReview: openReview,
-  });
-
-  /**
-   * A sense was rewritten or removed in the word detail modal. The backend and
-   * the cached library are already updated by the time this runs — what is left
-   * is the copy this screen owns and the one on disk, which is what every quiz
-   * and card reads from.
-   */
-  const handleWordEdited = (updated: Word) => {
-    setAllWords((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
-    saveCustomWords(loadCustomWords().map((w) => (w.id === updated.id ? updated : w)));
-  };
-
-  /**
-   * A word was deleted. Its SRS entry goes with it — a schedule for a word that
-   * no longer exists would keep announcing a reminder for it — and the home
-   * counters are re-asked, since the backend's totals just moved.
-   */
-  const handleWordRemoved = (wordId: string) => {
-    setAllWords((prev) => prev.filter((w) => w.id !== wordId));
-    saveCustomWords(loadCustomWords().filter((w) => w.id !== wordId));
-
-    setSrsMap((prev) => {
-      if (!(wordId in prev)) return prev;
-      const updatedMap = { ...prev };
-      delete updatedMap[wordId];
-      saveSRSData(updatedMap);
-      return updatedMap;
-    });
-
-    void refreshStats();
-    refreshDue();
-  };
-
-  // A tab change is the cheapest honest moment to recompute what is due. This
-  // costs a localStorage read, not a request — the due state comes from the
-  // cached word library, which `submitReview` patches as reviews land.
-  useEffect(() => {
-    if (!isMounted) return;
-    refreshDue();
-  }, [activeTab, isMounted, refreshDue]);
-
-  // The home counters are the backend's, so they have to be re-asked whenever
-  // the user lands back on that screen — a finished session or a review just
-  // moved every number on it.
-  useEffect(() => {
-    if (!isMounted || activeTab !== 'home' || activeQuizMode) return;
-    void refreshStats();
-  }, [activeTab, activeQuizMode, isMounted, refreshStats]);
-
-  const { pushStatus } = usePushSubscription({
-    isReady: isMounted,
-    enabled: settings.notifications,
-    permission: notificationPermission,
-    userId: session?.userId ?? null,
-  });
-
-  /**
-   * The single entry point for every settings change — the settings modal and
-   * the CEFR question both come through here, so each one is stored locally and
-   * mirrored to `PATCH /settings` without the callers having to know about it.
-   */
-  const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    saveSettings(updated);
-    applySettingsEffects(updated);
-
-    void pushSettingsToApi(updated);
-  };
-
-  const handleResetProgress = () => {
-    // Only wipes the signed-in account's data — other accounts and the session stay put.
-    clearScopedData();
-    setIsSettingsOpen(false);
-    window.location.reload();
-  };
-
-  // Hold the first paint until the session is known, otherwise a signed-in user
-  // sees a flash of the onboarding screen.
-  if (!isMounted) {
-    return <MobileContainer><div className="flex-1 bg-slate-50 dark:bg-slate-900" /></MobileContainer>;
-  }
-
-  // Auth gate: without a session there is no app, only onboarding and the
-  // sign-in form. Every feature below reads account-scoped data.
-  if (!session) {
-    if (authView === 'onboarding') {
-      return (
-        <MobileContainer>
-          <OnboardingScreen
-            onGetStarted={() => setAuthView('register')}
-            onSignIn={() => setAuthView('login')}
-          />
-        </MobileContainer>
-      );
-    }
-
-    return (
-      <MobileContainer>
-        <AuthScreen
-          initialMode={authView}
-          onLoginSuccess={(newSession, displayName, isNewAccount) => {
-            // Swap to the account's own scoped state before rendering anything.
-            loadAccountState(newSession, displayName, true);
-            setActiveTab('home');
-            // A brand-new account is asked for its CEFR level once, on top of
-            // the home screen it just landed on.
-            setIsLevelPickerOpen(isNewAccount);
-          }}
-          onBack={() => setAuthView('onboarding')}
-        />
-      </MobileContainer>
-    );
-  }
-
-  if (isBattleOpen) {
-    return (
-      <MobileContainer>
-        <BattleGame
-          accessToken={session.accessToken}
-          meId={session.userId}
-          initialCode={battleInviteCode}
-          onClose={() => {
-            setIsBattleOpen(false);
-            setBattleInviteCode('');
-          }}
-          onSessionExpired={() => signOut()}
-        />
-      </MobileContainer>
-    );
-  }
-
-  // Render Active Quiz Mode
-  if (activeQuizMode) {
-    return (
-      <MobileContainer>
-        {activeQuizMode === 'flashcards' && (
-          <FlashcardQuiz
-            words={quizSessionWords}
-            favorites={userProgress.favorites}
-            onToggleFavorite={handleToggleFavorite}
-            onRateWord={handleRateFlashcardWord}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'multiple-choice' && (
-          <MultipleChoiceQuiz
-            exercises={exerciseSessionItems.filter(isMultipleChoiceExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'fill-blank' && (
-          <FillBlankQuiz
-            exercises={exerciseSessionItems.filter(isFillInBlankExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'type-word' && (
-          <TypeWordQuiz
-            exercises={exerciseSessionItems.filter(isTypeMissingWordExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'listening' && (
-          <ListeningQuiz
-            exercises={exerciseSessionItems.filter(isListeningExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {sessionResult && (
-          <QuizResultModal
-            quizType={sessionResult.quizType}
-            totalQuestions={sessionResult.total}
-            correctCount={sessionResult.correct}
-            xpEarned={sessionResult.xpEarned}
-            mistakeCount={sessionResult.mistakeCount}
-            onContinue={() => {
-              setSessionResult(null);
-              setActiveQuizMode(null);
-              setIsReviewingMistakes(false);
-              setExerciseMistakes([]);
-            }}
-            onReviewMistakes={() => {
-              if (exerciseMistakes.length > 0) setIsReviewingMistakes(true);
-            }}
-          />
-        )}
-
-        {/* Mounted after the result modal so it portals on top of it — the
-            modal stays alive underneath, so closing the recap lands back on
-            the score rather than out of the session. */}
-        {isReviewingMistakes && exerciseMistakes.length > 0 && (
-          <MistakeReviewScreen
-            mistakes={exerciseMistakes}
-            onClose={() => setIsReviewingMistakes(false)}
-          />
-        )}
-      </MobileContainer>
-    );
-  }
-
-  // Main Dashboard View with Bottom Navigation
+function CtaButton({ children }: { children: React.ReactNode }) {
   return (
-    <MobileContainer>
-      <HeaderBar
-        progress={displayProgress}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAddWord={() => setIsAddWordOpen(true)}
+    <Link
+      href={APP_PATH}
+      className="clay-btn inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-display font-bold text-lg px-6 py-3"
+    >
+      {children}
+      <ArrowRight className="w-5 h-5" aria-hidden />
+    </Link>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <>
+      <SignedInRedirect />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
       />
 
-      {activeTab === 'home' && (
-        <HomeDashboard
-          progress={displayProgress}
-          summary={statsSummary}
-          focusCategories={settings.focusCategories}
-          onStartQuiz={handleStartQuiz}
-          onStartReview={() => setActiveTab('review')}
-          onOpenAddWord={() => setIsAddWordOpen(true)}
-        />
-      )}
+      <header className="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-display font-bold">
+            M
+          </span>
+          <span className="font-display font-bold text-xl text-slate-900">{SITE_NAME}</span>
+        </Link>
+        <Link
+          href={APP_PATH}
+          className="text-sm font-semibold text-blue-600 hover:text-blue-700 px-3 py-2"
+        >
+          Đăng nhập
+        </Link>
+      </header>
 
-      {activeTab === 'learn' && (
-        <QuizSelection
-          onSelectQuiz={handleStartQuiz}
-          onOpenBattle={() => setIsBattleOpen(true)}
-          loadingQuizType={loadingQuizType}
-          errorMessage={quizStartError}
-        />
-      )}
+      <main className="max-w-5xl mx-auto px-4 pb-16">
+        {/* Hero */}
+        <section className="py-12 md:py-20 text-center">
+          <p className="inline-flex items-center gap-1.5 clay-pill bg-clay-butter/60 text-slate-900 text-sm font-semibold px-3 py-1 mb-5">
+            <Flame className="w-4 h-4 text-clay-cta" aria-hidden />
+            Chỉ 5 phút mỗi ngày
+          </p>
+          <h1 className="font-display font-extrabold text-4xl md:text-6xl leading-tight text-slate-900 mb-5">
+            Học từ vựng tiếng Anh
+            <br className="hidden sm:block" /> <span className="text-blue-600">nhớ lâu, không học vẹt</span>
+          </h1>
+          <p className="max-w-2xl mx-auto text-lg text-slate-600 mb-8">
+            Memorize kết hợp flashcard, quiz và phương pháp <strong>lặp lại ngắt quãng (SRS)</strong> để
+            nhắc bạn ôn đúng từ, đúng lúc — trước khi bạn kịp quên.
+          </p>
+          <CtaButton>Bắt đầu học ngay</CtaButton>
+        </section>
 
-      {activeTab === 'review' && (
-        <ReviewDashboard
-          allWords={allWords}
-          vocabularySets={vocabularySets}
-          srsMap={srsMap}
-          summary={statsSummary}
-          onUpdateSRS={handleUpdateSRS}
-          onMergeSRS={handleMergeSRS}
-          onOpenAddWord={() => setIsAddWordOpen(true)}
-          onDueListChanged={refreshDue}
-        />
-      )}
+        {/* Features */}
+        <section aria-labelledby="features-heading" className="py-10">
+          <h2 id="features-heading" className="font-display font-bold text-3xl text-center text-slate-900 mb-8">
+            Mọi thứ bạn cần để làm chủ từ vựng
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map(({ icon: Icon, title, body }) => (
+              <article key={title} className="clay-card p-6">
+                <div className="w-11 h-11 rounded-xl bg-clay-lilac flex items-center justify-center mb-4">
+                  <Icon className="w-6 h-6 text-blue-600" aria-hidden />
+                </div>
+                <h3 className="font-display font-bold text-xl text-slate-900 mb-2">{title}</h3>
+                <p className="text-slate-600">{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-      {activeTab === 'stats' && (
-        <StatsDashboard progress={displayProgress} />
-      )}
+        {/* How it works */}
+        <section aria-labelledby="steps-heading" className="py-10">
+          <h2 id="steps-heading" className="font-display font-bold text-3xl text-center text-slate-900 mb-8">
+            Học từ vựng với Memorize như thế nào?
+          </h2>
+          <ol className="grid gap-4 md:grid-cols-3">
+            {STEPS.map(({ title, body }, i) => (
+              <li key={title} className="clay-card p-6">
+                <span className="font-display font-extrabold text-3xl text-blue-600">{i + 1}</span>
+                <h3 className="font-display font-bold text-xl text-slate-900 mt-1 mb-2">{title}</h3>
+                <p className="text-slate-600">{body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
 
-      {activeTab === 'profile' && (
-        <ProfileScreen
-          progress={displayProgress}
-          allWords={allWords}
-          srsMap={srsMap}
-          vocabularySets={vocabularySets}
-          onWordUpdated={handleWordEdited}
-          onWordDeleted={handleWordRemoved}
-          onEditProfile={() => setIsEditProfileOpen(true)}
-          onLogout={() => signOut()}
-        />
-      )}
+        {/* FAQ — mirrored in JSON_LD */}
+        <section aria-labelledby="faq-heading" className="py-10 max-w-3xl mx-auto">
+          <h2 id="faq-heading" className="font-display font-bold text-3xl text-center text-slate-900 mb-8">
+            Câu hỏi thường gặp
+          </h2>
+          <div className="space-y-3">
+            {FAQ.map(({ q, a }) => (
+              <details key={q} className="clay-card p-5 group">
+                <summary className="font-display font-bold text-lg text-slate-900 cursor-pointer list-none flex justify-between gap-4">
+                  {q}
+                  <span className="text-blue-600 transition-transform group-open:rotate-45" aria-hidden>
+                    +
+                  </span>
+                </summary>
+                <p className="text-slate-600 mt-3">{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
 
-      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
+        {/* Closing CTA */}
+        <section className="py-12 text-center">
+          <h2 className="font-display font-bold text-3xl text-slate-900 mb-4">
+            Sẵn sàng nhớ từ vựng lâu hơn?
+          </h2>
+          <p className="text-slate-600 mb-6">Tạo tài khoản và thêm những từ đầu tiên chỉ trong một phút.</p>
+          <CtaButton>Tạo tài khoản</CtaButton>
+        </section>
+      </main>
 
-      {isSettingsOpen && (
-        <SettingsModal
-          settings={settings}
-          vocabularySets={vocabularySets}
-          onUpdateSettings={handleUpdateSettings}
-          onResetProgress={handleResetProgress}
-          onClose={() => setIsSettingsOpen(false)}
-          onOpenGuide={() => {
-            setIsSettingsOpen(false);
-            setIsGuideOpen(true);
-          }}
-          notificationPermission={notificationPermission}
-          onRequestNotificationPermission={() => {
-            void requestNotificationPermission();
-          }}
-          pushStatus={pushStatus}
-        />
-      )}
-
-      {isEditProfileOpen && session && (
-        <EditProfileModal
-          currentName={displayProgress.name}
-          email={session.email}
-          onClose={() => setIsEditProfileOpen(false)}
-          onNameUpdated={applySession}
-        />
-      )}
-
-      {isLevelPickerOpen && (
-        <LevelSelectModal
-          initialLevel={settings.cefrLevel}
-          onConfirm={(level) => {
-            // Stores the band and sends it straight on as `certLevel` via
-            // `PATCH /settings`, so the answer survives this device.
-            handleUpdateSettings({ cefrLevel: level });
-            setIsLevelPickerOpen(false);
-            // Only a new account is asked for its level, so either way out of
-            // the question leads straight into the tour.
-            setIsGuideOpen(true);
-          }}
-          onSkip={() => {
-            setIsLevelPickerOpen(false);
-            setIsGuideOpen(true);
-          }}
-        />
-      )}
-
-      {isGuideOpen && (
-        <AppGuideModal
-          onClose={() => setIsGuideOpen(false)}
-          onAddFirstWord={() => {
-            setIsGuideOpen(false);
-            setIsAddWordOpen(true);
-          }}
-        />
-      )}
-
-      <AddWordModal
-        isOpen={isAddWordOpen}
-        vocabularySets={vocabularySets}
-        onClose={() => setIsAddWordOpen(false)}
-        onAddWord={(w) => handleAddWords([w])}
-        onAddWords={handleAddWords}
-        onWordSynced={handleWordSynced}
-      />
-
-      {/* Hidden while the review tab is already open — the user is there. */}
-      {activeReminder && activeTab !== 'review' && (
-        <DueReminderToast
-          items={activeReminder.items}
-          onReview={() => {
-            dismissReminder();
-            openPractice();
-          }}
-          onDismiss={() => {
-            dismissReminder();
-          }}
-        />
-      )}
-    </MobileContainer>
+      <footer className="border-t border-slate-200 py-6 text-center text-sm text-slate-500">
+        © {new Date().getFullYear()} {SITE_NAME} — Học từ vựng tiếng Anh với lặp lại ngắt quãng
+      </footer>
+    </>
   );
 }

@@ -9,7 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'Memorize',
     description:
       'Học từ vựng tiếng Anh với lặp lại ngắt quãng, flashcard 3D, quiz và phát âm chuẩn.',
-    start_url: '/',
+    // The installed app opens straight into the app, not the public landing page.
+    start_url: '/app',
     display: 'standalone',
     background_color: '#EEF2FF', // blue-50, matches <body>
     theme_color: '#24292F', // the icon's backdrop

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Baloo_2, Nunito } from 'next/font/google';
 import './globals.css';
+import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 
 // Rounded, friendly faces that carry the claymorphism look.
 //
@@ -24,10 +25,32 @@ const nunito = Nunito({
   display: 'swap',
 });
 
+// `metadataBase` turns every relative URL below (canonical, OG image) into an
+// absolute production URL. Child routes override `title` through the template.
 export const metadata: Metadata = {
-  title: 'Memorize - Học từ vựng tiếng Anh',
-  description:
-    'Master English vocabulary with spaced repetition, interactive 3D flashcards, quizzes, and native audio pronunciations.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  applicationName: SITE_NAME,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    locale: 'vi_VN',
+    url: '/',
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

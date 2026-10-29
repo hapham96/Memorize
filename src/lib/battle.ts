@@ -152,12 +152,12 @@ export function rankByPoints<T extends { points: number }>(rows: T[]): (T & { pl
     }));
 }
 
-/** The query parameter an invite link carries the room code in: `/?battle=AB12CD`. */
+/** The query parameter an invite link carries the room code in: `/app?battle=AB12CD`. */
 export const BATTLE_INVITE_PARAM = 'battle';
 
 /** A shareable link that opens Battle Game with `code` filled in. */
 export function battleInviteLink(code: string): string {
-  const url = new URL(window.location.origin);
+  const url = new URL('/app', window.location.origin);
   url.searchParams.set(BATTLE_INVITE_PARAM, code);
   return url.toString();
 }
