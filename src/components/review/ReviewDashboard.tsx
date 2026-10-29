@@ -649,29 +649,28 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-5 pb-28 animate-fadeIn">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Review Dashboard</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Ôn tập ngắt quãng (SRS)</h2>
         </div>
 
         {onOpenAddWord && (
           <button
             onClick={onOpenAddWord}
-            className="px-4 py-2.5 rounded-2xl bg-blue-600 border-clay border-blue-400 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs shadow-clay flex items-center gap-1.5 active:scale-95 transition-all"
+            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition-all"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
+            <Plus className="w-4 h-4 stroke-[2.2]" />
             <span>Thêm từ mới</span>
           </button>
         )}
       </div>
 
       {/* Primary Hero Review Banner */}
-      <div className="bg-emerald-600 border-clay border-emerald-400 text-white rounded-[28px] p-6 shadow-clay-lg relative overflow-hidden group">
-
+      <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-teal-700 text-white rounded-2xl p-6 shadow-lg shadow-emerald-600/15 relative overflow-hidden group">
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-[11px] uppercase tracking-wider font-extrabold text-emerald-100 bg-white/15 px-3 py-1 rounded-full border border-white/20">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-100 bg-white/15 px-3 py-1 rounded-full border border-white/20 backdrop-blur-sm">
               ⚡ Spaced Repetition SRS
             </span>
-            <h3 className="text-3xl md:text-4xl font-black mt-2">
+            <h3 className="text-3xl md:text-4xl font-extrabold mt-2.5 tracking-tight">
               {hasLoadedDue ? dueWords.length : '—'}{' '}
               <span className="text-base font-normal text-emerald-100">từ đến lịch ôn tập</span>
             </h3>
@@ -693,7 +692,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           <button
             onClick={handleStartReview}
             disabled={isLoadingApi}
-            className="w-full mt-5 py-3.5 rounded-2xl bg-white text-emerald-800 font-extrabold text-sm shadow-clay hover:bg-emerald-50 active:scale-[0.97] active:shadow-clay-inset transition-all flex items-center justify-center gap-2"
+            className="w-full mt-5 py-3 rounded-xl bg-white text-emerald-800 font-bold text-sm shadow-md hover:bg-emerald-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
             {isLoadingApi && <RefreshCw className="w-4 h-4 animate-spin text-emerald-700" />}
             <span>Bắt đầu ôn tập ngay ({dueWords.length} từ)</span>
@@ -703,49 +702,49 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
       {/* SRS Category Breakdown Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Đang học</span>
-            <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Đang học</span>
+            <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
               {learningCount}
             </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center flex-shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Mastered</span>
-            <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Mastered</span>
+            <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
               {masteredCount}
             </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center flex-shrink-0">
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Sắp tới</span>
-            <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Sắp tới</span>
+            <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
               {upcomingCount}
             </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-[20px] border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center flex-shrink-0">
+        <div className="bg-white dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center flex-shrink-0">
             <Brain className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Tổng kho từ</span>
-            <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Tổng kho từ</span>
+            <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
               {libraryCount}
             </p>
           </div>
@@ -753,10 +752,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       </div>
 
       {/* Words Queue Preview */}
-      <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-            Review Queue Preview
+            Hàng đợi ôn tập (Queue Preview)
           </h4>
           {/* The queue is read once when this tab opens, so this is the way to
               re-ask without leaving and coming back. */}

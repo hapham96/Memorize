@@ -8,68 +8,47 @@ import { LEADERBOARD_LIMIT, fetchLeaderboard } from '@/lib/api/leaderboard-clien
 import { buildMockLeaderboard } from '@/data/mockLeaderboard';
 
 interface LeaderboardCardProps {
-  /** Highlights the signed-in learner's own row; null when the token carried no id. */
   currentUserId: number | null;
-  /** Only used to name the current user's row in the mock board. */
   currentUserName?: string;
 }
 
-/**
- * Gold / silver / bronze for the podium. The badge is the saturated version of
- * the row tint, so it still reads against a row of the same hue.
- */
-function rankStyle(rank: number): string {
+function rankBadgeStyle(rank: number): string {
   switch (rank) {
     case 1:
-      return 'bg-amber-400 dark:bg-amber-500 text-white border-amber-500 dark:border-amber-400';
+      return 'bg-amber-500 text-white shadow-sm shadow-amber-500/30';
     case 2:
-      return 'bg-slate-300 dark:bg-slate-400 text-slate-700 border-slate-400 dark:border-slate-300';
+      return 'bg-slate-400 dark:bg-slate-500 text-white';
     case 3:
-      return 'bg-orange-400 dark:bg-orange-500 text-white border-orange-500 dark:border-orange-400';
+      return 'bg-amber-700 text-white';
     default:
-      return 'bg-white dark:bg-slate-900 text-slate-400 border-blue-200 dark:border-slate-700';
+      return 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400';
   }
 }
 
-/**
- * Row tint. The podium keeps its metal even when it is the current user's row —
- * the "You" pill already marks that — so first place never loses its gold.
- */
 function rowStyle(rank: number, isCurrentUser: boolean): string {
+  if (isCurrentUser) {
+    return 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200/80 dark:border-indigo-800/60 shadow-sm';
+  }
   switch (rank) {
     case 1:
-      return 'bg-amber-100 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/40';
+      return 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-800/40';
     case 2:
-      return 'bg-slate-200 dark:bg-slate-600/30 border-slate-300 dark:border-slate-500/50';
+      return 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/60';
     case 3:
-      return 'bg-orange-100 dark:bg-orange-500/15 border-orange-300 dark:border-orange-500/40';
+      return 'bg-orange-50/60 dark:bg-orange-950/20 border-orange-200/80 dark:border-orange-800/40';
     default:
-      return isCurrentUser
-        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700'
-        : 'bg-slate-50 dark:bg-slate-900/40 border-blue-100 dark:border-slate-700';
+      return 'bg-white dark:bg-slate-900/40 border-slate-100 dark:border-slate-800/80';
   }
 }
 
-/**
- * The month the board covers. Formatted in UTC because the period is a UTC month
- * start — read locally it would name the previous month west of Greenwich.
- */
 function formatPeriod(period: Date): string {
-  return period.toLocaleDateString('en-US', {
+  return period.toLocaleDateString('vi-VN', {
     month: 'long',
     year: 'numeric',
     timeZone: 'UTC',
   });
 }
 
-/**
- * This month's top learners by score.
- *
- * The ranking resets every month, so the header names the period it covers —
- * without it the rows read as an all-time board. A failed fetch falls back to a
- * labelled sample board so the screen stays reviewable, and never takes the rest
- * of the stats screen down with it.
- */
 export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
   currentUserId,
   currentUserName,
@@ -94,23 +73,24 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
 
   useEffect(() => {
     void load();
-    // Re-reads when the account changes — the board highlights the current user.
   }, [currentUserId]);
 
   const rows = board?.entries ?? [];
   const period = board?.period ?? null;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Trophy className="w-4 h-4 shrink-0 text-amber-500" />
+    <div className="bg-white dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+            <Trophy className="w-4 h-4" />
+          </div>
           <div className="min-w-0">
             <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-              Top Learners
+              Bảng vàng thành tích
             </h4>
             {period && (
-              <p className="text-[11px] text-slate-400 font-bold truncate">
+              <p className="text-[11px] text-slate-400 font-medium truncate capitalize">
                 {formatPeriod(period)}
               </p>
             )}
@@ -118,20 +98,20 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isMock ? (
-            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 px-2 py-0.5 rounded-full">
-              Sample data
+            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+              Dữ liệu mẫu
             </span>
           ) : (
             <span className="text-[11px] text-slate-400 font-medium">
-              Top {LEADERBOARD_LIMIT} this month
+              Top {LEADERBOARD_LIMIT} tháng
             </span>
           )}
           <button
             type="button"
             onClick={() => void load()}
             disabled={isLoading}
-            aria-label="Refresh leaderboard"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-blue-500 disabled:opacity-50 transition-colors"
+            aria-label="Tải lại bảng xếp hạng"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -141,15 +121,15 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
       {isLoading && rows.length === 0 ? (
         <div className="flex items-center justify-center gap-2 py-8 text-xs text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span>Loading ranking…</span>
+          <span>Đang tải bảng xếp hạng…</span>
         </div>
       ) : rows.length === 0 ? (
-        <div className="clay-well px-4 py-6 text-center">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
-            No one is on the board this month.
+        <div className="p-6 text-center rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-800">
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            Chưa có thành viên nào trong tháng này.
           </p>
           <p className="text-[11px] text-slate-400 mt-1">
-            Score some points and you could be first.
+            Hãy tích lũy điểm và bạn sẽ là người đầu tiên!
           </p>
         </div>
       ) : (
@@ -159,38 +139,37 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
             return (
               <motion.li
                 key={entry.userId}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: index * 0.03 }}
-                className={`flex items-center gap-3 p-2.5 rounded-2xl border-clay ${
-                  entry.rank <= 3 ? 'shadow-clay-sm' : ''
-                } ${rowStyle(entry.rank, isCurrentUser)}`}
+                transition={{ duration: 0.18, delay: index * 0.02 }}
+                className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${rowStyle(
+                  entry.rank,
+                  isCurrentUser
+                )}`}
               >
                 <span
-                  className={`shrink-0 w-8 h-8 rounded-xl border-2 flex items-center justify-center text-xs font-black ${rankStyle(
+                  className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${rankBadgeStyle(
                     entry.rank
                   )}`}
                 >
-                  {entry.rank === 1 ? <Crown className="w-4 h-4" /> : entry.rank}
+                  {entry.rank === 1 ? <Crown className="w-3.5 h-3.5" /> : entry.rank}
                 </span>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                     {entry.name}
                     {isCurrentUser && (
-                      // A white pill keeps its edge on the amber and orange
-                      // podium rows, where an amber fill would vanish.
-                      <span className="ml-2 align-middle text-[10px] font-bold text-amber-600 dark:text-amber-300 bg-white dark:bg-slate-900/70 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-500/40">
-                        You
+                      <span className="ml-2 align-middle text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                        Bạn
                       </span>
                     )}
                   </p>
                 </div>
 
                 <div className="shrink-0 flex items-baseline gap-1 text-slate-900 dark:text-slate-100">
-                  <Sparkles className="w-3.5 h-3.5 self-center text-blue-500" />
-                  <span className="text-sm font-black">{entry.score}</span>
-                  <span className="text-[10px] font-semibold text-slate-400">pts</span>
+                  <Sparkles className="w-3 h-3 self-center text-indigo-500" />
+                  <span className="text-xs sm:text-sm font-extrabold">{entry.score}</span>
+                  <span className="text-[10px] font-medium text-slate-400">pts</span>
                 </div>
               </motion.li>
             );
@@ -200,7 +179,7 @@ export const LeaderboardCard: React.FC<LeaderboardCardProps> = ({
 
       {isMock && (
         <p className="text-[10px] text-slate-400 text-center mt-3">
-          Placeholder ranking — real numbers land once the server publishes them.
+          Bảng xếp hạng mô phỏng — dữ liệu thật sẽ cập nhật tự động từ máy chủ.
         </p>
       )}
     </div>

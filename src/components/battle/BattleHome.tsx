@@ -104,7 +104,7 @@ export function BattleHome({ battle, meId, history, initialCode }: BattleHomePro
         <div className="flex items-center gap-3">
           <BattleIcon icon={Swords} />
           <div>
-            <h3 className="font-display text-lg font-extrabold text-slate-900 dark:text-slate-100">Chơi Battle</h3>
+            <h3 className="font-display text-lg font-extrabold text-slate-900 dark:text-slate-100">Đọ trình English</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Thi đấu trực tiếp với 1–3 người bạn — hoặc đặt cược từ vựng của chính mình trong Word Heist.
             </p>

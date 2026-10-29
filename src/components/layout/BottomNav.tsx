@@ -13,16 +13,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
   const tabs = [
     { id: 'home' as ActiveTab, label: 'Trang chủ', icon: Home },
     { id: 'learn' as ActiveTab, label: 'Luyện tập', icon: BookOpen },
-    // No due-count badge: the review tab owns that number, and it is only known
-    // once `/reviews/due` has been asked — which now happens on that tab alone.
     { id: 'review' as ActiveTab, label: 'Ôn tập', icon: Brain },
     { id: 'stats' as ActiveTab, label: 'Thống kê', icon: BarChart3 },
     { id: 'profile' as ActiveTab, label: 'Cá nhân', icon: User },
   ];
 
   return (
-    <nav className="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-sm sm:max-w-md md:max-w-lg z-40">
-      <div className="clay-nav rounded-full p-2 flex items-center justify-around transition-all duration-300">
+    <nav className="absolute bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 w-[calc(100%-1.75rem)] max-w-sm sm:max-w-md md:max-w-lg z-40">
+      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl sm:rounded-full p-1.5 flex items-center justify-around shadow-xl shadow-slate-900/8 dark:shadow-black/50 transition-all duration-200">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -30,16 +28,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`relative flex flex-col items-center justify-center py-2 px-3 sm:px-4 rounded-full cursor-pointer transition-all duration-200 ease-clay active:scale-95 ${
+              className={`relative flex flex-col items-center justify-center py-2 px-3 sm:px-4 rounded-xl sm:rounded-full cursor-pointer transition-all duration-200 active:scale-95 ${
                 isActive
-                  ? 'text-white bg-blue-600 font-extrabold shadow-clay border-2 border-blue-400 -translate-y-0.5'
-                  : 'text-slate-500 dark:text-slate-400 border-2 border-transparent hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800'
+                  ? 'text-white bg-indigo-600 font-semibold shadow-md shadow-indigo-600/25'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 font-medium'
               }`}
             >
               <div className="relative">
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${isActive ? 'stroke-[2.2px]' : 'stroke-[1.8px]'}`} />
               </div>
-              <span className="text-[10px] md:text-xs mt-0.5 font-bold tracking-tight">{tab.label}</span>
+              <span className="text-[10px] md:text-[11px] mt-0.5 tracking-tight">{tab.label}</span>
             </button>
           );
         })}

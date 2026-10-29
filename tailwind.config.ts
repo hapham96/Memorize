@@ -1,21 +1,10 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Claymorphism theme.
+ * Modern Sleek / Glass theme (Apple & Linear inspired).
  *
- * Design system sourced from the ui-ux-pro-max skill (style: `claymorphism`,
- * palette: "Educational App", type: Baloo 2 + Nunito):
- *   radius 16-24px | borders 3-4px | double shadows (inner + outer)
- *   soft bounce cubic-bezier(0.34, 1.56, 0.64, 1) | pastel accents
- *
- * Display face is Baloo 2 rather than the skill's first-choice Fredoka: the UI
- * copy is Vietnamese and Fredoka has no `vietnamese` subset. See layout.tsx.
- *
- * The `slate` and `blue` ramps are deliberately RE-TINTED rather than replaced:
- * components across the app already reference `slate-*` (neutrals) and `blue-*`
- * (primary), so retinting swaps the whole theme from one place instead of
- * rewriting every className. `slate` becomes a lavender-warm neutral and `blue`
- * becomes indigo. Use `clay-*` for the pastel decorative accents.
+ * Clean geometric lines, subtle 1px borders, ambient layered shadows,
+ * glassmorphism surfaces, and modern typography (Plus Jakarta Sans).
  */
 const config: Config = {
   content: [
@@ -27,24 +16,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Neutral ramp — lavender-tinted, warmer than stock slate.
+        // Modern refined slate neutrals
         slate: {
-          50: '#F9F9FE',
-          100: '#EFF1FB',
-          200: '#E1E5F6',
-          300: '#CBD1EC',
-          // Secondary-label tone. A single fixed value cannot clear 4.5:1 on a
-          // white card AND stay legible on a dark one, so it flips per mode via
-          // a channel variable (see globals.css). Alpha modifiers still work.
+          50: '#F8FAFC',
+          100: '#F1F5F9',
+          200: '#E2E8F0',
+          300: '#CBD5E1',
           400: 'rgb(var(--slate-400) / <alpha-value>)',
-          500: '#5F6489',
-          600: '#4A4E70',
-          700: '#3A3D5E',
-          800: '#2C2F4C',
-          900: '#20223A',
-          950: '#141628',
+          500: '#64748B',
+          600: '#475569',
+          700: '#334155',
+          800: '#1E293B',
+          900: '#0F172A',
+          950: '#0B0F19',
         },
-        // Primary ramp — indigo (#4F46E5 at 600, per the Educational App palette).
+        // Modern energetic indigo/violet primary ramp
         blue: {
           50: '#EEF2FF',
           100: '#E0E7FF',
@@ -58,100 +44,98 @@ const config: Config = {
           900: '#312E81',
           950: '#1E1B4B',
         },
-        // Pastel accents for decorative clay surfaces.
+        // Modern soft pastel tints for badges & highlights
         clay: {
-          peach: '#FDBCB4',
-          sky: '#BAE0F5',
-          mint: '#A7F3D0',
-          lilac: '#DED9FB',
-          butter: '#FDE9A9',
-          cta: '#EA580C',
+          peach: '#FFE4E6',
+          sky: '#E0F2FE',
+          mint: '#DCFCE7',
+          lilac: '#EDE9FE',
+          butter: '#FEF9C3',
+          cta: '#4F46E5',
         },
         apple: {
           blue: '#4F46E5',
-          green: '#34D399',
-          accent: '#818CF8',
+          green: '#10B981',
+          accent: '#6366F1',
           success: '#10B981',
           warning: '#F59E0B',
           danger: '#EF4444',
-          bgLight: '#EEF2FF',
+          bgLight: '#F8FAFC',
           cardLight: '#FFFFFF',
-          textPrimary: '#1E1B4B',
-          textSecondary: '#5F6489',
-          bgDark: '#141628',
-          cardDark: '#2C2F4C',
-          darkBorder: '#3A3D5E',
-          lightBorder: '#C7D2FE',
+          textPrimary: '#0F172A',
+          textSecondary: '#64748B',
+          bgDark: '#0B0F19',
+          cardDark: '#131B2E',
+          darkBorder: '#1E293B',
+          lightBorder: '#E2E8F0',
         },
       },
-      // Chunkier across the board — claymorphism sits in the 16-24px band.
+      // Modern refined radii (12-24px band)
       borderRadius: {
-        lg: '14px',
-        xl: '18px',
-        '2xl': '24px',
-        '3xl': '32px',
-        card: '28px',
-        button: '22px',
-        input: '20px',
-        nav: '34px',
+        lg: '12px',
+        xl: '16px',
+        '2xl': '20px',
+        '3xl': '24px',
+        card: '20px',
+        button: '14px',
+        input: '12px',
+        nav: '24px',
       },
       borderWidth: {
-        3: '3px',
-        clay: '3px',
+        3: '1px',
+        clay: '1px',
       },
-      // Driven by CSS variables so dark mode can swap the inner highlight
-      // (a white inset reads wrong on a dark surface). See globals.css.
+      // Soft ambient layered shadows & glass reflections
       boxShadow: {
-        'clay-sm': 'var(--clay-sm)',
-        clay: 'var(--clay)',
-        'clay-lg': 'var(--clay-lg)',
-        'clay-xl': 'var(--clay-xl)',
-        'clay-inset': 'var(--clay-inset)',
-        'clay-glow': 'var(--clay-glow)',
-        // Legacy aliases kept so any stale class still lands on a clay surface.
-        'apple-soft': 'var(--clay-sm)',
-        'apple-card': 'var(--clay)',
-        'apple-glow': 'var(--clay-glow)',
+        'clay-sm': 'var(--shadow-sm)',
+        clay: 'var(--shadow-md)',
+        'clay-lg': 'var(--shadow-lg)',
+        'clay-xl': 'var(--shadow-xl)',
+        'clay-inset': 'inset 0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        'clay-glow': '0 0 0 3px rgba(99, 102, 241, 0.25), 0 8px 20px -4px rgba(79, 70, 229, 0.2)',
+        glass: '0 8px 30px rgba(0, 0, 0, 0.06)',
+        'glass-dark': '0 8px 30px rgba(0, 0, 0, 0.35)',
+        ambient: '0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02)',
+        // Legacy aliases
+        'apple-soft': 'var(--shadow-sm)',
+        'apple-card': 'var(--shadow-md)',
+        'apple-glow': '0 0 0 3px rgba(99, 102, 241, 0.25)',
       },
       fontFamily: {
         sans: ['var(--font-nunito)', 'Nunito', 'ui-rounded', 'system-ui', 'sans-serif'],
         display: ['var(--font-display)', 'Baloo 2', 'ui-rounded', 'system-ui', 'sans-serif'],
       },
       transitionTimingFunction: {
-        clay: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'clay-out': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        clay: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'clay-out': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
       keyframes: {
         clayPop: {
-          '0%': { transform: 'scale(0.85) translateY(10px)', opacity: '0' },
-          '65%': { transform: 'scale(1.04) translateY(-2px)', opacity: '1' },
+          '0%': { transform: 'scale(0.96) translateY(6px)', opacity: '0' },
           '100%': { transform: 'scale(1) translateY(0)', opacity: '1' },
         },
         claySquish: {
           '0%, 100%': { transform: 'scale(1)' },
-          '50%': { transform: 'scale(0.96, 1.04)' },
+          '50%': { transform: 'scale(0.98)' },
         },
         clayFloat: {
           '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-6px)' },
+          '50%': { transform: 'translateY(-4px)' },
         },
-        // Vocabulary Battle feedback: a wrong answer, a closed Stake, a win.
         battleShake: {
           '0%, 100%': { transform: 'translateX(0)' },
-          '20%, 60%': { transform: 'translateX(-5px)' },
-          '40%, 80%': { transform: 'translateX(5px)' },
+          '20%, 60%': { transform: 'translateX(-4px)' },
+          '40%, 80%': { transform: 'translateX(4px)' },
         },
         battleStamp: {
-          '0%': { transform: 'scale(2.2) rotate(-14deg)', opacity: '0' },
-          '60%': { transform: 'scale(0.92) rotate(6deg)', opacity: '1' },
-          '100%': { transform: 'scale(1) rotate(6deg)', opacity: '1' },
+          '0%': { transform: 'scale(1.5) rotate(-8deg)', opacity: '0' },
+          '100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' },
         },
         battleFloatUp: {
-          '0%': { transform: 'translateY(6px)', opacity: '0' },
+          '0%': { transform: 'translateY(4px)', opacity: '0' },
           '30%': { opacity: '1' },
-          '100%': { transform: 'translateY(-18px)', opacity: '0' },
+          '100%': { transform: 'translateY(-16px)', opacity: '0' },
         },
-        // Each piece reads its own --dx / --dy / --rot (see BattleChrome's Confetti).
         battleConfetti: {
           '0%': { transform: 'translate(-50%, -50%) rotate(0)', opacity: '1' },
           '100%': {
@@ -161,13 +145,13 @@ const config: Config = {
         },
       },
       animation: {
-        'clay-pop': 'clayPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        'clay-squish': 'claySquish 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'clay-float': 'clayFloat 3.5s ease-in-out infinite',
-        'battle-shake': 'battleShake 0.4s ease-in-out',
-        'battle-stamp': 'battleStamp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        'battle-float-up': 'battleFloatUp 1.1s ease-out forwards',
-        'battle-confetti': 'battleConfetti 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        'clay-pop': 'clayPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'clay-squish': 'claySquish 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        'clay-float': 'clayFloat 4s ease-in-out infinite',
+        'battle-shake': 'battleShake 0.35s ease-in-out',
+        'battle-stamp': 'battleStamp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'battle-float-up': 'battleFloatUp 1s ease-out forwards',
+        'battle-confetti': 'battleConfetti 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards',
       },
     },
   },

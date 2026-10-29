@@ -7,13 +7,6 @@ import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
 
 interface AuthScreenProps {
-  /**
-   * Only ever called with a real session — the app has no signed-out mode.
-   * `displayName` is what the user typed at registration, empty on sign-in and
-   * whenever the field was left blank; the account's own name comes from the
-   * session instead. `isNewAccount` is true only for `/auth/register`, which is
-   * what triggers the one-time CEFR level question.
-   */
   onLoginSuccess: (session: AuthSession, displayName: string, isNewAccount: boolean) => void;
   onBack: () => void;
   initialMode?: 'login' | 'register';
@@ -34,14 +27,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Only what the user actually typed — the name field exists in register mode
-  // alone, and an empty string lets the caller fall back to `/users/profile`.
   const typedName = () => (isRegister ? name.trim() : '');
 
   const switchMode = () => {
     setIsRegister((prev) => !prev);
-    // The confirm field only exists in register mode, so a value left behind by
-    // the other mode must not survive the switch and fail a later comparison.
     setConfirmPassword('');
     setError(null);
   };
@@ -54,9 +43,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     const trimmedEmail = email.trim();
     const trimmedName = name.trim();
-    // Surrounding whitespace is almost always a paste artefact, and sending it
-    // would register a password the user can never retype. What is validated
-    // and what is sent are therefore both the trimmed value.
     const trimmedPassword = password.trim();
     if (!trimmedPassword) {
       setPassword(trimmedPassword);
@@ -79,8 +65,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
       if (err instanceof ApiError && err.isNetworkError) {
-        // No offline bypass: every feature needs the account, so the only way
-        // forward is to retry once the server is reachable.
         setError('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
       } else if (err instanceof ApiError) {
         setError(err.message);
@@ -93,12 +77,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-slate-50 dark:bg-slate-900">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-slate-50 dark:bg-slate-950 animate-fadeIn">
       {/* Top Bar */}
       <div className="flex justify-between items-center pt-2">
         <button
           onClick={onBack}
-          className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+          className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
         >
           ← Quay lại
         </button>
@@ -107,54 +91,54 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       {/* Form Container */}
       <div className="my-auto py-4">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-clay-glow">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md shadow-indigo-600/20">
             M
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại'}
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             {isRegister
-              ? 'Tạo tài khoản để bắt đầu xây dựng kho từ của riêng bạn'
-              : 'Đăng nhập để tiếp tục kho từ và tiến độ ôn tập của bạn'}
+              ? 'Tạo tài khoản để xây dựng kho từ và đồng bộ tiến độ học tập'
+              : 'Đăng nhập để tiếp tục lộ trình ôn tập của bạn'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3 max-w-sm mx-auto">
           {isRegister && (
             <div className="relative">
-              <User className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+              <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
               <input
                 type="text"
                 placeholder="Họ và tên"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                 required
               />
             </div>
           )}
 
           <div className="relative">
-            <Mail className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+            <Mail className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
             <input
               type="email"
               placeholder="Địa chỉ email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
               required
             />
           </div>
 
           <div className="relative">
-            <Lock className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+            <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder={isRegister ? `Mật khẩu (tối thiểu ${MIN_PASSWORD_LENGTH} ký tự)` : 'Mật khẩu'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
               minLength={isRegister ? MIN_PASSWORD_LENGTH : undefined}
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               required
@@ -163,21 +147,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="absolute right-2 top-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
 
           {isRegister && (
             <div className="relative">
-              <Lock className="w-5 h-5 absolute left-3.5 top-3.5 text-slate-400" />
+              <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
                 autoComplete="new-password"
                 required
               />
@@ -185,15 +169,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
                 aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="absolute right-2 top-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           )}
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-input bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400">
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <p className="text-xs font-medium whitespace-pre-line">{error}</p>
             </div>
@@ -202,7 +186,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset active:scale-[0.97] active:shadow-clay-inset disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 text-white font-semibold text-sm shadow-clay flex items-center justify-center gap-2 transition-all mt-2"
+            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all mt-2"
           >
             {isSubmitting ? (
               <>
@@ -216,12 +200,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </>
             )}
           </button>
-
         </form>
 
         <p className="text-[11px] text-center text-slate-400 mt-5 max-w-sm mx-auto leading-relaxed">
-          Kho từ và tiến độ ôn tập được lưu theo tài khoản, nên bạn cần đăng nhập
-          để sử dụng ứng dụng.
+          Kho từ và tiến độ ôn tập được lưu theo tài khoản, giúp bạn học liên tục trên mọi thiết bị.
         </p>
       </div>
 
@@ -229,12 +211,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <div className="text-center pb-4">
         <button
           onClick={switchMode}
-          className="text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+          className="text-xs text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
         >
           {isRegister ? (
-            <>Đã có tài khoản? <span className="font-bold underline">Đăng nhập</span></>
+            <>Đã có tài khoản? <span className="font-semibold text-indigo-600 dark:text-indigo-400 underline">Đăng nhập</span></>
           ) : (
-            <>Chưa có tài khoản? <span className="font-bold underline">Đăng ký ngay</span></>
+            <>Chưa có tài khoản? <span className="font-semibold text-indigo-600 dark:text-indigo-400 underline">Đăng ký ngay</span></>
           )}
         </button>
       </div>

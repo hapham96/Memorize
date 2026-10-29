@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Sparkles, Brain, Flame, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface OnboardingScreenProps {
-  /** Both exits lead to the auth screen — the app cannot be used signed out. */
   onGetStarted: () => void;
   onSignIn: () => void;
 }
@@ -17,20 +16,20 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
   const slides = [
     {
-      title: 'Learn Vocabulary Faster',
-      subtitle: 'Master thousands of English words with Apple-inspired visual flashcards and crisp native pronunciations.',
+      title: 'Học từ vựng nhanh & nhớ sâu',
+      subtitle: 'Làm chủ hàng nghìn từ vựng Tiếng Anh qua flashcards 3D trực quan, phiên âm IPA chuẩn và giọng phát âm bản ngữ.',
       icon: Sparkles,
-      color: 'bg-blue-500',
+      color: 'bg-indigo-500',
     },
     {
-      title: 'Scientifically Optimized Review',
-      subtitle: 'Based on SuperMemo SM-2 Spaced Repetition algorithms. Learn words right before you forget them.',
+      title: 'Khoa học lặp lại ngắt quãng (SRS)',
+      subtitle: 'Dựa trên thuật toán SuperMemo SM-2 chuẩn xác. Hệ thống tính toán thời điểm vàng để bạn ôn tập trước khi quên.',
       icon: Brain,
       color: 'bg-emerald-500',
     },
     {
-      title: 'Build Your English Habit',
-      subtitle: 'Track daily streaks, earn XP, and reach your goals in just 5 minutes a day.',
+      title: 'Duy trì thói quen học mỗi ngày',
+      subtitle: 'Theo dõi chuỗi ngày liên tục (streak), tích lũy XP kinh nghiệm và chinh phục mục tiêu chỉ 5 phút mỗi ngày.',
       icon: Flame,
       color: 'bg-amber-500',
     },
@@ -48,11 +47,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-blue-50 dark:bg-slate-900">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-slate-50 dark:bg-slate-950 animate-fadeIn">
       {/* Top Header */}
       <div className="flex justify-between items-center pt-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-clay-glow">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-indigo-600/20">
             M
           </div>
           <span className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">
@@ -63,22 +62,22 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           onClick={onSignIn}
           className="text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
         >
-          Skip
+          Bỏ qua
         </button>
       </div>
 
       {/* Hero Illustration & Content */}
       <div className="my-auto py-8 flex flex-col items-center text-center">
         <div className="relative mb-8">
-          <div className={`w-32 h-32 rounded-3xl ${current.color} bg-opacity-10 dark:bg-opacity-20 flex items-center justify-center border border-white/50 shadow-clay`}>
-            <Icon className={`w-16 h-16 text-blue-600 dark:text-blue-400 animate-pulse`} />
+          <div className={`w-28 h-28 rounded-2xl ${current.color} bg-opacity-10 dark:bg-opacity-20 flex items-center justify-center border border-indigo-200/50 dark:border-indigo-800/50 shadow-sm`}>
+            <Icon className="w-14 h-14 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-clay-lg">
-            <CheckCircle2 className="w-5 h-5" />
+          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-xl shadow-md">
+            <CheckCircle2 className="w-4 h-4" />
           </div>
         </div>
 
-        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 px-4">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-3 px-4">
           {current.title}
         </h1>
         <p className="text-sm text-slate-600 dark:text-slate-300 max-w-xs leading-relaxed">
@@ -93,9 +92,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
             <button
               key={idx}
               onClick={() => setCurrentPage(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`h-1.5 rounded-full transition-all duration-300 ${
                 idx === currentPage
-                  ? 'w-8 bg-blue-600 dark:bg-blue-400'
+                  ? 'w-7 bg-indigo-600 dark:bg-indigo-400'
                   : 'w-2 bg-slate-300 dark:bg-slate-700'
               }`}
             />
@@ -105,17 +104,17 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
         <div className="space-y-3">
           <button
             onClick={handleNext}
-            className="w-full py-4 rounded-button bg-blue-600 hover:bg-blue-700 border-clay border-blue-400 active:shadow-clay-inset active:scale-[0.97] active:shadow-clay-inset text-white font-semibold text-base shadow-clay flex items-center justify-center gap-2 transition-all"
+            className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-semibold text-sm shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all"
           >
-            <span>{currentPage === slides.length - 1 ? 'Create Account' : 'Continue'}</span>
-            <ArrowRight className="w-5 h-5" />
+            <span>{currentPage === slides.length - 1 ? 'Bắt đầu ngay' : 'Tiếp tục'}</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
 
           <button
             onClick={onSignIn}
-            className="w-full py-3 rounded-button bg-slate-200 dark:bg-slate-800 hover:bg-slate-300/60 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium text-sm transition-all"
+            className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/60 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs transition-all"
           >
-            Already have an account? <span className="font-bold text-blue-600 dark:text-blue-400">Sign In</span>
+            Đã có tài khoản? <span className="font-bold text-indigo-600 dark:text-indigo-400">Đăng nhập</span>
           </button>
         </div>
       </div>

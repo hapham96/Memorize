@@ -406,12 +406,12 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   const isEmpty = !isLoading && rows.length === 0;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm">
+    <div className="bg-white dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
       {/* Section header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="font-display font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <BookMarked className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+          <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <BookMarked className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
             <span className="truncate">Từ vựng của bạn</span>
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
@@ -440,7 +440,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
             disabled={isLoading}
             aria-label="Tải lại danh sách từ"
             title="Tải lại từ máy chủ"
-            className="p-2 rounded-button bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-2 border-slate-200 dark:border-slate-600 transition-all disabled:opacity-40"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition-all disabled:opacity-40"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
@@ -448,7 +448,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           <button
             onClick={handleExport}
             disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-button bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[11px] border-2 border-emerald-500/25 transition-all disabled:opacity-60"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-semibold text-[11px] border border-emerald-500/25 transition-all disabled:opacity-60"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Xuất Excel</span>
@@ -475,7 +475,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           }}
           placeholder="Tìm từ vựng…"
           aria-label="Tìm từ vựng"
-          className="w-full pl-8 pr-8 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full pl-8 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 text-xs placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
         />
         {query && (
           <button
@@ -505,10 +505,10 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
                 setStatusFilter(option.value);
               }}
               aria-pressed={isActive}
-              className={`shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border-2 transition-all ${
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold border transition-all ${
                 isActive
-                  ? 'bg-blue-600 text-white border-blue-400 shadow-clay-sm'
-                  : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/70 dark:border-slate-700/70'
               }`}
             >
               <span>{option.label}</span>
@@ -582,7 +582,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
                 transition={{ duration: 0.18, delay: index * 0.02 }}
                 onClick={() => openDetail(item)}
                 aria-label={`Xem chi tiết từ ${item.word.word}`}
-                className="w-full text-left flex items-center gap-3 p-2.5 rounded-2xl border-clay border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-blue-300 dark:hover:border-blue-500/40 active:scale-[0.99] transition-all"
+                className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-white dark:bg-slate-900/40 hover:border-indigo-300 dark:hover:border-indigo-500/40 hover:shadow-sm active:scale-[0.99] transition-all"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
@@ -619,8 +619,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
 
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="flex items-center gap-2 px-3 py-2 rounded-full bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
                 Đang tải…
               </span>
             </div>
