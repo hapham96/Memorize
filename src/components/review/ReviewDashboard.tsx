@@ -18,6 +18,7 @@ import {
   resolveWordForUserWord,
   pickRepresentativeDefinition,
 } from '@/lib/api/word-client';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface ReviewDashboardProps {
   allWords: Word[];
@@ -686,7 +687,15 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
             </p>
           </div>
 
-          <Brain className="w-16 h-16 text-white/20 flex-shrink-0 hidden sm:block" />
+          <div className="flex-shrink-0 hidden sm:flex items-center justify-center">
+            <Mascot
+              mood={dueWords.length === 0 ? 'celebrating' : 'studying'}
+              size={90}
+              bubble={dueWords.length === 0 ? 'Đã ôn hết rồi! 🎉' : 'Đến giờ ôn bài rồi! 📚'}
+              bubblePosition="top"
+              interactive
+            />
+          </div>
         </div>
 
         {dueWords.length > 0 && (

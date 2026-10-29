@@ -16,6 +16,7 @@ import { StatsSummary } from '@/types/stats';
 import { buildActivitySeries } from '@/lib/progress';
 import { buildRemoteActivitySeries } from '@/lib/api/stats-client';
 import { Plus } from 'lucide-react';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface HomeDashboardProps {
   progress: UserProgress;
@@ -92,31 +93,40 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             </p>
           </div>
 
-          {/* SVG Progress Ring */}
-          <div className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center flex-shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle
-                cx="50"
-                cy="50"
-                r={radius}
-                className="stroke-blue-400/30"
-                strokeWidth="9"
-                fill="transparent"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r={radius}
-                className="stroke-emerald-400 transition-all duration-700 ease-out"
-                strokeWidth="9"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                fill="transparent"
-              />
-            </svg>
-            <div className="absolute text-center">
-              <span className="text-base md:text-lg font-black">{goalPercentage}%</span>
+          {/* Mascot & SVG Progress Ring */}
+          <div className="flex items-center gap-3">
+            <Mascot
+              mood={goalPercentage >= 100 ? 'celebrating' : 'studying'}
+              size={80}
+              bubble={goalPercentage >= 100 ? 'Đạt mục tiêu rồi! 🏆' : 'Cố lên bạn ơi! 📖'}
+              bubblePosition="top"
+              className="hidden sm:inline-flex"
+            />
+            <div className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  className="stroke-blue-400/30"
+                  strokeWidth="9"
+                  fill="transparent"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r={radius}
+                  className="stroke-emerald-400 transition-all duration-700 ease-out"
+                  strokeWidth="9"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  fill="transparent"
+                />
+              </svg>
+              <div className="absolute text-center">
+                <span className="text-base md:text-lg font-black">{goalPercentage}%</span>
+              </div>
             </div>
           </div>
         </div>

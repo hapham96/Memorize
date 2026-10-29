@@ -3,6 +3,7 @@
 import React from 'react';
 import { Flame, Zap, Settings, Plus } from 'lucide-react';
 import { UserProgress } from '@/types';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface HeaderBarProps {
   progress: UserProgress;
@@ -26,10 +27,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ progress, onOpenSettings, 
           </span>
         </div>
         <div>
-          <h2 className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-300 font-bold">Welcome!</h2>
-          <p className="text-sm md:text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+          <h2 className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-300 font-bold flex items-center gap-1">
+            <span>Welcome!</span>
+            <Mascot mood="waving" size={16} interactive={false} />
+          </h2>
+          <p className="text-sm md:text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
             <span>{progress.name}</span>
-            <span className="inline-block animate-bounce">👋</span>
           </p>
         </div>
       </div>

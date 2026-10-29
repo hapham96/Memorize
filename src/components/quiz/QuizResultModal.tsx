@@ -6,6 +6,7 @@ import { Trophy, Zap, CheckCircle2, RotateCcw, ArrowRight } from 'lucide-react';
 import { QuizType } from '@/types';
 import { soundFX } from '@/lib/audio';
 import { ModalPortal } from '@/components/layout/ModalPortal';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface QuizResultModalProps {
   quizType: QuizType;
@@ -41,9 +42,15 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
     <ModalPortal>
     <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[28px] p-6 shadow-clay-xl border-clay border-blue-200 dark:border-slate-700 text-center animate-scaleUp space-y-5 max-h-[90dvh] overflow-y-auto overscroll-contain">
-        {/* Header Badge */}
-        <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-400 border-clay border-amber-200 flex items-center justify-center shadow-clay-glow text-white">
-          <Trophy className="w-10 h-10 text-white fill-white" />
+        {/* Header Mascot Badge */}
+        <div className="relative mx-auto flex flex-col items-center justify-center -mt-2">
+          <Mascot
+            mood="celebrating"
+            size={120}
+            bubble={accuracy >= 80 ? 'Xuất sắc quá bạn ơi! 🏆' : 'Cố gắng lên nhé! ⭐'}
+            bubblePosition="top"
+            interactive
+          />
         </div>
 
         <div>

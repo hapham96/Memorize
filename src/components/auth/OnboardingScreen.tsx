@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Sparkles, Brain, Flame, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Mascot, MascotMood } from '@/components/mascot/Mascot';
 
 interface OnboardingScreenProps {
   /** Both exits lead to the auth screen — the app cannot be used signed out. */
@@ -17,27 +18,26 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
   const slides = [
     {
-      title: 'Learn Vocabulary Faster',
-      subtitle: 'Master thousands of English words with Apple-inspired visual flashcards and crisp native pronunciations.',
-      icon: Sparkles,
+      title: 'Học từ vựng siêu tốc cùng Memo',
+      subtitle: 'Nắm vững hàng ngàn từ vựng tiếng Anh qua flashcard 3D sinh động, phát âm chuẩn và hình ảnh trực quan.',
+      mascotMood: 'studying' as MascotMood,
       color: 'bg-blue-500',
     },
     {
-      title: 'Scientifically Optimized Review',
-      subtitle: 'Based on SuperMemo SM-2 Spaced Repetition algorithms. Learn words right before you forget them.',
-      icon: Brain,
+      title: 'Ôn tập khoa học với Spaced Repetition',
+      subtitle: 'Thuật toán lặp lại ngắt quãng SM-2 nhắc bạn ôn đúng thời điểm vàng trước khi quên, nhớ lâu gấp 10 lần.',
+      mascotMood: 'waving' as MascotMood,
       color: 'bg-emerald-500',
     },
     {
-      title: 'Build Your English Habit',
-      subtitle: 'Track daily streaks, earn XP, and reach your goals in just 5 minutes a day.',
-      icon: Flame,
+      title: 'Xây dựng thói quen & Nhận thưởng',
+      subtitle: 'Duy trì chuỗi ngày streak rực rỡ, tích lũy XP, thăng hạng và đạt mục tiêu chỉ với 5 phút mỗi ngày.',
+      mascotMood: 'celebrating' as MascotMood,
       color: 'bg-amber-500',
     },
   ];
 
   const current = slides[currentPage];
-  const Icon = current.icon;
 
   const handleNext = () => {
     if (currentPage < slides.length - 1) {
@@ -51,11 +51,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between p-6 bg-blue-50 dark:bg-slate-900">
       {/* Top Header */}
       <div className="flex justify-between items-center pt-2">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-clay-glow">
-            M
-          </div>
-          <span className="font-bold text-lg text-slate-900 dark:text-slate-100 tracking-tight">
+        <div className="flex items-center gap-2.5">
+          <Mascot mood="icon" size="sm" interactive={false} />
+          <span className="font-extrabold text-lg text-slate-900 dark:text-slate-100 tracking-tight font-display">
             Memorize
           </span>
         </div>
@@ -69,9 +67,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
       {/* Hero Illustration & Content */}
       <div className="my-auto py-8 flex flex-col items-center text-center">
-        <div className="relative mb-8">
-          <div className={`w-32 h-32 rounded-3xl ${current.color} bg-opacity-10 dark:bg-opacity-20 flex items-center justify-center border border-white/50 shadow-clay`}>
-            <Icon className={`w-16 h-16 text-blue-600 dark:text-blue-400 animate-pulse`} />
+        <div className="relative mb-6">
+          <div className="w-36 h-36 rounded-[32px] bg-white dark:bg-slate-800/80 border-clay border-blue-200 dark:border-slate-700 flex items-center justify-center shadow-clay-lg p-2 overflow-visible">
+            <Mascot
+              mood={current.mascotMood}
+              size={130}
+              interactive={true}
+            />
           </div>
           <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-clay-lg">
             <CheckCircle2 className="w-5 h-5" />

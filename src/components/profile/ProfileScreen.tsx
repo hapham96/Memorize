@@ -4,6 +4,7 @@ import React from 'react';
 import { Pencil, LogOut } from 'lucide-react';
 import { SRSData, UserProgress, VocabularySet, Word } from '@/types';
 import { WordLibrarySection } from './WordLibrarySection';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface ProfileScreenProps {
   progress: UserProgress;
@@ -77,6 +78,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               style={{ width: `${currentLevelProgress}%` }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Mascot Companion Card */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-indigo-950/40 rounded-card p-4 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-4">
+        <Mascot mood="waving" size={68} interactive />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">Bạn đồng hành: Memo 🐘</h3>
+            <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.5 rounded-full">Trợ lý học tập</span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            &ldquo;Voi con không bao giờ quên&rdquo; — Memo luôn theo sát và cùng bạn chinh phục từng từ vựng tiếng Anh!
+          </p>
         </div>
       </div>
 

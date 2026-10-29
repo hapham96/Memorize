@@ -5,6 +5,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 
 import { login, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface AuthScreenProps {
   /**
@@ -107,16 +108,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       {/* Form Container */}
       <div className="my-auto py-4">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-clay-glow">
-            M
+          <div className="mb-2 flex justify-center">
+            <Mascot
+              mood="waving"
+              size="lg"
+              bubble={isRegister ? 'Memo chào bạn mới! ✨' : 'Memo nhớ bạn ghé học! 👋'}
+              interactive
+            />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại'}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {isRegister
-              ? 'Tạo tài khoản để bắt đầu xây dựng kho từ của riêng bạn'
-              : 'Đăng nhập để tiếp tục kho từ và tiến độ ôn tập của bạn'}
+              ? 'Tạo tài khoản để cùng Memo xây dựng kho từ của riêng bạn'
+              : 'Đăng nhập để tiếp tục cùng Memo ôn tập từ vựng'}
           </p>
         </div>
 
