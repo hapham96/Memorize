@@ -5,7 +5,9 @@ import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 
 import { login, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
-import { Mascot } from '@/components/mascot/Mascot';
+import { AuthMascot, AuthMascotPose } from '@/components/mascot/AuthMascot';
+import { useMascotMotion } from '@/lib/mascot-motion';
+import { useMascotLine } from '@/components/mascot/mascotLines';
 
 interface AuthScreenProps {
   /**
@@ -34,6 +36,45 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const greeting = useMascotLine(isRegister ? 'authRegister' : 'authLogin');
+  const motionEnabled = useMascotMotion();
+
+  // Memori watches the form: leans toward the caret in text fields, covers
+  // its eyes on a hidden password and peeks when that password is shown.
+  type Field = 'name' | 'email' | 'password' | 'confirm';
+  const [focusedField, setFocusedField] = useState<Field | null>(null);
+  const [caret, setCaret] = useState(0);
+  const [celebrating, setCelebrating] = useState(false);
+  const watch = (field: Field) => ({
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
+      setFocusedField(field);
+      // Email inputs don't expose selectionStart; the caret is at the end there.
+      setCaret(e.currentTarget.selectionStart ?? e.currentTarget.value.length);
+    },
+    onBlur: () => setFocusedField(null),
+    onSelect: (e: React.SyntheticEvent<HTMLInputElement>) =>
+      setCaret(e.currentTarget.selectionStart ?? e.currentTarget.value.length),
+  });
+  // The show/hide toggle shouldn't steal focus from its field (or the paws
+  // would drop on every click); keyboard focus on it still counts as the field.
+  const keepFieldFocus = (field: Field) => ({
+    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
+    onFocus: () => setFocusedField(field),
+    onBlur: () => setFocusedField(null),
+  });
+  const passwordShown =
+    focusedField === 'password' ? showPassword : focusedField === 'confirm' ? showConfirmPassword : null;
+  const mascotPose: AuthMascotPose = celebrating
+    ? 'cheer'
+    : passwordShown !== null
+    ? passwordShown ? 'peek' : 'cover'
+    : error
+    ? 'sad'
+    : focusedField
+    ? 'look'
+    : 'greet';
+  // About 28 characters fill a field; past that Memori is already at the far end.
+  const lookX = (Math.min(caret, 28) / 28) * 2 - 1;
 
   // Only what the user actually typed — the name field exists in register mode
   // alone, and an empty string lets the caller fall back to `/users/profile`.
@@ -77,6 +118,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     try {
       const credentials = { email: trimmedEmail, password: trimmedPassword, name: trimmedName };
       const session = isRegister ? await register(credentials) : await login(credentials);
+      if (motionEnabled) {
+        // One cheer beat before the screen changes.
+        setCelebrating(true);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
       if (err instanceof ApiError && err.isNetworkError) {
@@ -109,12 +155,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <div className="my-auto py-4">
         <div className="text-center mb-6">
           <div className="mb-2 flex justify-center">
-            <Mascot
-              mood="waving"
-              size="lg"
-              bubble={isRegister ? 'Memo chào bạn mới! ✨' : 'Memo nhớ bạn ghé học! 👋'}
-              interactive
-            />
+            <AuthMascot pose={mascotPose} lookX={lookX} bubble={greeting} />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại'}
@@ -135,6 +176,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 placeholder="Họ và tên"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                {...watch('name')}
                 className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
@@ -148,6 +190,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               placeholder="Địa chỉ email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              {...watch('email')}
               className="w-full pl-11 pr-4 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
@@ -160,6 +203,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               placeholder={isRegister ? `Mật khẩu (tối thiểu ${MIN_PASSWORD_LENGTH} ký tự)` : 'Mật khẩu'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              {...watch('password')}
               className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               minLength={isRegister ? MIN_PASSWORD_LENGTH : undefined}
               autoComplete={isRegister ? 'new-password' : 'current-password'}
@@ -168,6 +212,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
+              {...keepFieldFocus('password')}
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -183,6 +228,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                {...watch('confirm')}
                 className="w-full pl-11 pr-12 py-3 rounded-input bg-slate-100 dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-inset text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoComplete="new-password"
                 required
@@ -190,6 +236,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((prev) => !prev)}
+                {...keepFieldFocus('confirm')}
                 aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 className="absolute right-2 top-1.5 p-2 rounded-input text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >

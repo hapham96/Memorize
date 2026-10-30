@@ -17,6 +17,7 @@ import {
   ListeningExercise,
 } from '@/types/exercise';
 import { isSpeechSupported, speakWord, soundFX } from '@/lib/audio';
+import { MascotReaction } from '@/components/mascot/MascotReaction';
 
 interface ListeningQuizProps {
   exercises: ListeningExercise[];
@@ -173,6 +174,7 @@ export const ListeningQuiz: React.FC<ListeningQuizProps> = ({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-5 py-4 bg-slate-50 dark:bg-slate-900">
+      <MascotReaction result={isAnswered ? (isCorrect ? 'correct' : 'wrong') : null} questionKey={currentIndex} />
       {/* Top Header */}
       <div>
         <div className="flex items-center justify-between mb-3">

@@ -29,7 +29,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ progress, onOpenSettings, 
         <div>
           <h2 className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-300 font-bold flex items-center gap-1">
             <span>Welcome!</span>
-            <Mascot mood="waving" size={16} interactive={false} />
+            <Mascot mood="wave" size={16} interactive={false} />
           </h2>
           <p className="text-sm md:text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
             <span>{progress.name}</span>

@@ -13,10 +13,11 @@ import {
 } from 'lucide-react';
 import { UserProgress, QuizType, WordCategory } from '@/types';
 import { StatsSummary } from '@/types/stats';
-import { buildActivitySeries } from '@/lib/progress';
+import { buildActivitySeries, isActiveToday } from '@/lib/progress';
 import { buildRemoteActivitySeries } from '@/lib/api/stats-client';
 import { Plus } from 'lucide-react';
-import { Mascot } from '@/components/mascot/Mascot';
+import { Mascot, MascotMood } from '@/components/mascot/Mascot';
+import { MascotMoment, greetingMoment, useMascotLine } from '@/components/mascot/mascotLines';
 
 interface HomeDashboardProps {
   progress: UserProgress;
@@ -26,6 +27,8 @@ interface HomeDashboardProps {
    * whole account, not just what this device has seen.
    */
   summary?: StatsSummary | null;
+  /** Words due for review right now — Memori nudges toward them. */
+  dueCount?: number;
   focusCategories?: WordCategory[];
   onStartQuiz: (quizType: QuizType) => void;
   onStartReview: () => void;
@@ -35,6 +38,7 @@ interface HomeDashboardProps {
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   progress,
   summary = null,
+  dueCount = 0,
   focusCategories = [],
   onStartQuiz,
   onStartReview,
@@ -67,6 +71,19 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const weeklyTotal = weeklyActivity.reduce((sum, item) => sum + item.count, 0);
   const weeklyMax = Math.max(...weeklyActivity.map((item) => item.count), 1);
 
+  // Memori says the most urgent thing first. "At risk" needs both signals to be
+  // quiet: the local activity date only knows this device, while the backend's
+  // `learnedToday` also sees today's work from any other device.
+  const streakAtRisk = progress.streak > 0 && learnedToday === 0 && !isActiveToday(progress);
+  const [mascotMood, mascotMoment, mascotCount]: [MascotMood, MascotMoment, number?] = streakAtRisk
+    ? ['worried', 'streakAtRisk', progress.streak]
+    : goalPercentage >= 100
+    ? ['cheer', 'goalDone']
+    : dueCount > 0
+    ? ['think', 'dueReview', dueCount]
+    : ['wave', greetingMoment()];
+  const mascotLine = useMascotLine(mascotMoment, mascotCount);
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
       {/* Top Banner: Daily Goal & Focus Categories */}
@@ -91,15 +108,18 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
                 <span>Cần học thêm {Math.max(0, progress.dailyGoal - learnedToday)} từ nữa hôm nay</span>
               )}
             </p>
+            {/* Memori's line lives in the text column: a bubble beside it
+                collides with this text on narrow cards. */}
+            <p className="hidden sm:inline-block mt-3 px-3 py-1 rounded-2xl rounded-bl-sm bg-white/15 border border-white/20 text-xs font-bold">
+              {mascotLine}
+            </p>
           </div>
 
           {/* Mascot & SVG Progress Ring */}
           <div className="flex items-center gap-3">
             <Mascot
-              mood={goalPercentage >= 100 ? 'celebrating' : 'studying'}
+              mood={mascotMood}
               size={80}
-              bubble={goalPercentage >= 100 ? 'Đạt mục tiêu rồi! 🏆' : 'Cố lên bạn ơi! 📖'}
-              bubblePosition="top"
               className="hidden sm:inline-flex"
             />
             <div className="relative w-24 h-24 md:w-28 md:h-28 flex items-center justify-center flex-shrink-0">

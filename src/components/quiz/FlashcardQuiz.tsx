@@ -7,6 +7,7 @@ import { Word } from '@/types';
 import { ReviewQuality } from '@/types/word';
 import { speakWord, soundFX } from '@/lib/audio';
 import { getWordMeanings } from '@/lib/word';
+import { MascotReaction } from '@/components/mascot/MascotReaction';
 
 interface FlashcardQuizProps {
   words: Word[];
@@ -35,6 +36,9 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  // The self-rating just given, for Memori's reaction. Rating moves straight on
+  // to the next card, so it's remembered here rather than read off the card.
+  const [lastRating, setLastRating] = useState<{ index: number; recalled: boolean } | null>(null);
   // Which sense of the current word the card back is showing, and which way it
   // was paged — the slide has to leave towards the side it came from.
   const [meaningIndex, setMeaningIndex] = useState(0);
@@ -99,6 +103,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
 
   const handleRating = (rating: ReviewQuality) => {
     onRateWord(currentWord, rating);
+    setLastRating({ index: currentIndex, recalled: rating >= 3 });
     setIsFlipped(false);
     if (currentIndex < words.length - 1) {
       setCurrentIndex((prev) => prev + 1);
@@ -121,6 +126,10 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-between px-4 md:px-8 py-5 pb-8 bg-slate-50 dark:bg-slate-900 animate-fadeIn">
+      <MascotReaction
+        result={lastRating ? (lastRating.recalled ? 'correct' : 'wrong') : null}
+        questionKey={lastRating?.index ?? -1}
+      />
       {/* Top Header & Progress Bar */}
       <div>
         <div className="flex items-center justify-between mb-3">

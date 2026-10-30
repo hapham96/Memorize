@@ -1,59 +1,88 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useMascotMotion } from '@/lib/mascot-motion';
+import { MemoriPose, MemoriSvg } from './MemoriSvg';
 
-export type MascotMood = 'waving' | 'celebrating' | 'studying' | 'icon';
+export type MascotMood =
+  | 'idle'
+  | 'wave'
+  | 'happy'
+  | 'sad'
+  | 'cheer'
+  | 'encourage'
+  | 'worried'
+  | 'sleep'
+  | 'think'
+  | 'fight'
+  | 'icon';
 
 interface MascotProps {
   mood?: MascotMood;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | number;
-  useGif?: boolean;
   bubble?: string;
   bubblePosition?: 'top' | 'right' | 'bottom' | 'left';
   className?: string;
   interactive?: boolean;
+  /** Per-instance opt-out; the global switch is `useMascotMotion`. */
   animated?: boolean;
   onClick?: () => void;
   alt?: string;
 }
 
-const SIZE_MAP: Record<string, { sizeClass: string; pixelSize: number }> = {
-  xs: { sizeClass: 'w-6 h-6', pixelSize: 24 },
-  sm: { sizeClass: 'w-9 h-9', pixelSize: 36 },
-  md: { sizeClass: 'w-14 h-14', pixelSize: 56 },
-  lg: { sizeClass: 'w-24 h-24', pixelSize: 96 },
-  xl: { sizeClass: 'w-36 h-36', pixelSize: 144 },
-  '2xl': { sizeClass: 'w-48 h-48', pixelSize: 192 },
+const SIZE_MAP: Record<string, number> = {
+  xs: 24,
+  sm: 36,
+  md: 56,
+  lg: 96,
+  xl: 144,
+  '2xl': 192,
 };
 
-const ASSET_MAP: Record<MascotMood, { png: string; gif: string; label: string }> = {
-  waving: {
-    png: '/mascot/memori-waving.png',
-    gif: '/mascot/memori-waving.gif',
-    label: 'Memo waving hello',
-  },
-  celebrating: {
-    png: '/mascot/memori-celebrating.png',
-    gif: '/mascot/memori-celebrating.gif',
-    label: 'Memo celebrating with trophy',
-  },
-  studying: {
-    png: '/mascot/memori-studying.png',
-    gif: '/mascot/memori-studying.gif',
-    label: 'Memo studying vocabulary',
-  },
-  icon: {
-    png: '/mascot/memori-icon.png',
-    gif: '/mascot/memori-icon.png',
-    label: 'Memo Memorize app icon',
-  },
+/** Below this the body is noise; show just the head. */
+const HEAD_ONLY_BELOW = 44;
+
+const LABELS: Record<MascotMood, string> = {
+  idle: 'Memo đứng chờ',
+  wave: 'Memo vẫy tay chào',
+  happy: 'Memo vui vẻ',
+  sad: 'Memo buồn',
+  cheer: 'Memo ăn mừng',
+  encourage: 'Memo động viên',
+  worried: 'Memo lo lắng',
+  sleep: 'Memo đang ngủ',
+  think: 'Memo đang học',
+  fight: 'Memo sẵn sàng chiến đấu',
+  icon: 'Biểu tượng Memo',
 };
+
+const IDLE: MemoriPose = { eyes: 'open', brows: 'calm', mouth: 'smile', arms: ['rest', 'rest'], motion: 'bob' };
+
+const MOOD_POSES: Record<MascotMood, MemoriPose> = {
+  idle: IDLE,
+  wave: { ...IDLE, mouth: 'grin', arms: ['rest', 'wave'], waving: true },
+  happy: { ...IDLE, eyes: 'happy', mouth: 'grin', trunk: -10, motion: 'hop' },
+  sad: { eyes: 'open', brows: 'sad', mouth: 'frown', arms: ['low', 'low'], ears: 'droop', tilt: 6, extra: 'tear' },
+  cheer: { eyes: 'happy', brows: 'calm', mouth: 'grin', arms: ['up', 'up'], trunk: -14, extra: 'sparkles', motion: 'hop' },
+  encourage: { ...IDLE, mouth: 'grin', arms: ['fist', 'fist'], motion: 'nod' },
+  worried: { eyes: 'open', brows: 'sad', mouth: 'wavy', arms: ['low', 'low'], glance: { x: -0.6, y: 0 }, extra: 'sweat', motion: 'bob' },
+  sleep: { eyes: 'closed', brows: 'none', mouth: 'o', arms: ['low', 'low'], ears: 'droop', tilt: 10, extra: 'zzz', motion: 'breathe' },
+  think: { eyes: 'open', brows: 'calm', mouth: 'flat', arms: ['rest', 'cheek'], glance: { x: 0.6, y: -0.8 }, tilt: -6, extra: 'dots', motion: 'bob' },
+  fight: { eyes: 'open', brows: 'angry', mouth: 'grin', arms: ['fist', 'fist'], trunk: -16, motion: 'bounce' },
+  icon: { ...IDLE, motion: undefined },
+};
+
+/**
+ * Action moods play once, then Memori settles back into `idle` — a cheer
+ * held forever reads as stuck. Ambient moods keep their loop.
+ */
+const ONE_SHOT_MOODS = new Set<MascotMood>(['wave', 'happy', 'cheer', 'encourage']);
+const ONE_SHOT_MS = 2600;
 
 export const Mascot: React.FC<MascotProps> = ({
-  mood = 'waving',
+  mood = 'wave',
   size = 'md',
-  useGif = false,
   bubble,
   bubblePosition = 'top',
   className = '',
@@ -62,103 +91,62 @@ export const Mascot: React.FC<MascotProps> = ({
   onClick,
   alt,
 }) => {
-  const asset = ASSET_MAP[mood] || ASSET_MAP.waving;
-  const imageSrc = useGif ? asset.gif : asset.png;
+  const motionEnabled = useMascotMotion();
+  const animate = animated && motionEnabled;
 
-  const sizeInfo = typeof size === 'number'
-    ? { sizeClass: '', pixelSize: size }
-    : SIZE_MAP[size] || SIZE_MAP.md;
+  const [settled, setSettled] = useState<MascotMood | null>(null);
+  const isOneShot = animate && ONE_SHOT_MOODS.has(mood);
+  useEffect(() => {
+    setSettled(null);
+    if (!isOneShot) return;
+    const timer = setTimeout(() => setSettled(mood), ONE_SHOT_MS);
+    return () => clearTimeout(timer);
+  }, [mood, isOneShot]);
+  const shownMood: MascotMood = isOneShot && settled === mood ? 'idle' : mood;
 
-  const style = typeof size === 'number'
-    ? { width: `${size}px`, height: `${size}px` }
-    : undefined;
-
-  // Custom mood animations using Framer Motion (buttery smooth 60fps & 100% transparent PNG)
-  const getAnimation = () => {
-    if (!animated) return {};
-    switch (mood) {
-      case 'celebrating':
-        return {
-          y: [0, -10, 0, -4, 0],
-          rotate: [0, -4, 4, 0],
-          scale: [1, 1.05, 1],
-          transition: {
-            duration: 1.6,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          },
-        };
-      case 'waving':
-        return {
-          y: [0, -5, 0],
-          rotate: [-3, 4, -3],
-          transition: {
-            duration: 2.2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          },
-        };
-      case 'studying':
-        return {
-          y: [0, -4, 0],
-          scale: [1, 1.025, 1],
-          transition: {
-            duration: 2.6,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          },
-        };
-      case 'icon':
-      default:
-        return {
-          y: [0, -3, 0],
-          transition: {
-            duration: 3,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          },
-        };
-    }
-  };
+  const pixelSize = typeof size === 'number' ? size : SIZE_MAP[size] ?? SIZE_MAP.md;
 
   return (
     <div
       className={`relative inline-flex items-center justify-center select-none ${className}`}
       onClick={onClick}
     >
-      {/* Speech bubble */}
       {bubble && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 4 }}
+          key={bubble}
+          initial={animate ? { opacity: 0, scale: 0.85, y: 4 } : false}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className={`absolute z-20 px-3 py-1.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-clay-md border-2 border-blue-200 dark:border-slate-700 whitespace-nowrap pointer-events-none flex items-center gap-1 ${
+          className={`absolute z-20 px-3 py-1.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-clay-md border-2 border-blue-200 dark:border-slate-700 pointer-events-none flex items-center gap-1 ${
             bubblePosition === 'top'
-              ? 'bottom-full mb-2 left-1/2 -translate-x-1/2'
+              ? 'bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap'
               : bubblePosition === 'right'
-              ? 'left-full ml-2 top-1/2 -translate-y-1/2'
+              ? 'left-full ml-2 top-1/2 -translate-y-1/2 w-max max-w-[11rem]'
               : bubblePosition === 'bottom'
-              ? 'top-full mt-2 left-1/2 -translate-x-1/2'
-              : 'right-full mr-2 top-1/2 -translate-y-1/2'
+              ? 'top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap'
+              : 'right-full mr-2 top-1/2 -translate-y-1/2 w-max max-w-[11rem]'
           }`}
         >
           <span>{bubble}</span>
         </motion.div>
       )}
 
-      {/* Mascot Image with Framer Motion spring interaction */}
+      {/* A soft lean and a squash on tap, both on springs. */}
       <motion.div
-        animate={getAnimation()}
-        whileHover={interactive ? { scale: 1.1, rotate: [0, -3, 3, 0] } : undefined}
-        whileTap={interactive ? { scale: 0.92 } : undefined}
-        className={`relative flex items-center justify-center ${sizeInfo.sizeClass} ${interactive ? 'cursor-pointer' : ''}`}
-        style={style}
+        whileHover={interactive && animate ? { rotate: -4, y: -3 } : undefined}
+        whileTap={interactive && animate ? { scaleX: 1.06, scaleY: 0.92 } : undefined}
+        transition={{ type: 'spring', stiffness: 260, damping: 14 }}
+        className={interactive ? 'cursor-pointer' : ''}
+        style={{ width: pixelSize, height: pixelSize }}
       >
-        <img
-          src={imageSrc}
-          alt={alt || asset.label}
-          className="w-full h-full object-contain filter drop-shadow-clay-sm transition-all duration-200"
-          draggable={false}
-          loading="eager"
+        {/* Not keyed by mood: the arms glide between poses, and a changed
+            motion class restarts its animation on its own. */}
+        <MemoriSvg
+          pose={MOOD_POSES[shownMood]}
+          size={pixelSize}
+          animated={animate}
+          headOnly={mood === 'icon' || pixelSize < HEAD_ONLY_BELOW}
+          label={alt || LABELS[mood]}
+          className="drop-shadow-clay-sm"
         />
       </motion.div>
     </div>

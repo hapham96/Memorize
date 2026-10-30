@@ -24,6 +24,7 @@ import {
 import { SRS_STATE_LABELS, exportWordsToExcel } from '@/lib/wordExcel';
 import { soundFX } from '@/lib/audio';
 import { WordDetailModal } from './WordDetailModal';
+import { Mascot } from '@/components/mascot/Mascot';
 
 interface WordLibrarySectionProps {
   /**
@@ -546,6 +547,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
         </div>
       ) : isEmpty ? (
         <div className="clay-well px-4 py-8 text-center">
+          {!isFiltering && <Mascot mood="sleep" size={72} interactive={false} className="mx-auto mb-2" />}
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
             {isFiltering ? 'Không tìm thấy từ nào' : 'Thư viện của bạn còn trống'}
           </p>

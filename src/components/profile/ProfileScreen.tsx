@@ -83,7 +83,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
       {/* Mascot Companion Card */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-indigo-950/40 rounded-card p-4 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex items-center gap-4">
-        <Mascot mood="waving" size={68} interactive />
+        <Mascot mood="wave" size={68} interactive />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-black text-slate-900 dark:text-slate-100">Bạn đồng hành: Memo 🐘</h3>

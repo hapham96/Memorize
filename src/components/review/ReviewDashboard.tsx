@@ -18,7 +18,7 @@ import {
   resolveWordForUserWord,
   pickRepresentativeDefinition,
 } from '@/lib/api/word-client';
-import { Mascot } from '@/components/mascot/Mascot';
+import { Mascot, MascotMood } from '@/components/mascot/Mascot';
 
 interface ReviewDashboardProps {
   allWords: Word[];
@@ -171,6 +171,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   // "Nothing due" and "no words at all" look the same in the numbers but need
   // different copy — a new account has an empty library by design.
   const isLibraryEmpty = hasLoadedDue && allWords.length === 0 && dueItems.length === 0;
+
+  const heroMood: MascotMood = !hasLoadedDue || dueWords.length > 0 ? 'think' : 'sleep';
 
   // `/stats/summary` counts the account; `srsMap` only counts what this device
   // has seen, so it is the fallback rather than the source. "Sắp tới" has no
@@ -689,10 +691,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
           <div className="flex-shrink-0 hidden sm:flex items-center justify-center">
             <Mascot
-              mood={dueWords.length === 0 ? 'celebrating' : 'studying'}
+              mood={heroMood}
               size={90}
-              bubble={dueWords.length === 0 ? 'Đã ôn hết rồi! 🎉' : 'Đến giờ ôn bài rồi! 📚'}
-              bubblePosition="top"
               interactive
             />
           </div>
@@ -809,12 +809,12 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
 
         {!hasLoadedDue ? (
           <div className="text-center py-6">
-            <RefreshCw className="w-6 h-6 animate-spin text-slate-400 mx-auto" />
+            <Mascot mood="think" size={56} interactive={false} className="mx-auto" />
             <p className="text-xs text-slate-400 mt-2">Đang tải hàng đợi ôn tập…</p>
           </div>
         ) : isLibraryEmpty ? (
           <div className="text-center py-6">
-            <span className="text-3xl">📚</span>
+            <Mascot mood="sleep" size={72} interactive={false} className="mx-auto" />
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">
               Chưa có từ nào trong kho
             </p>
@@ -833,7 +833,11 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
           </div>
         ) : dueWords.length === 0 ? (
           <div className="text-center py-6">
-            <span className="text-3xl">{selectedCategory === 'All' ? '🎉' : '🔍'}</span>
+            {selectedCategory === 'All' ? (
+              <Mascot mood="sleep" size={72} interactive={false} className="mx-auto" />
+            ) : (
+              <span className="text-3xl">🔍</span>
+            )}
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-2">
               {selectedCategory === 'All'
                 ? "You're all caught up!"

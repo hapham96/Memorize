@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Brain, Flame, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 import { Mascot, MascotMood } from '@/components/mascot/Mascot';
 
 interface OnboardingScreenProps {
@@ -20,19 +21,20 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
     {
       title: 'Học từ vựng siêu tốc cùng Memo',
       subtitle: 'Nắm vững hàng ngàn từ vựng tiếng Anh qua flashcard 3D sinh động, phát âm chuẩn và hình ảnh trực quan.',
-      mascotMood: 'studying' as MascotMood,
+      // The first thing a new user sees: a greeting, not Memori with its nose in a book.
+      mascotMood: 'wave' as MascotMood,
       color: 'bg-blue-500',
     },
     {
       title: 'Ôn tập khoa học với Spaced Repetition',
       subtitle: 'Thuật toán lặp lại ngắt quãng SM-2 nhắc bạn ôn đúng thời điểm vàng trước khi quên, nhớ lâu gấp 10 lần.',
-      mascotMood: 'waving' as MascotMood,
+      mascotMood: 'think' as MascotMood,
       color: 'bg-emerald-500',
     },
     {
       title: 'Xây dựng thói quen & Nhận thưởng',
       subtitle: 'Duy trì chuỗi ngày streak rực rỡ, tích lũy XP, thăng hạng và đạt mục tiêu chỉ với 5 phút mỗi ngày.',
-      mascotMood: 'celebrating' as MascotMood,
+      mascotMood: 'cheer' as MascotMood,
       color: 'bg-amber-500',
     },
   ];
@@ -67,25 +69,30 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
       {/* Hero Illustration & Content */}
       <div className="my-auto py-8 flex flex-col items-center text-center">
-        <div className="relative mb-6">
-          <div className="w-36 h-36 rounded-[32px] bg-white dark:bg-slate-800/80 border-clay border-blue-200 dark:border-slate-700 flex items-center justify-center shadow-clay-lg p-2 overflow-visible">
-            <Mascot
-              mood={current.mascotMood}
-              size={130}
-              interactive={true}
-            />
-          </div>
-          <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl shadow-clay-lg">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
+        {/* Memori stands free on a soft glow with a contact shadow, rather than
+            boxed in a card — it should read as a character, not a sticker. */}
+        <div className="relative mb-6 flex items-end justify-center w-60 h-60">
+          <div className="absolute inset-4 rounded-full bg-gradient-to-b from-blue-200/70 to-transparent dark:from-blue-500/15" />
+          <div className="absolute bottom-3 w-32 h-4 rounded-[50%] bg-slate-900/10 dark:bg-black/40 blur-[3px]" />
+          <Mascot mood={current.mascotMood} size={208} className="relative" />
         </div>
 
-        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 px-4">
-          {current.title}
-        </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300 max-w-xs leading-relaxed">
-          {current.subtitle}
-        </p>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={currentPage}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 px-4">
+              {current.title}
+            </h1>
+            <p className="text-sm text-slate-600 dark:text-slate-300 max-w-xs mx-auto leading-relaxed">
+              {current.subtitle}
+            </p>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Pagination Dots & Navigation Buttons */}
