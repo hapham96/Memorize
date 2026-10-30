@@ -13,7 +13,7 @@ npm run lint    # next lint (eslint-config-next)
 
 No test framework is configured — there are no test files or test runner in this project.
 
-Env: copy `.env.example` → `.env`. Only `NEXT_PUBLIC_API_URL` exists (defaults to empty string in `src/lib/api/client.ts`, so all backend calls silently fail without it — which the app tolerates, see below).
+Env: copy `.env.example` → `.env`. `NEXT_PUBLIC_API_URL` defaults to empty string in `src/lib/api/client.ts`, so all backend calls silently fail without it — which the app tolerates, see below. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is optional: empty hides the Google button. Both are inlined at build time (Dockerfile `ARG`s).
 
 ## Architecture
 
@@ -201,7 +201,7 @@ There is no demo mode, no guest mode and no bundled vocabulary. A user must log 
 
 These are stubs, not bugs to "fix" incidentally — check before changing:
 
-- **Social login**: removed, not implemented. There is no OAuth backend, so the Apple/Google buttons were deleted rather than left as fake sign-ins.
+- **Google sign-in**: [GoogleSignInButton](src/components/auth/GoogleSignInButton.tsx) renders Google Identity Services' own button (`accounts.google.com/gsi/client`, popup mode — not the deprecated `gapi.auth2`) and hands the ID token to `loginWithGoogle()`, which trades it for our JWT at `POST /auth/google { idToken }` → `{ accessToken, isNewUser? }`. The browser never trusts the Google token: its `email` is a placeholder until `/users/profile` answers. `isNewUser` drives the same first-run level picker as `/auth/register`. The button is hidden while `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is empty. **Apple** sign-in is not implemented — there is no backend endpoint for it.
 - **Display name**: comes from `GET /users/profile` (`{ userId, name, email }`), which `login`/`register` fold into the stored `AuthSession` and the mount effect re-reads via `refreshProfile()`. The profile call is optional — on failure `getDisplayName` falls back to the email local-part. Local priority is: name typed at registration → profile name → previously stored name. `PATCH /users/name` writes it back — `updateName()` folds the answer into the stored session and hands it to `applySession()` in `page.tsx`, which regenerates the avatar (it is derived from the name). `PATCH /users/password` (`{ currentPassword, newPassword }`) leaves the token valid, so nothing is re-stored. Both are driven by [EditProfileModal](src/components/profile/EditProfileModal.tsx), opened by the pencil button on the profile header; **settings** are reached from the header bar, not from there. Email is read-only — no endpoint changes it.
 - **Word IDs**: locally added words get an optimistic `custom_…` id and are re-keyed to the backend's numeric id by `handleWordSynced` once `/words` answers. `resolveWordForUserWord()` synthesizes a placeholder `Word` for a backend word with no local copy.
 

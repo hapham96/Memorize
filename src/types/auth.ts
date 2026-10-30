@@ -14,6 +14,23 @@ export type AuthResponse = {
   accessToken: string;
 };
 
+/**
+ * POST /auth/google — `idToken` is the credential Google Identity Services
+ * hands the browser. The backend verifies it (signature, `aud`, `iss`, `exp`)
+ * and finds or creates the account by its email.
+ */
+export type GoogleLoginRequest = {
+  idToken: string;
+};
+
+/**
+ * Same JWT as `/auth/login`, plus whether the account was created by this call
+ * — the one signal that tells a first Google sign-in from a returning one.
+ */
+export type GoogleAuthResponse = AuthResponse & {
+  isNewUser?: boolean;
+};
+
 /** Claims the backend puts in the JWT — `sub` is the numeric user id. */
 export type JwtPayload = {
   sub: number;
