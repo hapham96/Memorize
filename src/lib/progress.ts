@@ -36,6 +36,11 @@ export function applyDailyRollover(progress: UserProgress, now: Date = new Date(
   };
 }
 
+/** Whether this device has recorded activity today (local calendar day). */
+export function isActiveToday(progress: UserProgress, now: Date = new Date()): boolean {
+  return dayKey(progress.lastActiveDate) === dayKey(now);
+}
+
 /**
  * Marks the user active now, extending the streak once per calendar day.
  */

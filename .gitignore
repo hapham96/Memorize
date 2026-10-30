@@ -34,3 +34,6 @@ next-env.d.ts
 *.pem
 .idea/
 .vscode/
+
+# mascot generation scratch
+/scripts/mascot/out/

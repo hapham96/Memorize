@@ -6,6 +6,7 @@ import { History, Loader2, LogIn, Plus, Swords, Trophy } from 'lucide-react';
 import { BattleRequestError, type BattleApi } from '@/hooks/useBattle';
 import { MODE_LABEL, type BattleHistoryItem } from '@/types/battle';
 import { BattleIcon, BTN_PRIMARY, BTN_SECONDARY, CARD, ErrorLine, INPUT } from './BattleChrome';
+import { Mascot } from '@/components/mascot/Mascot';
 
 function poolLabel(item: BattleHistoryItem): string {
   const pool = item.wordPool;
@@ -103,12 +104,13 @@ export function BattleHome({ battle, meId, history, initialCode }: BattleHomePro
       <section className={`${CARD} p-5 space-y-5`}>
         <div className="flex items-center gap-3">
           <BattleIcon icon={Swords} />
-          <div>
+          <div className="flex-1 min-w-0">
             <h3 className="font-display text-lg font-extrabold text-slate-900 dark:text-slate-100">Chơi Battle</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Thi đấu trực tiếp với 1–3 người bạn — hoặc đặt cược từ vựng của chính mình trong Word Heist.
             </p>
           </div>
+          <Mascot mood="fight" size={64} interactive={false} className="shrink-0" />
         </div>
 
         <button

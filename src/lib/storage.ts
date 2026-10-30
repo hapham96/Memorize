@@ -76,6 +76,11 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   soundEnabled: boolean;
   /**
+   * Memori's animations. Device-only — `/settings` has no field for it, and the
+   * merge in `hydrateSettingsFromApi` keeps local-only fields as they are.
+   */
+  mascotAnimations: boolean;
+  /**
    * The learner's self-declared CEFR level, asked right after sign-up and
    * changeable in settings. `null` means the question has not been answered —
    * the app never guesses a level on the user's behalf.
@@ -95,6 +100,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   soundEnabled: true,
+  mascotAnimations: true,
   cefrLevel: null,
   dailyGoal: 20,
   notifications: true,

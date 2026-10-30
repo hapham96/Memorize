@@ -10,6 +10,8 @@ import { BattleConfigPanel } from './BattleConfigPanel';
 import { BattleRecap } from './BattleRecap';
 import { BattleIcon, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, ErrorLine, SectionLabel, Standings } from './BattleChrome';
 import { StakePicker } from './StakePicker';
+import { Mascot } from '@/components/mascot/Mascot';
+import { useMascotLine } from '@/components/mascot/mascotLines';
 
 const MAX_MEMBERS = 4;
 
@@ -17,6 +19,8 @@ function ResultCard({ result, meId, onDismiss }: { result: BattleResult; meId: n
   const mine = result.standings.find((s) => s.userId === meId);
   const won = mine?.placing === 1;
   const title = won ? 'Bạn thắng rồi! 🎉' : mine ? `Bạn xếp hạng #${mine.placing}` : 'Trận vừa rồi';
+  // A spectator's view of a past Battle (no `mine`) has nobody to cheer or console.
+  const mascotLine = useMascotLine(won ? 'battleWin' : 'battleLoss');
   return (
     <section className={clsx(CARD, 'overflow-hidden animate-popIn', won && 'border-amber-300 dark:border-amber-500/60')}>
       <div
@@ -33,10 +37,20 @@ function ResultCard({ result, meId, onDismiss }: { result: BattleResult; meId: n
         >
           <Trophy className="w-6 h-6" aria-hidden />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className={clsx('font-display text-xl font-extrabold', !won && 'text-slate-900 dark:text-slate-100')}>{title}</h3>
           <p className={clsx('text-xs font-bold', won ? 'text-white/80' : 'text-slate-400')}>{MODE_LABEL[result.mode]}</p>
         </div>
+        {mine && (
+          <Mascot
+            mood={won ? 'cheer' : 'encourage'}
+            size={56}
+            bubble={mascotLine}
+            bubblePosition="left"
+            interactive={false}
+            className="shrink-0"
+          />
+        )}
       </div>
       <div className="p-4 space-y-3">
         <Standings rows={result.standings} meId={meId} />

@@ -95,6 +95,7 @@ import {
 } from '@/lib/storage';
 import { createInitialSRS } from '@/lib/srs';
 import { soundFX } from '@/lib/audio';
+import { mascotMotion } from '@/lib/mascot-motion';
 import { generateAvatar } from '@/lib/avatar';
 import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
 import { useDueReminders } from '@/hooks/useDueReminders';
@@ -189,6 +190,7 @@ export default function Home() {
     }
 
     soundFX.setEnabled(active.soundEnabled);
+    mascotMotion.setEnabled(active.mascotAnimations);
   };
 
   /**
@@ -802,6 +804,7 @@ export default function Home() {
   };
 
   const {
+    dueItems,
     permission: notificationPermission,
     requestPermission: requestNotificationPermission,
     activeReminder,
@@ -1043,6 +1046,7 @@ export default function Home() {
         <HomeDashboard
           progress={displayProgress}
           summary={statsSummary}
+          dueCount={dueItems.length}
           focusCategories={settings.focusCategories}
           onStartQuiz={handleStartQuiz}
           onStartReview={() => setActiveTab('review')}

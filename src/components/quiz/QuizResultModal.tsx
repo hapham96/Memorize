@@ -7,6 +7,7 @@ import { QuizType } from '@/types';
 import { soundFX } from '@/lib/audio';
 import { ModalPortal } from '@/components/layout/ModalPortal';
 import { Mascot } from '@/components/mascot/Mascot';
+import { useMascotLine } from '@/components/mascot/mascotLines';
 
 interface QuizResultModalProps {
   quizType: QuizType;
@@ -28,6 +29,8 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
   onReviewMistakes,
 }) => {
   const accuracy = Math.round((correctCount / Math.max(1, totalQuestions)) * 100);
+  const isHighScore = accuracy >= 80;
+  const resultLine = useMascotLine(isHighScore ? 'resultHigh' : 'resultLow');
 
   useEffect(() => {
     soundFX.playLevelUp();
@@ -45,12 +48,13 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
         {/* Header Mascot Badge */}
         <div className="relative mx-auto flex flex-col items-center justify-center -mt-2">
           <Mascot
-            mood="celebrating"
+            mood={isHighScore ? 'cheer' : 'encourage'}
             size={120}
-            bubble={accuracy >= 80 ? 'Xuất sắc quá bạn ơi! 🏆' : 'Cố gắng lên nhé! ⭐'}
-            bubblePosition="top"
             interactive
           />
+          <p className="mt-1 px-3 py-1 rounded-full bg-blue-50 dark:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-100">
+            {resultLine}
+          </p>
         </div>
 
         <div>

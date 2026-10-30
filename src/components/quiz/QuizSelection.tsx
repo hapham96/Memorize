@@ -14,6 +14,8 @@ import {
   Swords,
 } from 'lucide-react';
 import { QuizType } from '@/types';
+import { Mascot } from '@/components/mascot/Mascot';
+import { useMascotLine } from '@/components/mascot/mascotLines';
 
 /** Battle Game is not a quiz — it opens its own online screen — so it is not a `QuizType`. */
 type PracticeId = QuizType | 'battle';
@@ -31,6 +33,8 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
   loadingQuizType = null,
   errorMessage = null,
 }) => {
+  const loadingLine = useMascotLine('loading');
+
   const handleSelect = (id: PracticeId) => {
     if (id === 'battle') onOpenBattle();
     else onSelectQuiz(id);
@@ -127,9 +131,17 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
         </p>
       </div>
 
+      {loadingQuizType && (
+        <div className="flex items-center gap-3 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 p-3 rounded-xl border-clay border-blue-200 dark:border-slate-700">
+          <Mascot mood="think" size={40} interactive={false} />
+          <span>{loadingLine}</span>
+        </div>
+      )}
+
       {errorMessage && (
-        <div className="text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border-clay border-amber-300">
-          {errorMessage}
+        <div className="flex items-center gap-3 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-xl border-clay border-amber-300">
+          <Mascot mood="sleep" size={40} interactive={false} />
+          <span>{errorMessage}</span>
         </div>
       )}
 

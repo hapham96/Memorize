@@ -13,6 +13,7 @@ import {
   AlertCircle,
   GraduationCap,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 import { VocabularySet, WordCategory } from '@/types';
 import { CEFR_LEVELS, cefrLevelInfo } from '@/data/cefrLevels';
@@ -152,6 +153,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <div
               className={`w-5 h-5 rounded-full bg-white transition-transform transform ${settings.soundEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+            />
+          </button>
+        </div>
+
+        {/* Mascot animations */}
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-sky-500" />
+            <div>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Hoạt ảnh mascot
+              </p>
+              <p className="text-[10px] text-slate-400">Memori chuyển động và phản ứng theo bạn</p>
+            </div>
+          </div>
+          <button
+            onClick={() => onUpdateSettings({ mascotAnimations: !settings.mascotAnimations })}
+            className={`w-11 h-6 rounded-full transition-colors relative ${settings.mascotAnimations ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full bg-white transition-transform transform ${settings.mascotAnimations ? 'translate-x-5' : 'translate-x-0.5'
                 }`}
             />
           </button>
