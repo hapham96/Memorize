@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { login, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
+import { login, loginWithGoogle, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
 import { AuthSession } from '@/types/auth';
+import { Mascot } from '@/components/mascot/Mascot';
+import { GOOGLE_CLIENT_ID, GoogleSignInButton } from './GoogleSignInButton';
 import { AuthMascot, AuthMascotPose } from '@/components/mascot/AuthMascot';
 import { useMascotMotion } from '@/lib/mascot-motion';
 import { useMascotLine } from '@/components/mascot/mascotLines';
@@ -125,15 +127,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       }
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
-      if (err instanceof ApiError && err.isNetworkError) {
-        // No offline bypass: every feature needs the account, so the only way
-        // forward is to retry once the server is reachable.
-        setError('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
-      } else if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
-      }
+      showAuthError(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const showAuthError = (err: unknown) => {
+    if (err instanceof ApiError && err.isNetworkError) {
+      // No offline bypass: every feature needs the account, so the only way
+      // forward is to retry once the server is reachable.
+      setError('Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+    } else if (err instanceof ApiError) {
+      setError(err.message);
+    } else {
+      setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
+    }
+  };
+
+  const handleGoogleCredential = async (idToken: string) => {
+    if (isSubmitting) return;
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const { session, isNewAccount } = await loginWithGoogle(idToken);
+      // No typed name: the account's name comes from Google via `/users/profile`.
+      onLoginSuccess(session, '', isNewAccount);
+    } catch (err) {
+      showAuthError(err);
     } finally {
       setIsSubmitting(false);
     }
@@ -271,6 +292,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </button>
 
         </form>
+
+        {GOOGLE_CLIENT_ID && (
+          <div className="max-w-sm mx-auto mt-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">hoặc</span>
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            </div>
+            <GoogleSignInButton
+              isRegister={isRegister}
+              disabled={isSubmitting}
+              onCredential={handleGoogleCredential}
+              onLoadError={() => setError('Không tải được đăng nhập Google. Bạn vẫn có thể dùng email.')}
+            />
+          </div>
+        )}
 
         <p className="text-[11px] text-center text-slate-400 mt-5 max-w-sm mx-auto leading-relaxed">
           Kho từ và tiến độ ôn tập được lưu theo tài khoản, nên bạn cần đăng nhập

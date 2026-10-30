@@ -17,6 +17,9 @@ COPY . .
 # so the API URL must be passed here, not at `docker run`.
 ARG NEXT_PUBLIC_API_URL=https://memoraise.pro.vn
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Google OAuth Web client ID; empty hides the Google button.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

@@ -1,6 +1,8 @@
 import {
   AuthResponse,
   AuthSession,
+  GoogleAuthResponse,
+  GoogleLoginRequest,
   JwtPayload,
   LoginRequest,
   ProfileResponse,
@@ -17,7 +19,7 @@ export const MIN_PASSWORD_LENGTH = 8;
  * Reads the JWT payload without verifying it — the signature is the backend's
  * business; we only need `sub` (user id) and `exp` for local bookkeeping.
  */
-export function decodeJwt(token: string): JwtPayload | null {
+export function decodeJwt<T = JwtPayload>(token: string): T | null {
   try {
     const payload = token.split('.')[1];
     if (!payload) return null;
@@ -31,14 +33,14 @@ export function decodeJwt(token: string): JwtPayload | null {
         .join('')
     );
 
-    return JSON.parse(json) as JwtPayload;
+    return JSON.parse(json) as T;
   } catch {
     return null;
   }
 }
 
 function toAuthSession(accessToken: string, email: string): AuthSession {
-  const claims = decodeJwt(accessToken);
+  const claims = decodeJwt<JwtPayload>(accessToken);
   return {
     accessToken,
     userId: typeof claims?.sub === 'number' ? claims.sub : null,
@@ -91,6 +93,23 @@ export async function login(payload: LoginRequest): Promise<AuthSession> {
   const session = toAuthSession(response.accessToken, payload.email);
   saveAuthSession(session);
   return withProfile(session);
+}
+
+/**
+ * Trades a Google Identity Services credential for our own JWT through
+ * `POST /auth/google`. The Google token is never trusted here — only the
+ * backend can verify it — so its `email` claim is read solely as a placeholder
+ * until `/users/profile` answers with the account's real one.
+ */
+export async function loginWithGoogle(
+  idToken: string,
+): Promise<{ session: AuthSession; isNewAccount: boolean }> {
+  const payload: GoogleLoginRequest = { idToken };
+  const response = await postAsync<GoogleAuthResponse>('/auth/google', payload);
+  const email = decodeJwt<{ email?: string }>(idToken)?.email ?? '';
+  const session = toAuthSession(response.accessToken, email);
+  saveAuthSession(session);
+  return { session: await withProfile(session), isNewAccount: response.isNewUser === true };
 }
 
 /**
