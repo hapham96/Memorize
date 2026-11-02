@@ -33,6 +33,10 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          # NEXT_PUBLIC_* is inlined at build time; setting it on the VPS has no effect.
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://memoraise.pro.vn' }}
+            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ steps.vars.outputs.sha }}
