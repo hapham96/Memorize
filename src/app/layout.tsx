@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import { Baloo_2, Nunito } from 'next/font/google';
 import './globals.css';
 import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
+import { GA_BOOTSTRAP_SCRIPT, isAnalyticsEnabled } from '@/lib/analytics';
+import { Analytics } from '@/components/analytics/Analytics';
 
 // Rounded, friendly faces that carry the claymorphism look.
 //
@@ -67,8 +69,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={`${baloo.variable} ${nunito.variable}`}>
+      {isAnalyticsEnabled && (
+        <head>
+          {/* Runs before hydration so events fired on mount queue behind `config`. */}
+          <script dangerouslySetInnerHTML={{ __html: GA_BOOTSTRAP_SCRIPT }} />
+        </head>
+      )}
       <body className="antialiased font-sans bg-blue-50 dark:bg-slate-950">
         {children}
+        <Analytics />
       </body>
     </html>
   );

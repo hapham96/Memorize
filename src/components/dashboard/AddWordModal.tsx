@@ -30,6 +30,7 @@ import {
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
+import { trackEvent } from "@/lib/analytics";
 import { downloadVocabTemplate } from "@/lib/wordExcel";
 import {
   addWord,
@@ -1265,6 +1266,10 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       });
 
       setBulkFailures(failures);
+      trackEvent("import_words", {
+        count: results.length,
+        failed: failures.length,
+      });
       // Nothing to review — close like a normal successful import. When some
       // rows failed (e.g. duplicates), keep the modal open so the user can
       // see which ones before dismissing.

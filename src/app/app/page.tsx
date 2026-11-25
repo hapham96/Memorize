@@ -72,6 +72,7 @@ import {
   updateSettings,
 } from '@/lib/api/settings-client';
 import { ApiError } from '@/lib/api/client';
+import { setAnalyticsUser, trackEvent } from '@/lib/analytics';
 import { getCurrentSession, getDisplayName, logout, refreshProfile } from '@/lib/api/auth-client';
 import { AuthSession } from '@/types/auth';
 import {
@@ -523,6 +524,26 @@ export default function Home() {
     setIsBattleOpen(true);
   }, [session]);
 
+  // Analytics: every event after sign-in belongs to this account (`user_id`).
+  const sessionUserId = session?.userId ?? null;
+  useEffect(() => {
+    setAnalyticsUser(sessionUserId);
+  }, [sessionUserId]);
+
+  // Analytics: `/app` has no routes, so GA's page views stop at the URL. One
+  // `app_screen_view` per screen the user actually lands on fills that gap.
+  const analyticsScreen = !session
+    ? `auth_${authView}`
+    : isBattleOpen
+      ? 'battle'
+      : activeQuizMode
+        ? `quiz_${activeQuizMode}`
+        : activeTab;
+  useEffect(() => {
+    if (!isMounted) return;
+    trackEvent('app_screen_view', { screen_name: analyticsScreen });
+  }, [isMounted, analyticsScreen]);
+
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
   const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
@@ -562,6 +583,8 @@ export default function Home() {
 
   const handleAddWords = (newWords: Word[]) => {
     if (newWords.length === 0) return;
+
+    trackEvent('add_words', { count: newWords.length });
 
     const existingCustom = loadCustomWords();
     const updatedCustom = [...newWords, ...existingCustom];
@@ -621,7 +644,9 @@ export default function Home() {
         setExerciseSessionItems(items as AutoGradedExercise[]);
       }
       setActiveQuizMode(type);
+      trackEvent('quiz_start', { quiz_type: type, item_count: items.length });
     } catch (err) {
+      trackEvent('quiz_start_failed', { quiz_type: type });
       console.error('getDueExercises error:', err);
       setQuizStartError('Không thể tải bài tập. Vui lòng thử lại sau.');
     } finally {
@@ -632,6 +657,14 @@ export default function Home() {
   const handleExerciseQuizComplete = (correctCount: number, mistakes: ExerciseMistake[]) => {
     const total = exerciseSessionItems.length;
     const xpEarned = correctCount * 5 + 10; // 5 XP per correct + 10 completion bonus
+
+    trackEvent('quiz_complete', {
+      quiz_type: activeQuizMode ?? 'unknown',
+      total,
+      correct: correctCount,
+      accuracy: total > 0 ? Math.round((correctCount / total) * 100) : 0,
+      xp_earned: xpEarned,
+    });
 
     setExerciseMistakes(mistakes);
     setSessionResult({
@@ -707,6 +740,8 @@ export default function Home() {
   };
 
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
+    trackEvent('flashcard_rate', { rating });
+
     // Increment daily goal progress on flashcard view
     setUserProgress((prev) => {
       const active = recordActivity(prev);
@@ -1057,7 +1092,10 @@ export default function Home() {
       {activeTab === 'learn' && (
         <QuizSelection
           onSelectQuiz={handleStartQuiz}
-          onOpenBattle={() => setIsBattleOpen(true)}
+          onOpenBattle={() => {
+            trackEvent('battle_open');
+            setIsBattleOpen(true);
+          }}
           loadingQuizType={loadingQuizType}
           errorMessage={quizStartError}
         />
