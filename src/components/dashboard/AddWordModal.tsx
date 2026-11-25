@@ -30,6 +30,7 @@ import {
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
+import { trackEvent } from "@/lib/analytics";
 import { downloadVocabTemplate } from "@/lib/wordExcel";
 import {
   addWord,
@@ -1265,6 +1266,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       });
 
       setBulkFailures(failures);
+      // The import itself is counted once, as `add_words { source: 'excel' }`
+      // in page.tsx; this only reports how the backend sync of it went.
+      trackEvent("import_sync_result", {
+        total: results.length,
+        succeeded: results.length - failures.length,
+        failed: failures.length,
+      });
       // Nothing to review — close like a normal successful import. When some
       // rows failed (e.g. duplicates), keep the modal open so the user can
       // see which ones before dismissing.

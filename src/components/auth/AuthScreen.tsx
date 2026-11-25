@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { login, loginWithGoogle, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
+import { setAnalyticsUser, trackEvent } from '@/lib/analytics';
 import { AuthSession } from '@/types/auth';
 import { Mascot } from '@/components/mascot/Mascot';
 import { GOOGLE_CLIENT_ID, GoogleSignInButton } from './GoogleSignInButton';
@@ -125,6 +126,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setCelebrating(true);
         await new Promise((resolve) => setTimeout(resolve, 900));
       }
+      // `user_id` first, so the sign-in itself is attributed to the account.
+      setAnalyticsUser(session.userId);
+      trackEvent(isRegister ? 'sign_up' : 'login', { method: 'password' });
       onLoginSuccess(session, typedName(), isRegister);
     } catch (err) {
       showAuthError(err);
@@ -151,6 +155,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setIsSubmitting(true);
     try {
       const { session, isNewAccount } = await loginWithGoogle(idToken);
+      setAnalyticsUser(session.userId);
+      trackEvent(isNewAccount ? 'sign_up' : 'login', { method: 'google' });
       // No typed name: the account's name comes from Google via `/users/profile`.
       onLoginSuccess(session, '', isNewAccount);
     } catch (err) {

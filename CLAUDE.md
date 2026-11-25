@@ -13,7 +13,13 @@ npm run lint    # next lint (eslint-config-next)
 
 No test framework is configured — there are no test files or test runner in this project.
 
-Env: copy `.env.example` → `.env`. `NEXT_PUBLIC_API_URL` defaults to empty string in `src/lib/api/client.ts`, so all backend calls silently fail without it — which the app tolerates, see below. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is optional: empty hides the Google button. Both are inlined at build time (Dockerfile `ARG`s).
+Env: copy `.env.example` → `.env`. `NEXT_PUBLIC_API_URL` defaults to empty string in `src/lib/api/client.ts`, so all backend calls silently fail without it — which the app tolerates, see below. `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is optional: empty hides the Google button. `NEXT_PUBLIC_GA_MEASUREMENT_ID` is optional: empty disables GA4. All are inlined at build time (Dockerfile `ARG`s; CI passes each from the repository variable of the same name).
+
+### Analytics (GA4)
+
+[src/lib/analytics.ts](src/lib/analytics.ts) is the only file that touches `gtag`; call `trackEvent(name, params)` and never `window.gtag` directly. Every call is a no-op unless the measurement id is a well-formed `G-…` (it is interpolated into an inline script, so a malformed one must not reach it). The root layout inlines a `<head>` bootstrap (defines `gtag`, queues `config`) so events fired during hydration are not dropped; [Analytics](src/components/analytics/Analytics.tsx) loads `gtag.js` and reports Web Vitals (`LCP`, `INP`, `CLS`, `FCP`, `TTFB`) as events.
+
+Page views come from GA's enhanced measurement (history changes). Inside `/app` there is no routing, so `page.tsx` sends `app_screen_view { screen_name }` per tab / quiz mode / auth view — `screen_view` itself is reserved on web. Business events: `login`/`sign_up { method }`, `quiz_start`, `quiz_start_failed`, `quiz_complete`, `flashcard_rate`, `add_words { count, source: manual|excel }`, `import_sync_result` (backend outcome of an Excel import, not a second count), `export_words`, `battle_open { source: home|invite }`. **No PII** in params — no email, name or typed word; `user_id` is the backend's numeric id only. New params must be registered as custom dimensions in GA4 to show in reports.
 
 ## Architecture
 

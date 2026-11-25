@@ -23,6 +23,7 @@ import {
 } from '@/lib/api/word-client';
 import { SRS_STATE_LABELS, exportWordsToExcel } from '@/lib/wordExcel';
 import { soundFX } from '@/lib/audio';
+import { trackEvent } from '@/lib/analytics';
 import { WordDetailModal } from './WordDetailModal';
 import { Mascot } from '@/components/mascot/Mascot';
 
@@ -321,6 +322,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
       }
 
       exportWordsToExcel(exportItems);
+      trackEvent('export_words', { count: exportItems.length, filtered: isFiltering });
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Không xuất được file Excel.');
     }
