@@ -521,6 +521,7 @@ export default function Home() {
     const code = takePendingBattleCode();
     if (!code) return;
     setBattleInviteCode(code);
+    trackEvent('battle_open', { source: 'invite' });
     setIsBattleOpen(true);
   }, [session]);
 
@@ -581,10 +582,15 @@ export default function Home() {
     setActiveTab('learn');
   };
 
-  const handleAddWords = (newWords: Word[]) => {
+  /**
+   * `source` exists for analytics only: both the single-word form and the Excel
+   * import land here, so this is the one `add_words` event for either — the
+   * import's own `import_sync_result` reports how the backend sync went.
+   */
+  const handleAddWords = (newWords: Word[], source: 'manual' | 'excel') => {
     if (newWords.length === 0) return;
 
-    trackEvent('add_words', { count: newWords.length });
+    trackEvent('add_words', { count: newWords.length, source });
 
     const existingCustom = loadCustomWords();
     const updatedCustom = [...newWords, ...existingCustom];
@@ -1093,7 +1099,7 @@ export default function Home() {
         <QuizSelection
           onSelectQuiz={handleStartQuiz}
           onOpenBattle={() => {
-            trackEvent('battle_open');
+            trackEvent('battle_open', { source: 'home' });
             setIsBattleOpen(true);
           }}
           loadingQuizType={loadingQuizType}
@@ -1194,8 +1200,8 @@ export default function Home() {
         isOpen={isAddWordOpen}
         vocabularySets={vocabularySets}
         onClose={() => setIsAddWordOpen(false)}
-        onAddWord={(w) => handleAddWords([w])}
-        onAddWords={handleAddWords}
+        onAddWord={(w) => handleAddWords([w], 'manual')}
+        onAddWords={(ws) => handleAddWords(ws, 'excel')}
         onWordSynced={handleWordSynced}
       />
 

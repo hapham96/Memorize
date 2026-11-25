@@ -10,9 +10,15 @@
  * Google's policy allows and which lets GA join one account across devices.
  */
 
-export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? '';
+export const GA_MEASUREMENT_ID = (process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? '').trim();
 
-export const isAnalyticsEnabled = GA_MEASUREMENT_ID !== '';
+/**
+ * Only a well-formed `G-…` id turns analytics on. The id is interpolated into
+ * an inline `<head>` script, so anything else (a typo, a stray quote) would
+ * break that script — and with it every event — instead of merely sending
+ * hits nowhere.
+ */
+export const isAnalyticsEnabled = /^G-[A-Z0-9]+$/.test(GA_MEASUREMENT_ID);
 
 type GtagParams = Record<string, string | number | boolean | null | undefined>;
 
@@ -34,7 +40,7 @@ window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 window.gtag = gtag;
 gtag('js', new Date());
-gtag('config', '${GA_MEASUREMENT_ID}'${
+gtag('config', ${JSON.stringify(GA_MEASUREMENT_ID)}${
   process.env.NODE_ENV === 'production' ? '' : ", { debug_mode: true }"
 });
 `;
