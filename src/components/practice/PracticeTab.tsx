@@ -209,13 +209,19 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                   }
                   setSelection({ ...selection, excludedIds, oftenMissed: !selection.oftenMissed });
                 }}
-                title="Quên từ 2 lần trở lên trong 30 ngày"
                 className={chipClass(selection.oftenMissed)}
               >
                 Từ hay sai
                 {choices && <span className="opacity-70">{choices.oftenMissedCount}</span>}
               </button>
             </div>
+            {/* Said out loud: a right answer does not take a word off the list. */}
+            {Boolean(choices?.oftenMissedCount) && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Từ hay sai là từ bạn quên từ 2 lần trở lên trong 30 ngày qua. Trả lời đúng chưa làm
+                nó mất ngay: nó tự rời danh sách khi 30 ngày gần nhất còn dưới 2 lần quên.
+              </p>
+            )}
             {items === null ? (
               !error && <Loader2 className="w-5 h-5 animate-spin text-blue-600 mx-auto" />
             ) : (
