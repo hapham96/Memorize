@@ -4,6 +4,26 @@ import { normalizeSRSState } from "@/lib/srs";
 import { getAsync, postAsync } from "./client";
 import { invalidateUserWordLibrary } from "./word-client";
 
+/** The most words one run from the home button holds. */
+export const RUN_SIZE = 20;
+
+const isGraduated = (status?: string | null) => {
+  const state = normalizeSRSState(status);
+  return state === "review" || state === "mastered";
+};
+
+/**
+ * The words of the next run: those to review first, then the ones part way
+ * through learning, then new ones.
+ */
+export function nextRun(queue: BackendDueReview[]): BackendDueReview[] {
+  const rank = ({ definitions }: BackendDueReview) => {
+    if (definitions.some((d) => isGraduated(d.status))) return 0;
+    return definitions.some((d) => normalizeSRSState(d.status) === "learning") ? 1 : 2;
+  };
+  return [...queue].sort((a, b) => rank(a) - rank(b)).slice(0, RUN_SIZE);
+}
+
 export interface QueueCounts {
   fresh: number;
   again: number;
@@ -23,10 +43,7 @@ export async function getReviewQueue(): Promise<BackendDueReview[]> {
  */
 export function countQueue(queue: BackendDueReview[]): QueueCounts {
   const again = queue.filter((row) =>
-    row.definitions.some((definition) => {
-      const state = normalizeSRSState(definition.status);
-      return state === "review" || state === "mastered";
-    }),
+    row.definitions.some((definition) => isGraduated(definition.status)),
   ).length;
 
   return { fresh: queue.length - again, again };

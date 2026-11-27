@@ -298,6 +298,21 @@ const Match: React.FC<PracticeQuestionViewProps> = ({
   );
 };
 
+/**
+ * The first third of each part of a long word or phrase, the rest blanked.
+ * Null for a short single word, which is typed unaided.
+ */
+function typingHint(answer: string): string | null {
+  const parts = answer.trim().split(/\s+/);
+  if (parts.length === 1 && parts[0].length <= 10) return null;
+  return parts
+    .map((part) => {
+      const shown = Math.ceil(part.length / 3);
+      return part.slice(0, shown) + '_'.repeat(part.length - shown);
+    })
+    .join('  ');
+}
+
 /** Listening, fill in the blank, and typing the word from its meaning. */
 const Typed: React.FC<PracticeQuestionViewProps> = ({
   question,
@@ -311,6 +326,7 @@ const Typed: React.FC<PracticeQuestionViewProps> = ({
   const word = question.words[0];
   const meaning = word.definitions[0];
   const result = results[word.userWordId];
+  const hint = question.mode === 'typing' ? typingHint(word.correctAnswer ?? '') : null;
   const play = useCallback(() => playWord(word), [word]);
 
   useEffect(() => {
@@ -349,6 +365,11 @@ const Typed: React.FC<PracticeQuestionViewProps> = ({
             </p>
             {meaning.partOfSpeech && (
               <p className="text-xs italic text-slate-400">{meaning.partOfSpeech}</p>
+            )}
+            {hint && (
+              <p className="text-sm font-mono font-bold whitespace-pre-wrap break-all text-blue-600 dark:text-blue-400">
+                Gợi ý: {hint}
+              </p>
             )}
           </>
         )}

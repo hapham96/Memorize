@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { ActivityDay, LearningProgress, UserProgress } from '@/types';
 import { StatsSummary } from '@/types/stats';
-import { QueueCounts } from '@/lib/api/review-queue-client';
+import { QueueCounts, RUN_SIZE } from '@/lib/api/review-queue-client';
 import { totalReviewsIn, WEEKDAY_LABELS, weekdayColumn } from '@/lib/activity';
 import { Plus } from 'lucide-react';
 import { Mascot, MascotMood } from '@/components/mascot/Mascot';
@@ -99,7 +99,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const hasNoWords = isAllDone && summary !== null && wordsLearned === 0;
   const main = !isAllDone
     ? {
-        label: dueCount === null ? 'Học hôm nay' : `Học ${dueCount} từ hôm nay`,
+        label:
+          dueCount === null
+            ? 'Học hôm nay'
+            : dueCount > RUN_SIZE
+            ? `Học ${RUN_SIZE} từ`
+            : `Học ${dueCount} từ hôm nay`,
         Icon: Brain,
         onClick: onStartReview,
       }
@@ -114,6 +119,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
       queue.again > 0 && `${queue.again} từ ôn lại`,
     ];
     hints.push(parts.filter(Boolean).join(' · '));
+    if (dueCount > RUN_SIZE) hints.push(`Mỗi lượt ${RUN_SIZE} từ, phần còn lại học tiếp sau.`);
     if (queue.fresh > 0) hints.push('Từ mới cần gặp lại vài lần trong hôm nay.');
     if (learning?.totalReviews === 0) {
       hints.push('Học hôm nay, mai app nhắc lại đúng từ bạn sắp quên.');

@@ -60,6 +60,14 @@ export interface PracticeSitting {
     remembered: PracticeSummaryWord[];
     weak: PracticeSummaryWord[];
     xpEarned: number;
+    /** Words this round moved into the day-based schedule. */
+    scheduledCount: number;
+    /** Words that can be reviewed right now. */
+    dueCount: number;
+    /** Words being learnt that are not due yet. */
+    waitingCount: number;
+    /** When the first waiting word is due. */
+    nextDueAt: string | null;
   } | null;
   /** No words left: the sitting is over. */
   done: boolean;
@@ -70,6 +78,8 @@ export interface PracticeChoices {
   favoriteCount: number;
   oftenMissedCount: number;
   oftenMissedIds: number[];
+  /** Words waiting for the home review: practice leaves them out. */
+  reviewDueIds: number[];
   /** Whether multiple choice and match can be offered. */
   canChoose: boolean;
 }

@@ -29,6 +29,7 @@ import {
   fetchStarterWords,
   giveStarterWords,
   countQueue,
+  nextRun,
   StarterWord,
 } from '@/lib/api/review-queue-client';
 import { fetchWallet, Wallet } from '@/lib/api/wallet-client';
@@ -734,7 +735,7 @@ export default function Home() {
 
   };
 
-  /** The home button's flashcard run: every due word, new and old together. */
+  /** The home button's flashcard run: due words, new and old together. */
   const startQueueReview = async () => {
     setReviewError(null);
     setIsStartingReview(true);
@@ -742,13 +743,14 @@ export default function Home() {
       const queue = await getReviewQueue();
       setReviewQueue(queue);
       if (queue.length === 0) return;
+      const run = nextRun(queue);
 
-      setQuizSessionWords(queue.map((row) => resolveWordForUserWord(row, allWords)));
+      setQuizSessionWords(run.map((row) => resolveWordForUserWord(row, allWords)));
       setIsSettingsOpen(false);
       setIsQueueRun(true);
       trackEvent('quiz_start', {
         quiz_type: 'study_queue',
-        item_count: queue.length,
+        item_count: run.length,
       });
     } catch (err) {
       console.error('API getReviewQueue error:', err);
@@ -1119,6 +1121,11 @@ export default function Home() {
             setIsBattleOpen(true);
           }}
           onOpenAddWord={() => setIsAddWordOpen(true)}
+          // From home, so a failed start has somewhere to say so.
+          onStartReview={() => {
+            setActiveTab('home');
+            void startQueueReview();
+          }}
         />
       )}
 

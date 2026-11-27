@@ -18,6 +18,8 @@ interface PracticeTabProps {
   onOpenSitting: (sitting: PracticeSitting) => void;
   onOpenBattle: () => void;
   onOpenAddWord: () => void;
+  /** The home screen's review run. */
+  onStartReview: () => void;
 }
 
 const MODES: { id: PracticeMode; label: string; needsChoices?: boolean }[] = [
@@ -47,9 +49,11 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   onOpenSitting,
   onOpenBattle,
   onOpenAddWord,
+  onStartReview,
 }) => {
   const [items, setItems] = useState<UserWordListItem[] | null>(null);
   const [choices, setChoices] = useState<PracticeChoices | null>(null);
+  const [areChoicesSettled, setChoicesSettled] = useState(false);
   const [unfinished, setUnfinished] = useState<PracticeSitting | null>(null);
   const [selection, setSelection] = useState<WordSelection>(EMPTY_SELECTION);
   /** null is "Tự động". */
@@ -75,7 +79,8 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
       });
     fetchPracticeChoices()
       .then((next) => isCurrent && setChoices(next))
-      .catch((err) => console.warn('Could not load practice choices:', err));
+      .catch((err) => console.warn('Could not load practice choices:', err))
+      .finally(() => isCurrent && setChoicesSettled(true));
     fetchPracticeSitting()
       .then((sitting) => isCurrent && setUnfinished(sitting))
       .catch((err) => {
@@ -92,7 +97,11 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   }, [allWords.length]);
 
   const shortcuts = { favorites, oftenMissedIds: choices?.oftenMissedIds ?? [] };
-  const chosenCount = (items ?? []).filter((item) =>
+  // Words waiting for review are not listed: their meaning would be read just
+  // before it is asked for.
+  const reviewDue = new Set(choices?.reviewDueIds ?? []);
+  const practisable = (items ?? []).filter((item) => !reviewDue.has(Number(item.word.id)));
+  const chosenCount = practisable.filter((item) =>
     isWordChosen(selection, item, shortcuts),
   ).length;
   const canStart = chosenCount > 0 && (modes === null || modes.length > 0) && !isStarting;
@@ -172,6 +181,17 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
         </button>
       )}
 
+      {reviewDue.size > 0 && (
+        <button
+          type="button"
+          onClick={onStartReview}
+          className="w-full flex items-center justify-between gap-2 p-4 rounded-card bg-amber-50 dark:bg-amber-500/10 border-clay border-amber-300 text-left text-sm font-extrabold text-amber-800 dark:text-amber-300 active:scale-[0.98] transition-all"
+        >
+          <span>{reviewDue.size} từ đang chờ ôn</span>
+          <span>Ôn ngay →</span>
+        </button>
+      )}
+
       {items?.length === 0 ? (
         <div className={`${sectionClass} flex flex-col items-center`}>
           <p className={titleClass}>Chưa có từ nào để luyện</p>
@@ -222,11 +242,11 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                 nó mất ngay: nó tự rời danh sách khi 30 ngày gần nhất còn dưới 2 lần quên.
               </p>
             )}
-            {items === null ? (
+            {items === null || !areChoicesSettled ? (
               !error && <Loader2 className="w-5 h-5 animate-spin text-blue-600 mx-auto" />
             ) : (
               <WordPicker
-                items={items}
+                items={practisable}
                 vocabularySets={vocabularySets}
                 shortcuts={shortcuts}
                 selection={selection}

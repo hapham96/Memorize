@@ -44,6 +44,34 @@ const buttonClass =
 const primaryClass = `${buttonClass} bg-blue-600 border-blue-400 text-white`;
 const secondaryClass = `${buttonClass} bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200`;
 
+/** What the finished round means for the review schedule. */
+const ScheduleNote: React.FC<{ summary: NonNullable<PracticeSitting['summary']> }> = ({
+  summary: { scheduledCount, dueCount, waitingCount, nextDueAt },
+}) => {
+  const minutes = nextDueAt
+    ? Math.max(1, Math.ceil((new Date(nextDueAt).getTime() - Date.now()) / 60_000))
+    : null;
+  return (
+    <div className="space-y-1 text-center text-xs font-bold text-slate-600 dark:text-slate-300">
+      {scheduledCount > 0 && (
+        <p>✓ {scheduledCount} từ đã vào lịch ôn, mai app nhắc bạn</p>
+      )}
+      {waitingCount > 0 && minutes !== null && (
+        <p>
+          ↻ {waitingCount} từ gặp lại sau khoảng {minutes} phút
+        </p>
+      )}
+      {dueCount === 0 && (
+        <p className="text-slate-500 dark:text-slate-400">
+          {waitingCount > 0
+            ? 'Luyện tiếp bây giờ vẫn được, nhưng chưa tính vào lịch ôn.'
+            : 'Hôm nay không còn gì đến hạn. Luyện thêm cũng được, không ảnh hưởng lịch.'}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const WordList: React.FC<{ title: string; words: PracticeSummaryWord[]; tone: string }> = ({
   title,
   words,
@@ -164,6 +192,9 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
     });
 
   const { round, summary } = sitting;
+  // With nothing due, stopping is the main choice and going on is extra.
+  const isCaughtUp = summary?.dueCount === 0;
+  const isWaiting = isCaughtUp && summary.waitingCount > 0;
   const isStopped = problem === 'replaced' || problem === 'gone';
 
   return (
@@ -244,6 +275,7 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
                 </p>
               )}
             </div>
+            {summary && <ScheduleNote summary={summary} />}
             <WordList
               title="Đã nhớ"
               words={summary?.remembered ?? []}
@@ -255,19 +287,26 @@ export const PracticeSession: React.FC<PracticeSessionProps> = ({
               tone="bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
             />
           </div>
-          {!sitting.done && (
+          <div className={`flex gap-3 ${isCaughtUp ? 'flex-col-reverse' : 'flex-col'}`}>
+            {!sitting.done && (
+              <button
+                type="button"
+                onClick={() => void handleNextRound()}
+                disabled={isBusy}
+                className={isCaughtUp ? secondaryClass : primaryClass}
+              >
+                {!isCaughtUp ? 'Học tiếp' : isWaiting ? 'Luyện tiếp' : 'Luyện thêm'}
+              </button>
+            )}
+            {/* Coming back later keeps the sitting; otherwise it is over. */}
             <button
               type="button"
-              onClick={() => void handleNextRound()}
-              disabled={isBusy}
-              className={primaryClass}
+              onClick={isWaiting && !sitting.done ? onClose : handleFinish}
+              className={isCaughtUp || sitting.done ? primaryClass : secondaryClass}
             >
-              Học tiếp
+              {isWaiting && !sitting.done ? 'Tui oke, lát quay lại' : 'Tui oke'}
             </button>
-          )}
-          <button type="button" onClick={handleFinish} className={secondaryClass}>
-            Tui oke
-          </button>
+          </div>
         </div>
       )}
     </div>
