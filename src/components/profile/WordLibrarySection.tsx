@@ -63,11 +63,12 @@ interface WordLibrarySectionProps {
 /** Only a word the server knows can be filed or marked. */
 const isSynced = (wordId: string) => /^\d+$/.test(wordId);
 
-const STATE_STYLES: Record<SRSState, string> = {
-  new: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600',
-  learning: 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30',
-  review: 'bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30',
-  mastered: 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30',
+/** A row says its status with a dot; the same dot on the filter chips names it. */
+const STATE_DOTS: Record<SRSState, string> = {
+  new: 'bg-slate-400',
+  learning: 'bg-amber-500',
+  review: 'bg-blue-500',
+  mastered: 'bg-emerald-500',
 };
 
 /** The status filter's options, in the order the SRS ladder runs. */
@@ -476,7 +477,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   const isEmpty = !isLoading && rows.length === 0;
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-card p-5 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm">
+    // On a phone there is no outer card: its border and padding cost the rows width.
+    <div className="md:bg-white md:dark:bg-slate-800 md:rounded-card md:p-5 md:border-clay md:border-blue-200 md:dark:border-slate-700 md:shadow-clay-sm">
       {/* Section header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
@@ -588,6 +590,12 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'
               }`}
             >
+              {option.value !== 'all' && (
+                <span
+                  aria-hidden
+                  className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : STATE_DOTS[option.value]}`}
+                />
+              )}
               <span>{option.label}</span>
               {items !== null && (
                 <span className={isActive ? 'text-blue-200' : 'text-slate-400'}>{count}</span>
@@ -703,65 +711,65 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
             }`}
           >
             {rows.map((item, index) => (
-              <div key={`${item.word.id}-${index}`} className="flex items-center gap-1">
-              <motion.button
-                type="button"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, delay: index * 0.02 }}
-                onClick={() =>
-                  picked === null
-                    ? openDetail(item)
-                    : isSynced(String(item.word.id)) && togglePicked(String(item.word.id))
-                }
-                aria-pressed={picked === null ? undefined : picked.has(String(item.word.id))}
-                aria-label={
-                  picked === null ? `Xem chi tiết từ ${item.word.word}` : `Chọn từ ${item.word.word}`
-                }
-                className="min-w-0 flex-1 text-left flex items-center gap-3 p-2.5 rounded-2xl border-clay border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-blue-300 dark:hover:border-blue-500/40 active:scale-[0.99] transition-all"
-              >
-                {picked !== null &&
-                  (picked.has(String(item.word.id)) ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-blue-600" />
-                  ) : (
-                    <Circle className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
-                  ))}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
-                      {item.word.word}
+              <div key={`${item.word.id}-${index}`} className="relative">
+                <motion.button
+                  type="button"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18, delay: index * 0.02 }}
+                  onClick={() =>
+                    picked === null
+                      ? openDetail(item)
+                      : isSynced(String(item.word.id)) && togglePicked(String(item.word.id))
+                  }
+                  aria-pressed={picked === null ? undefined : picked.has(String(item.word.id))}
+                  aria-label={
+                    picked === null ? `Xem chi tiết từ ${item.word.word}` : `Chọn từ ${item.word.word}`
+                  }
+                  className="w-full text-left flex items-start gap-3 p-3 rounded-2xl border-clay border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 md:bg-slate-50 md:dark:bg-slate-900/40 hover:border-blue-300 dark:hover:border-blue-500/40 active:scale-[0.99] transition-all"
+                >
+                  {picked !== null &&
+                    (picked.has(String(item.word.id)) ? (
+                      <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-blue-600" />
+                    ) : (
+                      <Circle className="w-4 h-4 mt-0.5 shrink-0 text-slate-300 dark:text-slate-600" />
+                    ))}
+                  <span className="min-w-0 flex-1 block">
+                    {/* Room on the right for the heart, which sits over this line. */}
+                    <span className="block pr-8 break-words">
+                      <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        {item.word.word}
+                      </span>
+                      <span className="ml-1.5 text-[11px] text-slate-400">
+                        {[item.word.pos, item.word.level].filter(Boolean).join(' · ')}
+                      </span>
                     </span>
-                    {item.word.pos && (
-                      <span className="text-[10px] italic text-slate-400">{item.word.pos}</span>
-                    )}
-                    <span className="text-[10px] text-slate-400 truncate">{item.word.ipa}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300 truncate mt-0.5">
-                    {item.word.definition || '—'}
-                  </p>
-                </div>
-
-                <div className="shrink-0 flex flex-col items-end gap-1">
-                  <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                    {item.word.level}
+                    <span className="flex items-center gap-2 min-h-[1.25rem] pr-1.5">
+                      <span className="min-w-0 truncate text-[11px] text-slate-400">
+                        {item.word.ipa}
+                      </span>
+                      {item.state && (
+                        <span
+                          role="img"
+                          aria-label={SRS_STATE_LABELS[item.state]}
+                          title={SRS_STATE_LABELS[item.state]}
+                          className={`ml-auto shrink-0 w-2.5 h-2.5 rounded-full ${STATE_DOTS[item.state]}`}
+                        />
+                      )}
+                    </span>
+                    <span className="mt-0.5 text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
+                      {item.word.definition || '—'}
+                    </span>
                   </span>
-                  {item.state && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATE_STYLES[item.state]}`}
-                    >
-                      {SRS_STATE_LABELS[item.state]}
-                    </span>
-                  )}
-                </div>
-
-                <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
-              </motion.button>
-              {picked === null && isSynced(String(item.word.id)) && (
-                <FavoriteButton
-                  isFavorite={favorites.includes(String(item.word.id))}
-                  onToggle={() => onToggleFavorite(String(item.word.id))}
-                />
-              )}
+                </motion.button>
+                {/* Beside the row's button, not inside it: buttons cannot nest. */}
+                {picked === null && isSynced(String(item.word.id)) && (
+                  <FavoriteButton
+                    isFavorite={favorites.includes(String(item.word.id))}
+                    onToggle={() => onToggleFavorite(String(item.word.id))}
+                    className="absolute top-1.5 right-1.5"
+                  />
+                )}
               </div>
             ))}
           </div>
