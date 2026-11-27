@@ -91,12 +91,11 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
     // `allWords.length`: a word added while the tab is open belongs in the list.
   }, [allWords.length]);
 
+  const shortcuts = { favorites, oftenMissedIds: choices?.oftenMissedIds ?? [] };
   const chosenCount = (items ?? []).filter((item) =>
-    isWordChosen(selection, item, favorites),
+    isWordChosen(selection, item, shortcuts),
   ).length;
-  const hasChoice =
-    chosenCount > 0 || (selection.oftenMissed && (choices?.oftenMissedCount ?? 0) > 0);
-  const canStart = hasChoice && (modes === null || modes.length > 0) && !isStarting;
+  const canStart = chosenCount > 0 && (modes === null || modes.length > 0) && !isStarting;
 
   const resume = () => {
     if (!unfinished) return;
@@ -203,7 +202,13 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                 type="button"
                 aria-pressed={selection.oftenMissed}
                 disabled={!choices?.oftenMissedCount && !selection.oftenMissed}
-                onClick={() => setSelection({ ...selection, oftenMissed: !selection.oftenMissed })}
+                onClick={() => {
+                  const excludedIds = new Set(selection.excludedIds);
+                  if (!selection.oftenMissed) {
+                    shortcuts.oftenMissedIds.forEach((id) => excludedIds.delete(id));
+                  }
+                  setSelection({ ...selection, excludedIds, oftenMissed: !selection.oftenMissed });
+                }}
                 title="Quên từ 2 lần trở lên trong 30 ngày"
                 className={chipClass(selection.oftenMissed)}
               >
@@ -217,7 +222,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
               <WordPicker
                 items={items}
                 vocabularySets={vocabularySets}
-                favorites={favorites}
+                shortcuts={shortcuts}
                 selection={selection}
                 onChange={setSelection}
               />
@@ -285,7 +290,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
                 <Play className="w-5 h-5 fill-white" />
               )}
               Bắt đầu
-              {chosenCount > 0 && ` (${chosenCount}${selection.oftenMissed ? '+' : ''} từ)`}
+              {chosenCount > 0 && ` (${chosenCount} từ)`}
             </button>
           )}
         </>

@@ -69,6 +69,7 @@ export interface PracticeChoices {
   wordCount: number;
   favoriteCount: number;
   oftenMissedCount: number;
+  oftenMissedIds: number[];
   /** Whether multiple choice and match can be offered. */
   canChoose: boolean;
 }
