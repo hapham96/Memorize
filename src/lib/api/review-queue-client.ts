@@ -4,36 +4,32 @@ import { normalizeSRSState } from "@/lib/srs";
 import { getAsync, postAsync } from "./client";
 import { invalidateUserWordLibrary } from "./word-client";
 
+export interface QueueCounts {
+  fresh: number;
+  again: number;
+}
+
 /**
- * Every due word of any phase. Unlike `/reviews/due` it includes new and
- * learning words; `splitQueue` tells the two apart.
+ * Every due word of any phase: what the home button counts and studies. Unlike
+ * `/reviews/due` it includes new and learning words.
  */
 export async function getReviewQueue(): Promise<BackendDueReview[]> {
   return getAsync<BackendDueReview[]>("/reviews/queue", { auth: true });
 }
 
 /**
- * Words to review (graduated meanings) apart from words still being practised
- * (new or learning). Each row keeps only the meanings of its own phase, which
- * are also the only ones its submit endpoint grades. A word with due meanings
- * of both phases is in both lists.
+ * How many queued words are brand new or still being learned, and how many are
+ * coming back for review. A word with a graduated meaning due counts as the latter.
  */
-export function splitQueue(queue: BackendDueReview[]): {
-  review: BackendDueReview[];
-  practice: BackendDueReview[];
-} {
-  const only = (graduated: boolean) =>
-    queue.flatMap((row) => {
-      const definitions = row.definitions.filter((definition) => {
-        const state = normalizeSRSState(definition.status);
-        return (state === "review" || state === "mastered") === graduated;
-      });
-      return definitions.length > 0
-        ? [{ ...row, definitions, example: definitions[0].example ?? null }]
-        : [];
-    });
+export function countQueue(queue: BackendDueReview[]): QueueCounts {
+  const again = queue.filter((row) =>
+    row.definitions.some((definition) => {
+      const state = normalizeSRSState(definition.status);
+      return state === "review" || state === "mastered";
+    }),
+  ).length;
 
-  return { review: only(true), practice: only(false) };
+  return { fresh: queue.length - again, again };
 }
 
 export interface StarterWord {

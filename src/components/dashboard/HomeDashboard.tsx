@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { ActivityDay, LearningProgress, UserProgress } from '@/types';
 import { StatsSummary } from '@/types/stats';
+import { QueueCounts } from '@/lib/api/review-queue-client';
 import { totalReviewsIn, WEEKDAY_LABELS, weekdayColumn } from '@/lib/activity';
 import { Plus } from 'lucide-react';
 import { Mascot, MascotMood } from '@/components/mascot/Mascot';
@@ -28,14 +29,14 @@ interface HomeDashboardProps {
   learning: LearningProgress | null;
   /** Reviews per day, oldest first; null until the server answers. */
   activity: ActivityDay[] | null;
-  /** Graduated words due for review; null until the server answers. */
-  dueCount: number | null;
-  /** New and learning words due: practice, not review. */
-  practiceCount?: number;
+  /** The words due now; null until the server answers. */
+  queue: QueueCounts | null;
   isStartingReview?: boolean;
   reviewError?: string | null;
   onStartReview: () => void;
   onOpenAddWord: () => void;
+  /** Where the button leads once nothing is due. */
+  onOpenPractice: () => void;
 }
 
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
@@ -43,12 +44,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   summary = null,
   learning,
   activity,
-  dueCount,
-  practiceCount = 0,
+  queue,
   isStartingReview = false,
   reviewError = null,
   onStartReview,
   onOpenAddWord,
+  onOpenPractice,
 }) => {
   // Remote counters when the summary landed, local ones until then.
   const learnedToday = summary?.learnedToday ?? 0;
@@ -83,6 +84,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   // server has seen nothing from this account today.
   const streak = learning?.streak ?? 0;
   const streakAtRisk = streak > 0 && !learning?.activeToday;
+  const dueCount = queue ? queue.fresh + queue.again : null;
   const [mascotMood, mascotMoment, mascotCount]: [MascotMood, MascotMoment, number?] = streakAtRisk
     ? ['worried', 'streakAtRisk', streak]
     : goalPercentage >= 100
@@ -92,30 +94,53 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     : ['wave', greetingMoment()];
   const mascotLine = useMascotLine(mascotMoment, mascotCount);
 
-  const nothingDue = dueCount === 0 && practiceCount === 0;
-  const mainLabel =
-    dueCount === null
-      ? 'Ôn tập'
-      : dueCount > 0
-      ? `Ôn ${dueCount} từ`
-      : practiceCount > 0
-      ? `Luyện tập ${practiceCount} từ`
-      : 'Thêm từ mới';
+  // One button: study what is due, else add a first word, else practise freely.
+  const isAllDone = dueCount === 0;
+  const hasNoWords = isAllDone && summary !== null && wordsLearned === 0;
+  const main = !isAllDone
+    ? {
+        label: dueCount === null ? 'Học hôm nay' : `Học ${dueCount} từ hôm nay`,
+        Icon: Brain,
+        onClick: onStartReview,
+      }
+    : hasNoWords
+    ? { label: 'Thêm từ mới', Icon: Plus, onClick: onOpenAddWord }
+    : { label: 'Luyện thêm', Icon: BookOpen, onClick: onOpenPractice };
+
+  const hints: string[] = [];
+  if (queue && dueCount) {
+    const parts = [
+      queue.fresh > 0 && `${queue.fresh} từ mới`,
+      queue.again > 0 && `${queue.again} từ ôn lại`,
+    ];
+    hints.push(parts.filter(Boolean).join(' · '));
+    if (queue.fresh > 0) hints.push('Từ mới cần gặp lại vài lần trong hôm nay.');
+    if (learning?.totalReviews === 0) {
+      hints.push('Học hôm nay, mai app nhắc lại đúng từ bạn sắp quên.');
+    }
+  } else if (isAllDone && !hasNoWords) {
+    hints.push('Xong phần hôm nay rồi. Đến ngày, app sẽ nhắc bạn ôn lại.');
+  }
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
-      {/* The one main action: review, else practise, else add words. */}
+      {/* The one main action (see `main`). */}
       <div className="space-y-2">
         <button
           type="button"
-          onClick={nothingDue ? onOpenAddWord : onStartReview}
+          onClick={main.onClick}
           disabled={isStartingReview}
           className="w-full py-5 rounded-[24px] bg-emerald-600 hover:bg-emerald-700 border-clay border-emerald-400 text-white font-black text-lg md:text-xl shadow-clay-lg flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-60 transition-all"
         >
-          {nothingDue ? <Plus className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
-          <span>{isStartingReview ? 'Đang tải…' : mainLabel}</span>
+          <main.Icon className="w-6 h-6" />
+          <span>{isStartingReview ? 'Đang tải…' : main.label}</span>
           <ChevronRight className="w-5 h-5" />
         </button>
+        {hints.map((hint) => (
+          <p key={hint} className="text-xs font-bold text-slate-500 dark:text-slate-400 text-center">
+            {hint}
+          </p>
+        ))}
         {reviewError && (
           <p role="alert" className="text-xs font-bold text-red-500 text-center">
             {reviewError}
