@@ -30,7 +30,7 @@ import { WordDetailModal } from './WordDetailModal';
 import { Mascot } from '@/components/mascot/Mascot';
 import { FavoriteButton } from '@/components/common/FavoriteButton';
 import { moveWordsToSet } from '@/lib/api/category-client';
-import { VocabularySetBar } from './VocabularySetBar';
+import { VocabularySetBar, type SetFilter } from './VocabularySetBar';
 
 interface WordLibrarySectionProps {
   /**
@@ -154,8 +154,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   onToggleFavorite,
   onSetsChanged,
 }) => {
-  const [setFilter, setSetFilter] = useState<number | null>(null);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [setFilter, setSetFilter] = useState<SetFilter>(null);
   // Ids ticked for moving, or null while not choosing.
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [isMoving, setIsMoving] = useState(false);
@@ -288,17 +287,17 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   // A result set the reader did not ask for should not open on page 4.
   useEffect(() => {
     setPage(1);
-  }, [activeQuery, statusFilter, setFilter, favoritesOnly]);
+  }, [activeQuery, statusFilter, setFilter]);
 
   /** The result set narrowed by the set and Favorite chips. */
   const inScope = useMemo(
     () =>
-      (items ?? []).filter(
-        (item) =>
-          (setFilter === null || item.vocabularySetId === setFilter) &&
-          (!favoritesOnly || favorites.includes(String(item.word.id))),
-      ),
-    [items, setFilter, favoritesOnly, favorites],
+      (items ?? []).filter((item) => {
+        if (setFilter === null) return true;
+        if (setFilter === 'favorites') return favorites.includes(String(item.word.id));
+        return item.vocabularySetId === setFilter;
+      }),
+    [items, setFilter, favorites],
   );
 
   /** The rows actually listed — the above narrowed by the status chip. */
@@ -316,8 +315,7 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
     return counts;
   }, [inScope]);
 
-  const isFiltering =
-    activeQuery !== '' || statusFilter !== 'all' || setFilter !== null || favoritesOnly;
+  const isFiltering = activeQuery !== '' || statusFilter !== 'all' || setFilter !== null;
 
   /** Re-reads sets and library, then repaints from the fresh cache. */
   const refreshAfterSetChange = async () => {
@@ -409,7 +407,6 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
     setActiveQuery('');
     setStatusFilter('all');
     setSetFilter(null);
-    setFavoritesOnly(false);
   };
 
   const handleClearQuery = () => {
@@ -564,10 +561,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
 
       <VocabularySetBar
         sets={vocabularySets}
-        selectedId={setFilter}
+        filter={setFilter}
         onSelect={setSetFilter}
-        favoritesOnly={favoritesOnly}
-        onToggleFavoritesOnly={() => setFavoritesOnly((value) => !value)}
         onChanged={refreshAfterSetChange}
       />
 
