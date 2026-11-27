@@ -9,7 +9,7 @@ import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { calculateNextSRS } from '@/lib/srs';
 import { speakWord, soundFX } from '@/lib/audio';
 import { getWordMeanings } from '@/lib/word';
-import { categoryNames } from '@/lib/api/category-client';
+import { FavoriteButton } from '@/components/common/FavoriteButton';
 import {
   submitReviewWord,
   mapWordRatingToSRS,
@@ -41,6 +41,8 @@ interface ReviewDashboardProps {
   onOpenAddWord?: () => void;
   /** Fired after the backend due list is re-read, so reminders can follow. */
   onDueListChanged?: () => void;
+  favorites: string[];
+  onToggleFavorite: (wordId: string) => void;
 }
 
 interface DueReviewItem {
@@ -90,6 +92,8 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   onMergeSRS,
   onOpenAddWord,
   onDueListChanged,
+  favorites,
+  onToggleFavorite,
 }) => {
   const [isReviewing, setIsReviewing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -252,7 +256,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     const used = new Set<WordCategory>(allWords.map((w) => w.category));
     (apiDueItems ?? []).forEach((item) => used.add(item.word.category));
 
-    const known = categoryNames(vocabularySets).filter((name) => used.has(name));
+    const known = vocabularySets.map((set) => set.name).filter((name) => used.has(name));
     // A queue category the `/vocabulary-sets` list does not name would otherwise
     // be unreachable, so it is appended rather than dropped.
     const unnamed = Array.from(used).filter((name) => !known.includes(name)).sort();
@@ -372,6 +376,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                 </span>
                 <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                   <RotateCw className="w-3.5 h-3.5" /> Tap card to flip
+                  <FavoriteButton
+                    isFavorite={favorites.includes(String(currentWord.id))}
+                    onToggle={() => onToggleFavorite(String(currentWord.id))}
+                  />
                 </span>
               </div>
 
@@ -418,6 +426,10 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
                   Definition & Context
                 </span>
                 <div className="flex items-center gap-1">
+                  <FavoriteButton
+                    isFavorite={favorites.includes(String(currentWord.id))}
+                    onToggle={() => onToggleFavorite(String(currentWord.id))}
+                  />
                   {hasManyMeanings && (
                     <span className="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       Nghĩa {safeMeaningIndex + 1}/{meanings.length}

@@ -74,6 +74,7 @@ import {
   mapWordRatingToSRS,
   getUserWordLibrary,
   invalidateDueReviews,
+  invalidateUserWordLibrary,
   resolveWordForUserWord,
   submitReviewWord,
 } from '@/lib/api/word-client';
@@ -233,6 +234,34 @@ export default function Home() {
       setVocabularySets(await syncVocabularySets({ force }));
     } catch (err) {
       console.warn('Could not load vocabulary sets from API:', err);
+    }
+  };
+
+  /**
+   * Sets or their words changed: read the sets again, then the library, so every
+   * word on this device carries the name of the set it is in now.
+   */
+  const handleSetsChanged = async () => {
+    try {
+      const sets = await syncVocabularySets({ force: true });
+      setVocabularySets(sets);
+      invalidateUserWordLibrary();
+      const { items } = await getUserWordLibrary({
+        force: true,
+        fallbacks: allWords,
+        vocabularySets: sets,
+      });
+      const categories = new Map(items.map((item) => [String(item.word.id), item.word.category]));
+      setAllWords((prev) => {
+        const next = prev.map((w) => {
+          const category = categories.get(String(w.id));
+          return category && category !== w.category ? { ...w, category } : w;
+        });
+        saveCustomWords(next);
+        return next;
+      });
+    } catch (err) {
+      console.warn('Could not refresh vocabulary sets:', err);
     }
   };
 
@@ -701,13 +730,6 @@ export default function Home() {
   // counter that drifted away from the SRS map, the XP total or the settings.
   const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
 
-  // Filter word dataset according to user's focusCategories setting. Memoised
-  // because `useDueReminders` scans this list on every identity change.
-  const focusCategories = useMemo(
-    () => settings.focusCategories || [],
-    [settings.focusCategories]
-  );
-
   const openReview = () => {
     setActiveQuizMode(null);
     setSessionResult(null);
@@ -1039,6 +1061,8 @@ export default function Home() {
     // back unchanged and there is nothing local to re-key.
     void refreshStats();
     scheduleProgressRefresh();
+    // The server makes the default set with an account's first word.
+    if (!vocabularySets.some((set) => set.isDefault)) void hydrateVocabularySets(true);
 
     if (syncedWord.id === localId) return;
 
@@ -1062,7 +1086,6 @@ export default function Home() {
     refreshDue,
   } = useDueReminders({
     allWords,
-    focusCategories,
     srsMap,
     settings,
     isReady: isMounted,
@@ -1330,7 +1353,6 @@ export default function Home() {
           practiceCount={queueCounts?.practice ?? 0}
           isStartingReview={isStartingReview}
           reviewError={reviewError}
-          focusCategories={settings.focusCategories}
           onStartReview={() => void startQueueReview()}
           onOpenAddWord={() => setIsAddWordOpen(true)}
         />
@@ -1361,6 +1383,8 @@ export default function Home() {
           onMergeSRS={handleMergeSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
           onDueListChanged={refreshDue}
+          favorites={userProgress.favorites}
+          onToggleFavorite={handleToggleFavorite}
         />
       )}
 
@@ -1377,6 +1401,9 @@ export default function Home() {
           vocabularySets={vocabularySets}
           onWordUpdated={handleWordEdited}
           onWordDeleted={handleWordRemoved}
+          favorites={userProgress.favorites}
+          onToggleFavorite={handleToggleFavorite}
+          onSetsChanged={handleSetsChanged}
           onEditProfile={() => setIsEditProfileOpen(true)}
           onLogout={() => signOut()}
         />
@@ -1387,7 +1414,6 @@ export default function Home() {
       {isSettingsOpen && (
         <SettingsModal
           settings={settings}
-          vocabularySets={vocabularySets}
           onUpdateSettings={handleUpdateSettings}
           onResetProgress={handleResetProgress}
           onClose={() => setIsSettingsOpen(false)}
@@ -1467,6 +1493,8 @@ export default function Home() {
       <AddWordModal
         isOpen={isAddWordOpen}
         vocabularySets={vocabularySets}
+        cefrLevel={settings.cefrLevel}
+        onSetsChanged={handleSetsChanged}
         onClose={() => setIsAddWordOpen(false)}
         onAddWord={(w) => handleAddWords([w], 'manual')}
         onAddWords={(ws) => handleAddWords(ws, 'excel')}

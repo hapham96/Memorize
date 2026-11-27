@@ -576,6 +576,7 @@ function mapListRow(
     state: normalizeSRSState(representative?.status),
     dueAt: trimmed(representative?.dueAt),
     isFavorite: row.isFavorite,
+    vocabularySetId: row.vocabularySetId ?? undefined,
   };
 }
 

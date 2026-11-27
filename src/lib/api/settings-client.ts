@@ -19,13 +19,6 @@ import { getAsync, patchAsync } from "./client";
  * strings, one category instead of a list), so both directions are mapped.
  */
 
-/**
- * What `focusCategory` holds when the learner has picked no focus — the
- * backend's documented default. Compared case-insensitively against
- * `FALLBACK_CATEGORY`, which is the same bucket under the app's own spelling.
- */
-const UNSET_FOCUS_CATEGORY = 'custom';
-
 /** `"1h"`, `"90m"`, `"1h30m"`, or a bare number of minutes. */
 const DURATION_UNITS: Record<string, number> = { h: 60, m: 1, s: 1 / 60 };
 const DURATION_PART = /(\d+(?:\.\d+)?)\s*(h|m|s)/gi;
@@ -101,27 +94,6 @@ function parseTheme(raw: unknown): AppSettings["theme"] | undefined {
 }
 
 /**
- * The backend holds one focus category where the app holds a list, and its
- * default is `"custom"`. That default means "nothing chosen", so it maps to an
- * empty list — reading it as a real choice would silently narrow the whole word
- * pool to locally added words on a fresh account.
- */
-function parseFocusCategory(raw: unknown): string[] | undefined {
-  if (typeof raw !== "string") return undefined;
-
-  const name = raw.trim();
-  if (!name || name.toLowerCase() === FALLBACK_CATEGORY.toLowerCase()) return [];
-  return [name];
-}
-
-function formatFocusCategory(categories: string[] | undefined): string {
-  // Only the first survives the trip; the backend has room for one. With none
-  // chosen the backend's own default spelling goes back, so "no focus" reads the
-  // same way it arrived.
-  return categories?.[0] ?? UNSET_FOCUS_CATEGORY;
-}
-
-/**
  * Maps a `/settings` response onto the app's own shape. Only fields the response
  * actually carried are returned, so the caller merges them over the local copy
  * and a sparse or partial answer never blanks a preference.
@@ -144,9 +116,6 @@ export function mapBackendSettings(
 
   const cefrLevel = parseCefrLevel(backend.cefrLevel ?? backend.certLevel);
   if (cefrLevel !== undefined) settings.cefrLevel = cefrLevel;
-
-  const focusCategories = parseFocusCategory(backend.focusCategory);
-  if (focusCategories) settings.focusCategories = focusCategories;
 
   const notification = backend.notification;
   if (notification && typeof notification === "object") {
@@ -203,7 +172,6 @@ export function mapSettingsToRequest(settings: AppSettings): UpdateSettingsReque
     dailyWord: settings.dailyGoal,
     // Left out entirely while the CEFR question is unanswered — see the type.
     ...(cefrLevel === undefined ? {} : { cefrLevel }),
-    focusCategory: formatFocusCategory(settings.focusCategories),
   };
 }
 

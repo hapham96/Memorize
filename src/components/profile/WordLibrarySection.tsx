@@ -10,6 +10,8 @@ import {
   Download,
   FileSpreadsheet,
   Loader2,
+  CheckCircle2,
+  Circle,
   RefreshCw,
   Search,
   X,
@@ -26,6 +28,9 @@ import { soundFX } from '@/lib/audio';
 import { trackEvent } from '@/lib/analytics';
 import { WordDetailModal } from './WordDetailModal';
 import { Mascot } from '@/components/mascot/Mascot';
+import { FavoriteButton } from '@/components/common/FavoriteButton';
+import { moveWordsToSet } from '@/lib/api/category-client';
+import { VocabularySetBar } from './VocabularySetBar';
 
 interface WordLibrarySectionProps {
   /**
@@ -45,7 +50,18 @@ interface WordLibrarySectionProps {
   onWordUpdated?: (word: Word) => void;
   /** A word was deleted — it has already left this list and the cached library. */
   onWordDeleted?: (wordId: string) => void;
+  /** Ids of the account's Favorite words. */
+  favorites: string[];
+  onToggleFavorite: (wordId: string) => void;
+  /**
+   * A set was created, renamed or deleted, or words moved between sets.
+   * Resolves once the set list and the cached library have been read again.
+   */
+  onSetsChanged: () => Promise<void>;
 }
+
+/** Only a word the server knows can be filed or marked. */
+const isSynced = (wordId: string) => /^\d+$/.test(wordId);
 
 const STATE_STYLES: Record<SRSState, string> = {
   new: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600',
@@ -134,7 +150,16 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   vocabularySets = [],
   onWordUpdated,
   onWordDeleted,
+  favorites,
+  onToggleFavorite,
+  onSetsChanged,
 }) => {
+  const [setFilter, setSetFilter] = useState<number | null>(null);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Ids ticked for moving, or null while not choosing.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   // What is typed in the box, updated on every keystroke.
   const [query, setQuery] = useState('');
@@ -263,25 +288,68 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
   // A result set the reader did not ask for should not open on page 4.
   useEffect(() => {
     setPage(1);
-  }, [activeQuery, statusFilter]);
+  }, [activeQuery, statusFilter, setFilter, favoritesOnly]);
 
-  /** The rows actually listed — the result set narrowed by the status chip. */
+  /** The result set narrowed by the set and Favorite chips. */
+  const inScope = useMemo(
+    () =>
+      (items ?? []).filter(
+        (item) =>
+          (setFilter === null || item.vocabularySetId === setFilter) &&
+          (!favoritesOnly || favorites.includes(String(item.word.id))),
+      ),
+    [items, setFilter, favoritesOnly, favorites],
+  );
+
+  /** The rows actually listed — the above narrowed by the status chip. */
   const filtered = useMemo(() => {
-    const source = items ?? [];
-    if (statusFilter === 'all') return source;
-    return source.filter((item) => filterState(item) === statusFilter);
-  }, [items, statusFilter]);
+    if (statusFilter === 'all') return inScope;
+    return inScope.filter((item) => filterState(item) === statusFilter);
+  }, [inScope, statusFilter]);
 
-  /** How many rows each chip would leave, counted over the current result set. */
+  /** How many rows each status chip would leave. */
   const statusCounts = useMemo(() => {
     const counts: Record<SRSState, number> = { new: 0, learning: 0, review: 0, mastered: 0 };
-    (items ?? []).forEach((item) => {
+    inScope.forEach((item) => {
       counts[filterState(item)] += 1;
     });
     return counts;
-  }, [items]);
+  }, [inScope]);
 
-  const isFiltering = activeQuery !== '' || statusFilter !== 'all';
+  const isFiltering =
+    activeQuery !== '' || statusFilter !== 'all' || setFilter !== null || favoritesOnly;
+
+  /** Re-reads sets and library, then repaints from the fresh cache. */
+  const refreshAfterSetChange = async () => {
+    await onSetsChanged();
+    await loadLibrary(activeQuery, false);
+  };
+
+  const togglePicked = (wordId: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(wordId)) next.add(wordId);
+      return next;
+    });
+  };
+
+  const moveable = filtered.map((item) => String(item.word.id)).filter(isSynced);
+
+  const movePicked = async (targetId: number) => {
+    if (!picked?.size || isMoving) return;
+    setIsMoving(true);
+    setMoveError(null);
+    try {
+      await moveWordsToSet(targetId, Array.from(picked));
+      setPicked(null);
+      await refreshAfterSetChange();
+    } catch (err) {
+      console.warn('Could not move words:', err);
+      setMoveError('Không chuyển được, kiểm tra kết nối rồi thử lại nhé.');
+    } finally {
+      setIsMoving(false);
+    }
+  };
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / WORDS_PAGE_SIZE));
 
@@ -340,6 +408,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
     setQuery('');
     setActiveQuery('');
     setStatusFilter('all');
+    setSetFilter(null);
+    setFavoritesOnly(false);
   };
 
   const handleClearQuery = () => {
@@ -492,13 +562,22 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
         )}
       </div>
 
+      <VocabularySetBar
+        sets={vocabularySets}
+        selectedId={setFilter}
+        onSelect={setSetFilter}
+        favoritesOnly={favoritesOnly}
+        onToggleFavoritesOnly={() => setFavoritesOnly((value) => !value)}
+        onChanged={refreshAfterSetChange}
+      />
+
       {/* Status filter — applied to the rows in hand, not a second request:
           `GET /words` has no status parameter. */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-3 -mx-1 px-1">
         {STATUS_FILTERS.map((option) => {
           const isActive = statusFilter === option.value;
           const count =
-            option.value === 'all' ? (items?.length ?? 0) : statusCounts[option.value];
+            option.value === 'all' ? inScope.length : statusCounts[option.value];
           return (
             <button
               key={option.value}
@@ -522,6 +601,57 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           );
         })}
       </div>
+
+      {/* Moving words between sets */}
+      {vocabularySets.length > 1 && (
+        <div className="mb-3 flex items-center gap-2 flex-wrap text-[11px] font-bold">
+          {picked === null ? (
+            <button
+              type="button"
+              onClick={() => setPicked(new Set())}
+              className="text-blue-600 dark:text-blue-400"
+            >
+              Chọn từ để chuyển bộ
+            </button>
+          ) : (
+            <>
+              <span className="text-slate-500 dark:text-slate-400">Đã chọn {picked.size}</span>
+              <button
+                type="button"
+                onClick={() => setPicked(new Set(moveable))}
+                className="text-blue-600 dark:text-blue-400"
+              >
+                Chọn cả {moveable.length}
+              </button>
+              <select
+                value=""
+                disabled={picked.size === 0 || isMoving}
+                onChange={(e) => void movePicked(Number(e.target.value))}
+                aria-label="Chuyển sang bộ"
+                className="px-2 py-1 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 disabled:opacity-40"
+              >
+                <option value="" disabled>
+                  Chuyển sang…
+                </option>
+                {vocabularySets.map((set) => (
+                  <option key={set.id} value={set.id}>
+                    {set.name}
+                  </option>
+                ))}
+              </select>
+              {isMoving && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+              <button type="button" onClick={() => setPicked(null)} className="text-slate-500">
+                Xong
+              </button>
+            </>
+          )}
+          {moveError && (
+            <span role="alert" className="text-red-500">
+              {moveError}
+            </span>
+          )}
+        </div>
+      )}
 
       {isOffline && (
         <div className="mb-3 flex items-start gap-2 rounded-2xl px-3 py-2 bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-200 dark:border-amber-500/25">
@@ -578,16 +708,29 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
             }`}
           >
             {rows.map((item, index) => (
+              <div key={`${item.word.id}-${index}`} className="flex items-center gap-1">
               <motion.button
                 type="button"
-                key={`${item.word.id}-${index}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, delay: index * 0.02 }}
-                onClick={() => openDetail(item)}
-                aria-label={`Xem chi tiết từ ${item.word.word}`}
-                className="w-full text-left flex items-center gap-3 p-2.5 rounded-2xl border-clay border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-blue-300 dark:hover:border-blue-500/40 active:scale-[0.99] transition-all"
+                onClick={() =>
+                  picked === null
+                    ? openDetail(item)
+                    : isSynced(String(item.word.id)) && togglePicked(String(item.word.id))
+                }
+                aria-pressed={picked === null ? undefined : picked.has(String(item.word.id))}
+                aria-label={
+                  picked === null ? `Xem chi tiết từ ${item.word.word}` : `Chọn từ ${item.word.word}`
+                }
+                className="min-w-0 flex-1 text-left flex items-center gap-3 p-2.5 rounded-2xl border-clay border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:border-blue-300 dark:hover:border-blue-500/40 active:scale-[0.99] transition-all"
               >
+                {picked !== null &&
+                  (picked.has(String(item.word.id)) ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-blue-600" />
+                  ) : (
+                    <Circle className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
+                  ))}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     <span className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">
@@ -618,6 +761,13 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
 
                 <ChevronRight className="w-4 h-4 shrink-0 text-slate-300 dark:text-slate-600" />
               </motion.button>
+              {picked === null && isSynced(String(item.word.id)) && (
+                <FavoriteButton
+                  isFavorite={favorites.includes(String(item.word.id))}
+                  onToggle={() => onToggleFavorite(String(item.word.id))}
+                />
+              )}
+              </div>
             ))}
           </div>
 
@@ -665,7 +815,12 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
           word={selected.word}
           state={selected.state}
           dueAt={selected.dueAt}
-          isFavorite={selected.isFavorite}
+          isFavorite={favorites.includes(String(selected.word.id))}
+          onToggleFavorite={
+            isSynced(String(selected.word.id))
+              ? () => onToggleFavorite(String(selected.word.id))
+              : undefined
+          }
           position={
             selectedIndex >= 0 ? { index: selectedIndex, total: filtered.length } : undefined
           }

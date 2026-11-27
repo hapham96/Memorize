@@ -7,7 +7,6 @@ import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
-  Heart,
   Loader2,
   Pencil,
   Trash2,
@@ -26,6 +25,7 @@ import {
   updateWordDefinition,
 } from '@/lib/api/word-client';
 import { speakWord, soundFX } from '@/lib/audio';
+import { FavoriteButton } from '@/components/common/FavoriteButton';
 
 interface WordDetailModalProps {
   word: Word;
@@ -34,6 +34,8 @@ interface WordDetailModalProps {
   /** Next review date, only when the row reported it. */
   dueAt?: string;
   isFavorite?: boolean;
+  /** Absent for a word that is only on this device. */
+  onToggleFavorite?: () => void;
   /** Where this word sits in the list it was opened from (0-based index). */
   position?: { index: number; total: number };
   /** Opens the previous word of the list; absent on the first one. */
@@ -137,6 +139,7 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
   state,
   dueAt,
   isFavorite,
+  onToggleFavorite,
   position,
   onPrev,
   onNext,
@@ -439,8 +442,8 @@ export const WordDetailModal: React.FC<WordDetailModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  {isFavorite && (
-                    <Heart className="w-4 h-4 fill-red-500 text-red-500" />
+                  {onToggleFavorite && (
+                    <FavoriteButton isFavorite={!!isFavorite} onToggle={onToggleFavorite} />
                   )}
 
                   <button

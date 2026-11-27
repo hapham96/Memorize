@@ -112,6 +112,8 @@ export interface UserWordListItem {
   state?: SRSState;
   /** When the word is next due, when the row reported it. */
   dueAt?: string;
+  /** The set the word is filed under; absent for a word only on this device. */
+  vocabularySetId?: number;
   /** Whether the account starred it, when the row reported it. */
   isFavorite?: boolean;
 }

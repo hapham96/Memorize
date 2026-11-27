@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SRSData, UserWordListItem, Word, WordCategory } from '@/types';
+import { SRSData, UserWordListItem, Word } from '@/types';
 import { AppSettings, loadReminderState, saveReminderState } from '@/lib/storage';
 import {
   createPlaceholderWord,
@@ -45,7 +45,6 @@ interface UseDueRemindersArgs {
   /** Full word list — also used to name words the backend reports as due. */
   allWords: Word[];
   /** Empty means "no filter"; mirrors the review tab's active pool. */
-  focusCategories: WordCategory[];
   srsMap: Record<string, SRSData>;
   settings: AppSettings;
   /** Held false until localStorage is read, so nothing fires on half-loaded state. */
@@ -88,7 +87,6 @@ export interface UseDueRemindersResult {
  */
 export function useDueReminders({
   allWords,
-  focusCategories,
   srsMap,
   settings,
   isReady,
@@ -185,11 +183,6 @@ export function useDueReminders({
     };
   }, [isReady, isSignedIn, clock, dueTick]);
 
-  const inFocus = useCallback(
-    (word: Word) => focusCategories.length === 0 || focusCategories.includes(word.category),
-    [focusCategories]
-  );
-
   const libraryIds = useMemo(
     () => new Set((libraryItems ?? []).map((item) => String(item.word.id))),
     [libraryItems]
@@ -202,32 +195,15 @@ export function useDueReminders({
   const resolveWord = useCallback(
     (wordId: string): Word | null => {
       const match = findWordById(wordId, allWords);
-      if (match) return inFocus(match) ? match : null;
+      if (match) return match;
       // The library is the account's whole vocabulary. Once it has been read, a
       // key it has never heard of names nothing the user can review — most often
       // a flashcard session's `userWordId` key — so it is dropped rather than
       // announced as "Word #123".
       if (libraryItems !== null && !libraryIds.has(String(wordId))) return null;
-      // A placeholder has no real category, so a focus filter cannot judge it —
-      // let it through rather than silently dropping a genuinely due word.
       return createPlaceholderWord(wordId);
     },
-    [allWords, inFocus, libraryItems, libraryIds]
-  );
-
-  /**
-   * Names a library row. Its own word is the best source — it reads correctly
-   * even on a device that never added it — while the focus filter can only judge
-   * a word this device knows, so a backend-only word is let through rather than
-   * silently dropped.
-   */
-  const resolveLibraryWord = useCallback(
-    (item: UserWordListItem): Word | null => {
-      const local = findWordById(item.word.id, allWords);
-      if (local && !inFocus(local)) return null;
-      return item.word;
-    },
-    [allWords, inFocus]
+    [allWords, libraryItems, libraryIds]
   );
 
   const now = useMemo(() => new Date(clock ?? Date.now()), [clock]);
@@ -238,8 +214,8 @@ export function useDueReminders({
   );
 
   const librarySnapshot = useMemo(
-    () => collectDueFromLibrary(libraryItems ?? [], resolveLibraryWord, now),
-    [libraryItems, resolveLibraryWord, now]
+    () => collectDueFromLibrary(libraryItems ?? [], (item) => item.word, now),
+    [libraryItems, now]
   );
 
   /**

@@ -18,6 +18,10 @@ interface ProfileScreenProps {
   onWordUpdated?: (word: Word) => void;
   /** A word was deleted in the library below. */
   onWordDeleted?: (wordId: string) => void;
+  favorites: string[];
+  onToggleFavorite: (wordId: string) => void;
+  /** Sets or their words changed in the library below. */
+  onSetsChanged: () => Promise<void>;
   /** Opens the name/password editor. Settings live in the header bar instead. */
   onEditProfile: () => void;
   onLogout: () => void;
@@ -31,6 +35,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   vocabularySets,
   onWordUpdated,
   onWordDeleted,
+  favorites,
+  onToggleFavorite,
+  onSetsChanged,
   onEditProfile,
   onLogout,
 }) => {
@@ -116,6 +123,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         vocabularySets={vocabularySets}
         onWordUpdated={onWordUpdated}
         onWordDeleted={onWordDeleted}
+        favorites={favorites}
+        onToggleFavorite={onToggleFavorite}
+        onSetsChanged={onSetsChanged}
       />
 
       {/* Logout Action Button — pinned to the bottom of the scroll area */}

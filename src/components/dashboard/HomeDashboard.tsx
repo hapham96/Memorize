@@ -10,7 +10,7 @@ import {
   Award,
   TrendingUp,
 } from 'lucide-react';
-import { ActivityDay, LearningProgress, UserProgress, WordCategory } from '@/types';
+import { ActivityDay, LearningProgress, UserProgress } from '@/types';
 import { StatsSummary } from '@/types/stats';
 import { totalReviewsIn, WEEKDAY_LABELS, weekdayColumn } from '@/lib/activity';
 import { Plus } from 'lucide-react';
@@ -34,7 +34,6 @@ interface HomeDashboardProps {
   practiceCount?: number;
   isStartingReview?: boolean;
   reviewError?: string | null;
-  focusCategories?: WordCategory[];
   onStartReview: () => void;
   onOpenAddWord: () => void;
 }
@@ -48,7 +47,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   practiceCount = 0,
   isStartingReview = false,
   reviewError = null,
-  focusCategories = [],
   onStartReview,
   onOpenAddWord,
 }) => {
@@ -125,10 +123,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         )}
       </div>
 
-      {/* Top Banner: Daily Goal & Focus Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Top Banner: Daily Goal */}
+      <div className="grid grid-cols-1 gap-4">
         {/* Daily Goal Progress Card */}
-        <div className="md:col-span-2 bg-blue-600 border-clay border-blue-400 text-white rounded-[28px] p-6 shadow-clay-lg relative overflow-hidden flex items-center justify-between group hover:shadow-clay-xl transition-all duration-300">
+        <div className="bg-blue-600 border-clay border-blue-400 text-white rounded-[28px] p-6 shadow-clay-lg relative overflow-hidden flex items-center justify-between group hover:shadow-clay-xl transition-all duration-300">
 
           <div className="relative z-10">
             <span className="text-[11px] uppercase tracking-wider font-extrabold text-blue-200 bg-white/10 px-2.5 py-1 rounded-full border border-white/15">
@@ -190,37 +188,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
 
-        {/* Focus Category Active Indicator Card */}
-        <div className="bg-white dark:bg-slate-800 rounded-[28px] p-5 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm flex flex-col justify-between hover:border-indigo-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wider font-extrabold text-slate-400">
-              Focus Categories
-            </span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-          </div>
-
-          <div className="my-2">
-            {focusCategories.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {focusCategories.map((c) => (
-                  <span
-                    key={c}
-                    className="text-xs font-bold px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-clay border-indigo-300 dark:border-indigo-800"
-                  >
-                    {c}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Tất cả bộ từ (All)</p>
-                <p className="text-xs text-slate-400">Đang luyện tập trên toàn bộ từ vựng</p>
-              </div>
-            )}
-          </div>
-
-          <p className="text-[11px] text-slate-400">Tùy chỉnh bộ từ muốn học trong phần Setting ⚙️</p>
-        </div>
       </div>
 
       {/* Secondary action */}
@@ -244,7 +211,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               Thêm từ mới
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Tự tạo bộ từ Custom + Gợi ý từ thông minh 1-click
+              Gõ từ bạn muốn học hoặc lấy một từ ngẫu nhiên
             </p>
           </div>
 

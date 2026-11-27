@@ -9,15 +9,12 @@ import {
   Bell,
   Target,
   Trash2,
-  Check,
   AlertCircle,
   GraduationCap,
   HelpCircle,
   Sparkles,
 } from 'lucide-react';
-import { VocabularySet, WordCategory } from '@/types';
 import { CEFR_LEVELS, cefrLevelInfo } from '@/data/cefrLevels';
-import { categoryNames } from '@/lib/api/category-client';
 import { AppSettings } from '@/lib/storage';
 import { NotificationPermissionState } from '@/lib/notifications';
 import { PushSubscriptionStatus } from '@/hooks/usePushSubscription';
@@ -25,8 +22,6 @@ import { ModalPortal } from '@/components/layout/ModalPortal';
 
 interface SettingsModalProps {
   settings: AppSettings;
-  /** The account's `/vocabulary-sets` list; the focus picker is built from it. */
-  vocabularySets?: VocabularySet[];
   onUpdateSettings: (newSettings: Partial<AppSettings>) => void;
   onResetProgress: () => void;
   onClose: () => void;
@@ -39,34 +34,8 @@ interface SettingsModalProps {
   pushStatus?: PushSubscriptionStatus;
 }
 
-/**
- * Emoji per category name — decoration only. The list itself comes from
- * `/vocabulary-sets`, so a name that is not here still renders, just without
- * an icon.
- */
-const CATEGORY_EMOJI: Record<string, string> = {
-  IELTS: '🎓',
-  TOEIC: '💼',
-  TOEFL: '🏫',
-  Custom: '✏️',
-  'Daily Life': '💬',
-  Business: '📊',
-  Academic: '📚',
-  Travel: '✈️',
-  Technology: '💻',
-  Emotions: '❤️',
-  'Idioms & Phrasal Verbs': '🗣️',
-};
-
-const categoryLabel = (name: WordCategory): string => {
-  const emoji = CATEGORY_EMOJI[name];
-  const suffix = name === 'Custom' ? ' (Tự thêm)' : '';
-  return `${emoji ? `${emoji} ` : ''}${name}${suffix}`;
-};
-
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
-  vocabularySets = [],
   onUpdateSettings,
   onResetProgress,
   onClose,
@@ -343,58 +312,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {goal} words
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* Focus Vocabulary Categories Selection */}
-        <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>🎯 Chọn bộ từ vựng học</span>
-            </label>
-            <button
-              onClick={() => onUpdateSettings({ focusCategories: [] })}
-              className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-all ${(!settings.focusCategories || settings.focusCategories.length === 0)
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-            >
-              Tất cả (All)
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Chọn các bộ từ muốn tập trung ôn luyện & làm bài quiz:
-          </p>
-
-          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-            {categoryNames(vocabularySets).map((cat) => {
-              const isSelected = settings.focusCategories?.includes(cat);
-
-              const handleToggleCat = () => {
-                const current = settings.focusCategories || [];
-                let next: any[];
-                if (isSelected) {
-                  next = current.filter((c) => c !== cat);
-                } else {
-                  next = [...current, cat];
-                }
-                onUpdateSettings({ focusCategories: next });
-              };
-
-              return (
-                <button
-                  key={cat}
-                  onClick={handleToggleCat}
-                  className={`p-2 rounded-xl text-xs font-bold border flex items-center justify-between transition-all ${isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-clay-sm'
-                    : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                    }`}
-                >
-                  <span className="truncate">{categoryLabel(cat)}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                </button>
-              );
-            })}
           </div>
         </div>
 

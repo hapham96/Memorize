@@ -1,5 +1,5 @@
 import { VocabularySet, WordCategory } from "@/types";
-import { getAsync } from "./client";
+import { deleteAsync, getAsync, patchAsync, postAsync } from "./client";
 import { loadCategories, saveCategories } from "@/lib/storage";
 
 /**
@@ -21,25 +21,6 @@ interface BackendVocabularySet {
  */
 export const FALLBACK_CATEGORY: WordCategory = 'Custom';
 
-/**
- * Names the app shipped before `/vocabulary-sets` existed. Used only while the
- * list is empty — a first run that has not reached the backend yet, or an
- * account whose fetch failed — so the pickers are never blank.
- */
-export const FALLBACK_CATEGORY_NAMES: WordCategory[] = [
-  'Custom',
-  'IELTS',
-  'TOEIC',
-  'TOEFL',
-  'Daily Life',
-  'Business',
-  'Academic',
-  'Travel',
-  'Technology',
-  'Emotions',
-  'Idioms & Phrasal Verbs',
-];
-
 /** Drops rows with no usable name; the name is what the whole UI keys on. */
 function mapBackendVocabularySet(set: BackendVocabularySet): VocabularySet | null {
   const name = typeof set?.name === 'string' ? set.name.trim() : '';
@@ -58,15 +39,10 @@ function mapBackendVocabularySet(set: BackendVocabularySet): VocabularySet | nul
 function toVocabularySets(data: unknown): VocabularySet[] {
   if (!Array.isArray(data)) return [];
 
-  const seen = new Set<string>();
+  // Names need not be unique: every row is kept, since each has its own id.
   return data.reduce<VocabularySet[]>((acc, raw) => {
     const set = mapBackendVocabularySet(raw as BackendVocabularySet);
-    // Two rows with the same name would render as two identical chips that
-    // filter identically — keep the first.
-    if (!set || seen.has(set.name.toLowerCase())) return acc;
-
-    seen.add(set.name.toLowerCase());
-    acc.push(set);
+    if (set) acc.push(set);
     return acc;
   }, []);
 }
@@ -117,14 +93,34 @@ export function resolveVocabularySetName(
   return sets.find((s) => s.id === vocabularySetId)?.name;
 }
 
-/** Names for the pickers: the account's list, or the shipped names until it loads. */
-export function categoryNames(sets: VocabularySet[]): WordCategory[] {
-  const names = sets.map((s) => s.name).filter(Boolean);
-  if (names.length === 0) return FALLBACK_CATEGORY_NAMES;
+export async function createVocabularySet(name: string): Promise<VocabularySet> {
+  const created = await postAsync<BackendVocabularySet>(
+    "/vocabulary-sets",
+    { name: name.trim() },
+    { auth: true },
+  );
+  return mapBackendVocabularySet(created)!;
+}
 
-  // `Custom` is where locally added words land, so it must always be pickable
-  // even when the backend does not define it.
-  return names.some((name) => name.toLowerCase() === FALLBACK_CATEGORY.toLowerCase())
-    ? names
-    : [FALLBACK_CATEGORY, ...names];
+export async function renameVocabularySet(id: number, name: string): Promise<void> {
+  await patchAsync(`/vocabulary-sets/${id}`, { name: name.trim() }, { auth: true });
+}
+
+/** The server moves the set's words to the default set before deleting it. */
+export async function deleteVocabularySet(id: number): Promise<void> {
+  await deleteAsync(`/vocabulary-sets/${id}`, { auth: true });
+}
+
+/** How many ids the move endpoint accepts at once. */
+const MOVE_BATCH = 500;
+
+export async function moveWordsToSet(setId: number, wordIds: string[]): Promise<void> {
+  const userWordIds = wordIds.filter((id) => /^\d+$/.test(id)).map(Number);
+  for (let i = 0; i < userWordIds.length; i += MOVE_BATCH) {
+    await postAsync(
+      `/vocabulary-sets/${setId}/words`,
+      { userWordIds: userWordIds.slice(i, i + MOVE_BATCH) },
+      { auth: true },
+    );
+  }
 }

@@ -33,7 +33,7 @@ export interface BackendSettings {
    */
   certLevel?: number;
   /** A single category name; `"custom"` is the backend's default, i.e. unset. */
-  focusCategory: string;
+  focusCategory?: string;
 }
 
 /**

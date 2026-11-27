@@ -32,6 +32,17 @@ export interface DictionaryEntry {
   meanings?: DictionaryMeaning[];
 }
 
+/** One catalog word the account doesn't have yet; `entry` is null when there is none. */
+export async function fetchRandomWord(
+  cefrLevel?: string | null,
+  except?: string,
+): Promise<{ entry: DictionaryEntry | null; cefrLevel: string | null }> {
+  const params = new URLSearchParams();
+  if (cefrLevel) params.set("cefrLevel", cefrLevel);
+  if (except) params.set("except", except);
+  return getAsync(`/words/random?${params.toString()}`, { auth: true });
+}
+
 /** IPA / POS / definition lookup — proxies what used to be a direct `api.dictionaryapi.dev` call. */
 export async function fetchWordDictionary(word: string): Promise<DictionaryEntry[]> {
   return getAsync<DictionaryEntry[]>(`/words/dictionary/${encodeURIComponent(word)}`, {

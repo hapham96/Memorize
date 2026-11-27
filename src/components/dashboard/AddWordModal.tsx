@@ -18,6 +18,7 @@ import {
   FileText,
   RefreshCw,
   Wand2,
+  Dices,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -27,6 +28,7 @@ import {
   WordCategory,
   WordMeaning,
   LevelDifficulty,
+  CEFRLevel,
 } from "@/types";
 import { getRelatedWordSuggestions, getWordDetails } from "@/data/relatedWords";
 import { soundFX } from "@/lib/audio";
@@ -39,8 +41,9 @@ import {
   mapAddWordResponseToSRS,
   mapBackendWordToWord,
 } from "@/lib/api/word-client";
-import { FALLBACK_CATEGORY, categoryNames } from "@/lib/api/category-client";
+import { FALLBACK_CATEGORY, createVocabularySet } from "@/lib/api/category-client";
 import {
+  fetchRandomWord,
   fetchWordDictionary,
   generateWordEntry,
   generateWordExample,
@@ -59,8 +62,12 @@ import { ModalPortal } from "@/components/layout/ModalPortal";
 
 interface AddWordModalProps {
   isOpen: boolean;
-  /** The account's `/vocabulary-sets` list; fills the category picker and validates Excel rows. */
+  /** The account's `/vocabulary-sets` list; fills the set picker and matches Excel rows. */
   vocabularySets?: VocabularySet[];
+  /** The learner's level; the random word is drawn at it. */
+  cefrLevel?: CEFRLevel | null;
+  /** A set was created here; resolves once the new list is in. */
+  onSetsChanged?: () => Promise<void>;
   onClose: () => void;
   onAddWord: (word: Word) => void;
   onAddWords?: (words: Word[]) => void;
@@ -69,6 +76,9 @@ interface AddWordModalProps {
 }
 
 const LEVELS: LevelDifficulty[] = ["A1", "A2", "B1", "B2", "C1"];
+
+/** The set picker's last option, which opens the name field instead. */
+const NEW_SET_OPTION = "new";
 
 /** Limits on an imported sheet — the file is untrusted input to the xlsx parser. */
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -278,6 +288,8 @@ const getRowVal = (
 export const AddWordModal: React.FC<AddWordModalProps> = ({
   isOpen,
   vocabularySets = [],
+  cefrLevel,
+  onSetsChanged,
   onClose,
   onAddWord,
   onAddWords,
@@ -285,11 +297,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"single" | "excel">("single");
 
-  // The backend list when it has loaded, the shipped names until then.
-  const CATEGORIES: WordCategory[] = useMemo(
-    () => categoryNames(vocabularySets),
-    [vocabularySets],
-  );
+  const defaultSet = vocabularySets.find((s) => s.isDefault);
+  // The server creates it with the first word, so a new account has none yet.
+  const defaultSetName = defaultSet?.name ?? "Bộ mặc định";
+  const findSet = (name: string) =>
+    vocabularySets.find((s) => s.name.toLowerCase() === name.toLowerCase());
 
   // The import guide, written from what `processFile` actually reads — the
   // aliases below are the ones `getRowVal` is called with, and the notes are
@@ -326,7 +338,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       {
         label: "Bộ từ (Category)",
         aliases: ["Category", "Bộ từ", "Danh mục"],
-        note: `${CATEGORIES.join(", ")}. Tên không có trong tài khoản sẽ được xếp vào ${FALLBACK_CATEGORY}.`,
+        note: `Tên một bộ từ bạn đã tạo${vocabularySets.length ? ` (${vocabularySets.map((s) => s.name).join(", ")})` : ""}. Để trống hoặc tên chưa có thì từ vào ${defaultSetName}.`,
       },
       {
         label: "Cấp độ (Level)",
@@ -339,7 +351,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         note: "Mẹo ghi nhớ từ, hiển thị khi học. Không bắt buộc.",
       },
     ],
-    [CATEGORIES],
+    [vocabularySets, defaultSetName],
   );
 
   // Single word form state
@@ -350,7 +362,13 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
   const [audioUrl, setAudioUrl] = useState("");
   const [pos, setPos] = useState("n.");
   const [meanings, setMeanings] = useState<MeaningDraft[]>([createMeaning()]);
-  const [category, setCategory] = useState<WordCategory>(FALLBACK_CATEGORY);
+  // Null means the default set.
+  const [setId, setSetId] = useState<number | null>(null);
+  const [newSetName, setNewSetName] = useState<string | null>(null);
+  const [isCreatingSet, setIsCreatingSet] = useState(false);
+  const [setError, setSetError] = useState<string | null>(null);
+  const [isRolling, setIsRolling] = useState(false);
+  const [randomNotice, setRandomNotice] = useState<string | null>(null);
   const [level, setLevel] = useState<LevelDifficulty>("B1");
   const [mnemonic, setMnemonic] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -419,6 +437,9 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       setHasNoSuggestions(false);
       setAiNotice(null);
       setSyncError(null);
+      setRandomNotice(null);
+      setNewSetName(null);
+      setSetError(null);
     }
   }, [isOpen]);
 
@@ -645,6 +666,70 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       );
     } finally {
       setIsGeneratingWord(false);
+    }
+  };
+
+  /** Fills the form with a catalog word the account doesn't have; saves nothing. */
+  const handleRandomWord = async () => {
+    if (isRolling) return;
+    soundFX.playPop();
+    setRandomNotice(null);
+    setSyncError(null);
+    setExampleError(null);
+    setIsRolling(true);
+
+    try {
+      const { entry, cefrLevel: wordLevel } = await fetchRandomWord(
+        cefrLevel,
+        lookedUpWord || undefined,
+      );
+      const options = entry ? buildDefinitionOptions(entry) : [];
+      if (!entry || options.length === 0) {
+        setRandomNotice("Chưa có từ gợi ý nào phù hợp.");
+        return;
+      }
+
+      const firstMeaning = entry.meanings?.[0];
+      const firstDef = firstMeaning?.definitions?.[0];
+
+      setWord(entry.word);
+      setLookedUpWord(entry.word);
+      // Nothing of the word shown before may be saved with this one.
+      setMeanings([createMeaning()]);
+      setMnemonic("");
+      applyLookup({
+        headword: entry.word,
+        options,
+        ipa: entry.phonetic || entry.phonetics?.find((p) => p.text)?.text || "",
+        audioUrl: entry.phonetics?.find((p) => p.audio)?.audio || "",
+        pos: mapPartOfSpeech(firstMeaning?.partOfSpeech),
+        definition: firstDef?.definition?.trim() || "",
+        example: firstDef?.example?.trim() || "",
+        level: LEVELS.find((l) => l === wordLevel) ?? (wordLevel === "C2" ? "C1" : level),
+      });
+    } catch (err) {
+      console.warn("Random word error:", err);
+      setRandomNotice("Không lấy được từ gợi ý, thử lại sau nhé.");
+    } finally {
+      setIsRolling(false);
+    }
+  };
+
+  const handleCreateSet = async () => {
+    const name = newSetName?.trim();
+    if (!name || isCreatingSet) return;
+    setIsCreatingSet(true);
+    setSetError(null);
+    try {
+      const created = await createVocabularySet(name);
+      await onSetsChanged?.();
+      setSetId(created.id);
+      setNewSetName(null);
+    } catch (err) {
+      console.warn("Create set error:", err);
+      setSetError("Không tạo được bộ, thử lại nhé.");
+    } finally {
+      setIsCreatingSet(false);
     }
   };
 
@@ -953,7 +1038,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       translation: `Ví dụ với ${word.trim()}.`,
       meanings: wordMeanings,
       level,
-      category,
+      category: ((vocabularySets.find((s) => s.id === setId) ?? defaultSet)?.name ??
+        FALLBACK_CATEGORY) as WordCategory,
       mnemonic: mnemonic.trim() || undefined,
     };
 
@@ -974,9 +1060,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         };
       });
 
-    const vocabularySetId = vocabularySets.find(
-      (s) => s.name.toLowerCase() === category.toLowerCase(),
-    )?.id;
+    // A set deleted since it was picked falls back to the default one.
+    const vocabularySetId = vocabularySets.find((s) => s.id === setId)?.id;
 
     try {
       // Without a numeric account id the word can only live locally — a
@@ -1033,7 +1118,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
     setDefinitionOptions([]);
     setLookedUpWord("");
     setMeanings([createMeaning()]);
-    setCategory(FALLBACK_CATEGORY);
+    setSetId(null);
     setMnemonic("");
     handleModalClose();
   };
@@ -1128,13 +1213,6 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           errorReason = "Thiếu Nghĩa của từ";
         }
 
-        // Validate Category — a name the account does not have falls back to Custom.
-        let finalCat: WordCategory = FALLBACK_CATEGORY;
-        const matchedCat = CATEGORIES.find(
-          (c) => c.toLowerCase() === catVal.toLowerCase(),
-        );
-        if (matchedCat) finalCat = matchedCat;
-
         // Validate Level
         let finalLvl: LevelDifficulty = "B1";
         const matchedLvl = LEVELS.find(
@@ -1149,7 +1227,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
           ipa: ipaVal || `/${wordVal.toLowerCase()}/`,
           pos: posVal || "n.",
           example: exVal || "",
-          category: finalCat,
+          // As the sheet wrote it; matched to a set when previewed and sent.
+          category: catVal as WordCategory,
           level: finalLvl,
           mnemonic: mneVal || undefined,
           isValid,
@@ -1199,7 +1278,8 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
       // The sheet no longer carries a translation column; the example's
       // Vietnamese meaning is not imported.
       translation: "",
-      category: r.category,
+      category: ((findSet(r.category) ?? defaultSet)?.name ??
+        FALLBACK_CATEGORY) as WordCategory,
       level: r.level,
       mnemonic: r.mnemonic,
     }));
@@ -1222,9 +1302,7 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
 
     const requests: AddBulkWordsRequest = {
       words: validRows.map((r, index) => {
-        const vocabularySetId = vocabularySets.find(
-          (s) => s.name.toLowerCase() === r.category.toLowerCase(),
-        )?.id;
+        const vocabularySetId = findSet(r.category)?.id;
         return {
           headword: newWordsList[index].word,
           ...(vocabularySetId !== undefined ? { vocabularySetId } : {}),
@@ -1371,6 +1449,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                     Từ Tiếng Anh (English Word){" "}
                     <span className="text-red-500">*</span>
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleRandomWord()}
+                    disabled={isRolling}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 active:scale-95 disabled:opacity-50 transition-all"
+                  >
+                    <Dices className={`w-3.5 h-3.5 ${isRolling ? "animate-spin" : ""}`} />
+                    Gợi ý từ ngẫu nhiên
+                  </button>
                   {autoFilled && (
                     <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 animate-pulse">
                       <Check className="w-3.5 h-3.5" /> Đã tự động điền từ gợi
@@ -1396,6 +1483,11 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                   placeholder="ví dụ: teacher, doctor, innovate..."
                   className="w-full px-4 py-2.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {randomNotice && (
+                  <p role="status" className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    {randomNotice}
+                  </p>
+                )}
 
                 {/* Once a word is picked this panel replaces the suggestion list; typing a new word
                   brings the suggestions back. */}
@@ -1709,21 +1801,61 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Bộ từ vựng (Category)
+                    Bộ từ
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) =>
-                      setCategory(e.target.value as WordCategory)
-                    }
+                    value={newSetName !== null ? NEW_SET_OPTION : (setId ?? defaultSet?.id ?? "")}
+                    onChange={(e) => {
+                      setSetError(null);
+                      if (e.target.value === NEW_SET_OPTION) {
+                        setNewSetName("");
+                        return;
+                      }
+                      setNewSetName(null);
+                      setSetId(e.target.value ? Number(e.target.value) : null);
+                    }}
                     className="w-full px-3 py-2 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-clay-inset text-slate-900 dark:text-slate-100 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat} {cat === FALLBACK_CATEGORY ? "(Tự chọn)" : ""}
+                    {!defaultSet && <option value="">{defaultSetName} (tự tạo)</option>}
+                    {vocabularySets.map((set) => (
+                      <option key={set.id} value={set.id}>
+                        {set.name}
                       </option>
                     ))}
+                    <option value={NEW_SET_OPTION}>+ Tạo bộ mới</option>
                   </select>
+                  {newSetName !== null && (
+                    <div className="flex gap-1.5 mt-1.5">
+                      <input
+                        autoFocus
+                        value={newSetName}
+                        onChange={(e) => setNewSetName(e.target.value)}
+                        onKeyDown={(e) => {
+                          // Enter names the set; it must not submit the word.
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleCreateSet();
+                          }
+                        }}
+                        placeholder="Tên bộ mới"
+                        aria-label="Tên bộ mới"
+                        className="min-w-0 flex-1 px-2 py-1.5 rounded-xl border-clay border-blue-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateSet()}
+                        disabled={!newSetName.trim() || isCreatingSet}
+                        className="px-2.5 rounded-button bg-blue-600 text-white text-[11px] font-bold disabled:opacity-40"
+                      >
+                        Tạo
+                      </button>
+                    </div>
+                  )}
+                  {setError && (
+                    <p role="alert" className="text-[11px] font-semibold text-red-500 mt-1">
+                      {setError}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -2054,9 +2186,15 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
                               {row.pos}
                             </td>
                             <td className="py-2 px-3">
-                              <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-semibold border-clay border-blue-300 dark:border-blue-800">
-                                {row.category}
-                              </span>
+                              {row.category && !findSet(row.category) ? (
+                                <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-[10px] font-semibold">
+                                  Chưa có bộ &ldquo;{row.category}&rdquo; → {defaultSetName}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[10px] font-semibold border-clay border-blue-300 dark:border-blue-800">
+                                  {findSet(row.category)?.name ?? defaultSetName}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2 px-3 text-right">
                               {row.isValid ? (

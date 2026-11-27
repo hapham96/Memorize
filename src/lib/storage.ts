@@ -100,7 +100,6 @@ export interface AppSettings {
   quietHoursEnabled: boolean;
   quietHoursStart: number; // hour of day, 0–23
   quietHoursEnd: number; // hour of day, 0–23; may wrap past midnight
-  focusCategories: WordCategory[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -114,7 +113,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   quietHoursEnabled: true,
   quietHoursStart: 22,
   quietHoursEnd: 7,
-  focusCategories: [],
 };
 
 /**
@@ -364,8 +362,10 @@ export function saveCategories(categories: VocabularySet[]): void {
  * v3: rows written before `WordMeaning.definitionId` existed carry senses with
  * no backend id, and the detail view cannot edit or delete a sense it cannot
  * address — so such a copy is refetched rather than read as uneditable.
+ *
+ * v4: rows gained `vocabularySetId`, which the set filter reads.
  */
-const WORD_LIBRARY_CACHE_VERSION = 3;
+const WORD_LIBRARY_CACHE_VERSION = 4;
 
 export interface WordLibraryCache {
   version: number;
