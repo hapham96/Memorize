@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronRight,
   Heart,
@@ -97,6 +98,10 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   const [selection, setSelection] = useState<WordSelection>(EMPTY_SELECTION);
   /** null is "Tự động". */
   const [modes, setModes] = useState<PracticeMode[] | null>(null);
+  /** "Tự chọn từ": the chain section shows its own word picker. */
+  const [isPickingChain, setPickingChain] = useState(false);
+  /** Kept apart from what was ticked for practising. */
+  const [chainSelection, setChainSelection] = useState<WordSelection>(EMPTY_SELECTION);
   const [showModes, setShowModes] = useState(false);
   const [showMissedHelp, setShowMissedHelp] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
@@ -145,6 +150,8 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   const practisable = (items ?? []).filter((item) => !reviewDue.has(Number(item.word.id)));
   const chosen = practisable.filter((item) => isWordChosen(selection, item, shortcuts));
   const chosenCount = chosen.length;
+  const chainWords = practisable.filter((item) => isWordChosen(chainSelection, item, shortcuts));
+  const canChain = chainWords.length > 0 && chainWords.length <= MAX_CHAIN_WORDS;
   const canStart = chosenCount > 0 && (modes === null || modes.length > 0) && !isStarting;
 
   /**
@@ -222,6 +229,22 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
     await begin();
   };
 
+  const makeChain = () => {
+    soundFX.playPop();
+    onOpenChain({
+      kind: 'new',
+      words: chainWords.map((item) => ({
+        userWordId: Number(item.word.id),
+        headword: item.word.word,
+      })),
+    });
+  };
+
+  const leaveChainPicking = () => {
+    setPickingChain(false);
+    setChainSelection(EMPTY_SELECTION);
+  };
+
   const toggleMode = (mode: PracticeMode) =>
     setModes((prev) => {
       const next = prev?.includes(mode) ? prev.filter((m) => m !== mode) : [...(prev ?? []), mode];
@@ -230,7 +253,8 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
     });
 
   const hasNoWords = items?.length === 0;
-  const hasActionBar = section === 'words' && items !== null && items.length > 0;
+  const isChainPicker = section === 'chains' && isPickingChain;
+  const hasActionBar = (section === 'words' || isChainPicker) && !hasNoWords && items !== null;
 
   const emptyLibrary = (
     <div className={`${sectionClass} flex flex-col items-center`}>
@@ -245,6 +269,77 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
     <p role="alert" className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center">
       {error}
     </p>
+  );
+
+  const wordCard = (
+    title: string,
+    selection: WordSelection,
+    setSelection: (next: WordSelection) => void,
+  ) => (
+    <section className={sectionClass}>
+      <h3 className={titleClass}>{title}</h3>
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          aria-pressed={selection.favorites}
+          onClick={() => {
+            // Ticking the chip brings back favorites unticked earlier.
+            const excludedIds = new Set(selection.excludedIds);
+            if (!selection.favorites) favorites.forEach((id) => excludedIds.delete(Number(id)));
+            setSelection({ ...selection, excludedIds, favorites: !selection.favorites });
+          }}
+          className={chipClass(selection.favorites)}
+        >
+          <Heart className="w-3.5 h-3.5" /> Yêu thích
+          {choices && <span className="opacity-70">{choices.favoriteCount}</span>}
+        </button>
+        <button
+          type="button"
+          aria-pressed={selection.oftenMissed}
+          disabled={!choices?.oftenMissedCount && !selection.oftenMissed}
+          onClick={() => {
+            const excludedIds = new Set(selection.excludedIds);
+            if (!selection.oftenMissed) {
+              shortcuts.oftenMissedIds.forEach((id) => excludedIds.delete(id));
+            }
+            setSelection({ ...selection, excludedIds, oftenMissed: !selection.oftenMissed });
+          }}
+          className={chipClass(selection.oftenMissed)}
+        >
+          Từ hay sai
+          {choices && <span className="opacity-70">{choices.oftenMissedCount}</span>}
+        </button>
+        {Boolean(choices?.oftenMissedCount) && (
+          <button
+            type="button"
+            aria-label="Từ hay sai là gì?"
+            aria-expanded={showMissedHelp}
+            onClick={() => setShowMissedHelp(!showMissedHelp)}
+            className={chipClass(false)}
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {/* Said out loud: a right answer does not take a word off the list. */}
+      {showMissedHelp && (
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Từ hay sai là từ bạn quên từ 2 lần trở lên trong 30 ngày qua. Trả lời đúng chưa làm
+          nó mất ngay: nó tự rời danh sách khi 30 ngày gần nhất còn dưới 2 lần quên.
+        </p>
+      )}
+      {items === null || !areChoicesSettled ? (
+        !error && <Loader2 className="w-5 h-5 animate-spin text-blue-600 mx-auto" />
+      ) : (
+        <WordPicker
+          items={practisable}
+          vocabularySets={vocabularySets}
+          shortcuts={shortcuts}
+          selection={selection}
+          onChange={setSelection}
+        />
+      )}
+    </section>
   );
 
   const wordsSection = (
@@ -280,70 +375,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
         emptyLibrary
       ) : (
         <>
-          <section className={sectionClass}>
-            <h3 className={titleClass}>Chọn từ muốn luyện</h3>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                aria-pressed={selection.favorites}
-                onClick={() => {
-                  // Ticking the chip brings back favorites unticked earlier.
-                  const excludedIds = new Set(selection.excludedIds);
-                  if (!selection.favorites) favorites.forEach((id) => excludedIds.delete(Number(id)));
-                  setSelection({ ...selection, excludedIds, favorites: !selection.favorites });
-                }}
-                className={chipClass(selection.favorites)}
-              >
-                <Heart className="w-3.5 h-3.5" /> Yêu thích
-                {choices && <span className="opacity-70">{choices.favoriteCount}</span>}
-              </button>
-              <button
-                type="button"
-                aria-pressed={selection.oftenMissed}
-                disabled={!choices?.oftenMissedCount && !selection.oftenMissed}
-                onClick={() => {
-                  const excludedIds = new Set(selection.excludedIds);
-                  if (!selection.oftenMissed) {
-                    shortcuts.oftenMissedIds.forEach((id) => excludedIds.delete(id));
-                  }
-                  setSelection({ ...selection, excludedIds, oftenMissed: !selection.oftenMissed });
-                }}
-                className={chipClass(selection.oftenMissed)}
-              >
-                Từ hay sai
-                {choices && <span className="opacity-70">{choices.oftenMissedCount}</span>}
-              </button>
-              {Boolean(choices?.oftenMissedCount) && (
-                <button
-                  type="button"
-                  aria-label="Từ hay sai là gì?"
-                  aria-expanded={showMissedHelp}
-                  onClick={() => setShowMissedHelp(!showMissedHelp)}
-                  className={chipClass(false)}
-                >
-                  <Info className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-            {/* Said out loud: a right answer does not take a word off the list. */}
-            {showMissedHelp && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Từ hay sai là từ bạn quên từ 2 lần trở lên trong 30 ngày qua. Trả lời đúng chưa làm
-                nó mất ngay: nó tự rời danh sách khi 30 ngày gần nhất còn dưới 2 lần quên.
-              </p>
-            )}
-            {items === null || !areChoicesSettled ? (
-              !error && <Loader2 className="w-5 h-5 animate-spin text-blue-600 mx-auto" />
-            ) : (
-              <WordPicker
-                items={practisable}
-                vocabularySets={vocabularySets}
-                shortcuts={shortcuts}
-                selection={selection}
-                onChange={setSelection}
-              />
-            )}
-          </section>
+          {wordCard('Chọn từ muốn luyện', selection, setSelection)}
 
           <section className={sectionClass}>
             <button
@@ -397,8 +429,27 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
     </>
   );
 
+  const chainPicker = (
+    <>
+      <button
+        type="button"
+        onClick={leaveChainPicking}
+        className="flex items-center gap-2 text-sm font-extrabold text-slate-700 dark:text-slate-200"
+      >
+        <ArrowLeft className="w-5 h-5" /> Chuỗi nhớ
+      </button>
+      {wordCard(
+        `Chọn từ cho chuỗi nhớ (tối đa ${MAX_CHAIN_WORDS})`,
+        chainSelection,
+        setChainSelection,
+      )}
+    </>
+  );
+
   const chainsSection = hasNoWords ? (
     emptyLibrary
+  ) : isPickingChain ? (
+    chainPicker
   ) : (
     <>
       <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -418,7 +469,11 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
         {isSuggesting ? 'Đang tìm từ hợp…' : 'Gợi ý chuỗi cho tôi'}
         {!isSuggesting && prices?.chainWords ? ` (${prices.chainWords} xu)` : ''}
       </button>
-      <button type="button" onClick={() => onChangeSection('words')} className={secondButtonClass}>
+      <button
+        type="button"
+        onClick={() => setPickingChain(true)}
+        className={secondButtonClass}
+      >
         Tự chọn từ
       </button>
       <SavedChains onOpen={(chainId) => onOpenChain({ kind: 'saved', chainId })} />
@@ -450,7 +505,10 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
               key={id}
               type="button"
               aria-pressed={section === id}
-              onClick={() => onChangeSection(id)}
+              onClick={() => {
+                leaveChainPicking();
+                onChangeSection(id);
+              }}
               className={`flex-1 py-2 rounded-full text-sm font-extrabold transition-all ${
                 section === id
                   ? 'bg-blue-600 text-white shadow-clay-sm'
@@ -476,7 +534,31 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
       {hasActionBar && (
         <div className="shrink-0 px-4 md:px-8 pt-2 pb-28 space-y-2 border-t-2 border-blue-200 dark:border-slate-700">
           {errorLine}
-          {isAsking ? (
+          {isChainPicker ? (
+            <>
+              {chainWords.length > MAX_CHAIN_WORDS && (
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center">
+                  Đang chọn {chainWords.length} từ, chuỗi nhớ dùng tối đa {MAX_CHAIN_WORDS}. Mở bộ từ
+                  rồi tick từng từ.
+                </p>
+              )}
+              <button type="button" onClick={makeChain} disabled={!canChain} className={mainButtonClass}>
+                <Link2 className="w-5 h-5" />
+                {chainWords.length
+                  ? `Tạo chuỗi nhớ · ${chainWords.length} từ`
+                  : 'Chọn từ để tạo chuỗi'}
+              </button>
+              {chainWords.length > MAX_CHAIN_WORDS && (
+                <button
+                  type="button"
+                  onClick={() => setChainSelection(EMPTY_SELECTION)}
+                  className={secondButtonClass}
+                >
+                  Bỏ chọn hết
+                </button>
+              )}
+            </>
+          ) : isAsking ? (
             <div className={`${sectionClass} flex flex-col items-center text-center`}>
               <p className={titleClass}>Bạn còn một buổi đang dở. Làm tiếp hay bắt đầu buổi mới?</p>
               <div className="flex gap-2">
@@ -500,7 +582,6 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
               Chọn ít nhất 1 từ hoặc 1 bộ để bắt đầu
             </p>
           ) : (
-            <>
             <button
               type="button"
               onClick={() => void handleStart()}
@@ -514,30 +595,6 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
               )}
               Luyện ngay · {chosenCount} từ
             </button>
-
-              {chosenCount <= MAX_CHAIN_WORDS ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundFX.playPop();
-                    onOpenChain({
-                      kind: 'new',
-                      words: chosen.map((item) => ({
-                        userWordId: Number(item.word.id),
-                        headword: item.word.word,
-                      })),
-                    });
-                  }}
-                  className={secondButtonClass}
-                >
-                  <Link2 className="w-4 h-4" /> Tạo chuỗi nhớ từ {chosenCount} từ này
-                </button>
-              ) : (
-                <p className="text-xs text-slate-400 text-center">
-                  Chuỗi nhớ dùng tối đa {MAX_CHAIN_WORDS} từ.
-                </p>
-              )}
-            </>
           )}
         </div>
       )}

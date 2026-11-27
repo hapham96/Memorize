@@ -120,7 +120,7 @@ The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new |
 
 ### Free Practice is the server's
 
-The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx), in three sections: Bộ từ, Chuỗi nhớ, Battle) chooses words and modes; the section is held by `page.tsx` so it survives a trip to the chain screen, and Bộ từ has the one action bar (practise / make a chain); [PracticeSession](src/components/practice/PracticeSession.tsx) shows whatever `/practice` says. Rounds, mode order, what counts as a review and the round bonus are decided server-side ([practice-client](src/lib/api/practice-client.ts)) — never re-derive them here, and never grade locally. 409 means another device replaced the sitting, 410 that it could not be restored, 422 that the question moved on (re-read it). It is online-only.
+The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx), in three sections: Bộ từ, Chuỗi nhớ, Battle) chooses words and modes; the section is held by `page.tsx` so it survives a trip to the chain screen, Bộ từ is for practising and Chuỗi nhớ picks its own words for a chain, each with one action bar; [PracticeSession](src/components/practice/PracticeSession.tsx) shows whatever `/practice` says. Rounds, mode order, what counts as a review and the round bonus are decided server-side ([practice-client](src/lib/api/practice-client.ts)) — never re-derive them here, and never grade locally. 409 means another device replaced the sitting, 410 that it could not be restored, 422 that the question moved on (re-read it). It is online-only.
 
 ### Argument Chain ("Chuỗi nhớ")
 
