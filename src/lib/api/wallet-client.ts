@@ -6,6 +6,7 @@ export interface XuPrices {
   passage: number;
   pronunciation: number;
   speakingPerMinute: number;
+  practiceRun: number;
 }
 
 /** `enabled: false` is all the server sends while xu is switched off. */

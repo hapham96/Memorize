@@ -29,10 +29,13 @@ import { DueReminderToast } from '@/components/layout/DueReminderToast';
 import { AddWordModal } from '@/components/dashboard/AddWordModal';
 import { NotificationPrompt } from '@/components/notifications/NotificationPrompt';
 import { WalletModal } from '@/components/wallet/WalletModal';
+import { StarterWordsModal } from '@/components/auth/StarterWordsModal';
 import {
   getReviewQueue,
+  fetchStarterWords,
   giveStarterWords,
-  submitQueueWord,
+  splitQueue,
+  StarterWord,
 } from '@/lib/api/review-queue-client';
 import { fetchWallet, Wallet } from '@/lib/api/wallet-client';
 import {
@@ -53,6 +56,7 @@ import {
   Word,
 } from '@/types';
 import { BackendDueReview, ReviewQuality } from '@/types/word';
+import { CEFRLevel } from '@/types';
 import { StatsSummary } from '@/types/stats';
 import {
   AutoGradedExercise,
@@ -71,6 +75,7 @@ import {
   getUserWordLibrary,
   invalidateDueReviews,
   resolveWordForUserWord,
+  submitReviewWord,
 } from '@/lib/api/word-client';
 import {
   getDueExercises,
@@ -179,11 +184,16 @@ export default function Home() {
   const [reviewQueue, setReviewQueue] = useState<BackendDueReview[] | null>(null);
   const [isStartingReview, setIsStartingReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  /** The flashcard run on screen came from the queue, so it is graded there. */
-  const isQueueRunRef = useRef(false);
+  /** The flashcard run on screen reviews graduated words, graded as reviews. */
+  const isReviewRunRef = useRef(false);
   /** A session just ended and it is a good moment to ask about notifications. */
   const [isAskingNotifications, setIsAskingNotifications] = useState(false);
   const [wallet, setWallet] = useState<Wallet | null>(null);
+  /** The Starter Words on offer, while the new account is picking. */
+  const [starterOffer, setStarterOffer] = useState<{
+    level?: CEFRLevel;
+    words: StarterWord[];
+  } | null>(null);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
 
   // App Persistent State
@@ -330,6 +340,7 @@ export default function Home() {
     if (!token) return;
 
     try {
+      await Promise.allSettled(Array.from(pendingSubmitsRef.current));
       const queue = await getReviewQueue();
       if (getCurrentSession()?.accessToken === token) setReviewQueue(queue);
     } catch (err) {
@@ -477,6 +488,7 @@ export default function Home() {
     setIsGuideOpen(false);
     setIsAskingNotifications(false);
     setIsWalletOpen(false);
+    setStarterOffer(null);
     setActiveTab('home');
     setAuthView(view);
 
@@ -679,6 +691,12 @@ export default function Home() {
     trackEvent('app_screen_view', { screen_name: analyticsScreen });
   }, [isMounted, analyticsScreen]);
 
+  const queueCounts = useMemo(() => {
+    if (reviewQueue === null) return null;
+    const { review, practice } = splitQueue(reviewQueue);
+    return { review: review.length, practice: practice.length };
+  }, [reviewQueue]);
+
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
   const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
@@ -724,21 +742,29 @@ export default function Home() {
 
   };
 
-  /** One flashcard run through every due word, whatever its phase. */
+  /**
+   * The home button's flashcard run: the words to review, or, when there are
+   * none, the ones still being practised. The two are never mixed.
+   */
   const startQueueReview = async () => {
     setReviewError(null);
     setIsStartingReview(true);
     try {
       const queue = await getReviewQueue();
       setReviewQueue(queue);
-      if (queue.length === 0) return;
+      const { review, practice } = splitQueue(queue);
+      const rows = review.length > 0 ? review : practice;
+      if (rows.length === 0) return;
 
-      isQueueRunRef.current = true;
+      isReviewRunRef.current = review.length > 0;
       setSessionResult(null);
-      setQuizSessionWords(queue.map((row) => resolveWordForUserWord(row, allWords)));
+      setQuizSessionWords(rows.map((row) => resolveWordForUserWord(row, allWords)));
       setIsSettingsOpen(false);
       setActiveQuizMode('flashcards');
-      trackEvent('quiz_start', { quiz_type: 'review_queue', item_count: queue.length });
+      trackEvent('quiz_start', {
+        quiz_type: review.length > 0 ? 'review_queue' : 'practice_queue',
+        item_count: rows.length,
+      });
     } catch (err) {
       console.error('API getReviewQueue error:', err);
       setReviewError('Không thể tải danh sách ôn. Vui lòng thử lại sau.');
@@ -760,13 +786,23 @@ export default function Home() {
   };
 
   /**
-   * A new account's first run: ten Starter Words, then straight into them. If
+   * A new account's first run: pick Starter Words, then straight into them. If
    * the server can't give them, the app tour explains how to add words instead.
    */
-  const startFirstRun = async (level?: Parameters<typeof giveStarterWords>[0]) => {
+  const offerStarterWords = async (level?: CEFRLevel) => {
+    try {
+      setStarterOffer({ level, words: await fetchStarterWords(level) });
+    } catch (err) {
+      console.error('API fetchStarterWords error:', err);
+      setIsGuideOpen(true);
+    }
+  };
+
+  const startFirstRun = async (level: CEFRLevel | undefined, headwords: string[]) => {
+    setStarterOffer(null);
     setIsStartingReview(true);
     try {
-      await giveStarterWords(level);
+      await giveStarterWords(level, headwords);
     } catch (err) {
       console.error('API giveStarterWords error:', err);
       setIsStartingReview(false);
@@ -780,7 +816,7 @@ export default function Home() {
   };
 
   const handleStartQuiz = async (type: QuizType) => {
-    isQueueRunRef.current = false;
+    isReviewRunRef.current = false;
     // Nothing to quiz on yet — every word in the library is one the user
     // added, so send them to add some instead of opening an empty session.
     if (allWords.length === 0) {
@@ -826,7 +862,12 @@ export default function Home() {
     } catch (err) {
       trackEvent('quiz_start_failed', { quiz_type: type });
       console.error('getDueExercises error:', err);
-      setQuizStartError('Không thể tải bài tập. Vui lòng thử lại sau.');
+      // Out of xu or past the month's AI budget: the server's words say which.
+      setQuizStartError(
+        err instanceof ApiError && [402, 503].includes(err.status)
+          ? err.message
+          : 'Không thể tải bài tập. Vui lòng thử lại sau.',
+      );
     } finally {
       setLoadingQuizType(null);
     }
@@ -938,7 +979,7 @@ export default function Home() {
       // Learning-phase Flashcard: `word.id` is the `userWordId` from
       // `getDueExercises('flashcard')`, and this rating applies to every due
       // meaning bundled under it at once.
-      const submit = isQueueRunRef.current ? submitQueueWord : submitFlashcardExercise;
+      const submit = isReviewRunRef.current ? submitReviewWord : submitFlashcardExercise;
       const definitions = await trackSubmit(submit(word.id, rating));
       const backendSRS = mapWordRatingToSRS(definitions);
       if (backendSRS) handleUpdateSRS(word.id, backendSRS);
@@ -1285,7 +1326,8 @@ export default function Home() {
           summary={statsSummary}
           learning={learning}
           activity={activity}
-          dueCount={reviewQueue === null ? null : reviewQueue.length}
+          dueCount={queueCounts?.review ?? null}
+          practiceCount={queueCounts?.practice ?? 0}
           isStartingReview={isStartingReview}
           reviewError={reviewError}
           focusCategories={settings.focusCategories}
@@ -1303,6 +1345,7 @@ export default function Home() {
           }}
           loadingQuizType={loadingQuizType}
           errorMessage={quizStartError}
+          aiRunPrice={wallet?.enabled ? wallet.prices.practiceRun : null}
         />
       )}
 
@@ -1378,12 +1421,12 @@ export default function Home() {
             handleUpdateSettings({ cefrLevel: level });
             setIsLevelPickerOpen(false);
             // Only a new account is asked for its level, so either way out of
-            // the question starts its first run.
-            void startFirstRun(level);
+            // the question leads to the Starter Words.
+            void offerStarterWords(level);
           }}
           onSkip={() => {
             setIsLevelPickerOpen(false);
-            void startFirstRun();
+            void offerStarterWords();
           }}
         />
       )}
@@ -1395,6 +1438,13 @@ export default function Home() {
             setIsGuideOpen(false);
             setIsAddWordOpen(true);
           }}
+        />
+      )}
+
+      {starterOffer && (
+        <StarterWordsModal
+          words={starterOffer.words}
+          onConfirm={(headwords) => void startFirstRun(starterOffer.level, headwords)}
         />
       )}
 

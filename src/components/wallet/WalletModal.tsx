@@ -13,12 +13,12 @@ interface WalletModalProps {
 export const WalletModal: React.FC<WalletModalProps> = ({ wallet, onClose }) => {
   const [askedToBuy, setAskedToBuy] = useState(false);
   const { prices, supportEmails } = wallet;
+  // Only what this app can actually do. The server also prices passage,
+  // pronunciation and speaking, which other clients call.
   const rows: [string, number][] = [
     ['AI viết câu ví dụ', prices.example],
     ['AI tạo nghĩa cho từ mới', prices.wordEntry],
-    ['Giải thích đoạn văn', prices.passage],
-    ['Chấm phát âm', prices.pronunciation],
-    ['Chấm nói (mỗi phút)', prices.speakingPerMinute],
+    ['Lượt Multiple Choice / Type Missing Word', prices.practiceRun],
   ];
 
   return (

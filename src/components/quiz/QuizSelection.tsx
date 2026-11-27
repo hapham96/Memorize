@@ -25,13 +25,19 @@ interface QuizSelectionProps {
   onOpenBattle: () => void;
   loadingQuizType?: QuizType | null;
   errorMessage?: string | null;
+  /** Xu per run of the AI modes; null while xu is switched off. */
+  aiRunPrice?: number | null;
 }
+
+/** The modes whose wrong options AI writes — the ones the server charges for. */
+const AI_MODES: PracticeId[] = ['multiple-choice', 'type-word'];
 
 export const QuizSelection: React.FC<QuizSelectionProps> = ({
   onSelectQuiz,
   onOpenBattle,
   loadingQuizType = null,
   errorMessage = null,
+  aiRunPrice = null,
 }) => {
   const loadingLine = useMascotLine('loading');
 
@@ -187,6 +193,11 @@ export const QuizSelection: React.FC<QuizSelectionProps> = ({
                   >
                     {mode.badge}
                   </span>
+                  {aiRunPrice !== null && AI_MODES.includes(mode.id) && (
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 ml-1.5 rounded-full inline-block bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                      AI · {aiRunPrice} xu/lượt
+                    </span>
+                  )}
                   <h3 className="font-extrabold text-slate-900 dark:text-slate-100 text-lg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {mode.title}
                   </h3>

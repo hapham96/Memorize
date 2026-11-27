@@ -72,9 +72,9 @@ Everything else that needs to know what is due reads `dueAt` off the **cached wo
 
 The reminder merges two sources and settles conflicts by **date, not by origin**: `latestDueMs` takes the later of the library's `dueAt` and the local `nextReviewDate` per word, and an item survives only if that latest schedule is in the past. Without it a word reviewed through the quiz flow (which moves the local entry) would be re-announced from a stale cached row. `resolveWord` also drops local SRS keys the library has never heard of, which is what stops flashcard sessions — keyed by `userWordId`, see `mapFlashcardExerciseToWord` — from announcing "Word #123".
 
-**The home screen's one main button counts due words.** "Ôn N từ" in `HomeDashboard` is `GET /reviews/queue` ([review-queue-client](src/lib/api/review-queue-client.ts)): every due word of any phase, run as one flashcard session and graded at `POST /reviews/queue/:userWordId`. `BottomNav` still shows no badge.
+**The home screen has one main button, and it never mixes phases.** `GET /reviews/queue` ([review-queue-client](src/lib/api/review-queue-client.ts)) returns every due word; `splitQueue` separates graduated meanings from new/learning ones. `HomeDashboard` shows "Ôn N từ" (graded at `/reviews/word/:id`), else "Luyện tập M từ" (graded at `/exercises/word/:id/submit`), else "Thêm từ mới". `BottomNav` still shows no badge.
 
-Notifications: the app never raises a system `Notification` itself (the server sends at most one push a day); it shows an in-app banner, and asks for permission through `NotificationPrompt` after a finished session. A new account gets Starter Words (`POST /starter-words`) after the CEFR question. Xu (`GET /wallet`) is hidden whenever the server says `enabled: false`.
+Notifications: the app never raises a system `Notification` itself (the server sends at most one push a day); it shows an in-app banner, and asks for permission through `NotificationPrompt` after a finished session. A new account picks Starter Words (`GET`/`POST /starter-words`, `StarterWordsModal`) after the CEFR question. With xu on, Multiple Choice and Type Missing Word cost xu per run. Xu (`GET /wallet`) is hidden whenever the server says `enabled: false`.
 
 ### Failures are enveloped; successes are not
 

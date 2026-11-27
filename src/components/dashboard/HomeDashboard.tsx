@@ -28,11 +28,10 @@ interface HomeDashboardProps {
   learning: LearningProgress | null;
   /** Reviews per day, oldest first; null until the server answers. */
   activity: ActivityDay[] | null;
-  /**
-   * Words due right now, of any phase (`GET /reviews/queue`); null until the
-   * server answers.
-   */
+  /** Graduated words due for review; null until the server answers. */
   dueCount: number | null;
+  /** New and learning words due: practice, not review. */
+  practiceCount?: number;
   isStartingReview?: boolean;
   reviewError?: string | null;
   focusCategories?: WordCategory[];
@@ -46,6 +45,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   learning,
   activity,
   dueCount,
+  practiceCount = 0,
   isStartingReview = false,
   reviewError = null,
   focusCategories = [],
@@ -94,26 +94,28 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     : ['wave', greetingMoment()];
   const mascotLine = useMascotLine(mascotMoment, mascotCount);
 
+  const nothingDue = dueCount === 0 && practiceCount === 0;
+  const mainLabel =
+    dueCount === null
+      ? 'Ôn tập'
+      : dueCount > 0
+      ? `Ôn ${dueCount} từ`
+      : practiceCount > 0
+      ? `Luyện tập ${practiceCount} từ`
+      : 'Thêm từ mới';
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
-      {/* The one main action: review what is due, or add words when nothing is. */}
+      {/* The one main action: review, else practise, else add words. */}
       <div className="space-y-2">
         <button
           type="button"
-          onClick={dueCount === 0 ? onOpenAddWord : onStartReview}
+          onClick={nothingDue ? onOpenAddWord : onStartReview}
           disabled={isStartingReview}
           className="w-full py-5 rounded-[24px] bg-emerald-600 hover:bg-emerald-700 border-clay border-emerald-400 text-white font-black text-lg md:text-xl shadow-clay-lg flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-60 transition-all"
         >
-          {dueCount === 0 ? <Plus className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
-          <span>
-            {isStartingReview
-              ? 'Đang tải…'
-              : dueCount === null
-              ? 'Ôn tập'
-              : dueCount === 0
-              ? 'Thêm từ mới'
-              : `Ôn ${dueCount} từ`}
-          </span>
+          {nothingDue ? <Plus className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
+          <span>{isStartingReview ? 'Đang tải…' : mainLabel}</span>
           <ChevronRight className="w-5 h-5" />
         </button>
         {reviewError && (
