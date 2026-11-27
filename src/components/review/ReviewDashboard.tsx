@@ -34,6 +34,8 @@ interface ReviewDashboardProps {
   onUpdateSRS: (wordId: string, updatedSRS: SRSData) => void;
   /** A rating reached the server, which may have moved XP and streak. */
   onReviewSubmitted: () => void;
+  /** The last card of the queue was rated. */
+  onSessionFinished?: () => void;
   /** Folds a whole due list into the SRS map in one write. */
   onMergeSRS?: (entries: Record<string, SRSData>) => void;
   onOpenAddWord?: () => void;
@@ -84,6 +86,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   summary = null,
   onUpdateSRS,
   onReviewSubmitted,
+  onSessionFinished,
   onMergeSRS,
   onOpenAddWord,
   onDueListChanged,
@@ -297,6 +300,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
     } else {
       setIsReviewing(false);
       soundFX.playLevelUp();
+      onSessionFinished?.();
       fetchDueFromApi();
     }
   };

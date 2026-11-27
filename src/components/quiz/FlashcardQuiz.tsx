@@ -15,6 +15,8 @@ interface FlashcardQuizProps {
   onToggleFavorite: (wordId: string) => void;
   onRateWord: (word: Word, rating: ReviewQuality) => void;
   onClose: () => void;
+  /** The last card was rated — not called when the run is left early. */
+  onFinish?: () => void;
 }
 
 /** How far a finger has to travel across the card back to count as a swipe. */
@@ -33,6 +35,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
   onToggleFavorite,
   onRateWord,
   onClose,
+  onFinish,
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -108,6 +111,7 @@ export const FlashcardQuiz: React.FC<FlashcardQuizProps> = ({
     if (currentIndex < words.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
+      onFinish?.();
       onClose();
     }
   };

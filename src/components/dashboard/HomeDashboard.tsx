@@ -2,7 +2,6 @@
 
 import React from 'react';
 import {
-  Sparkles,
   Brain,
   ChevronRight,
   Flame,
@@ -11,7 +10,7 @@ import {
   Award,
   TrendingUp,
 } from 'lucide-react';
-import { ActivityDay, LearningProgress, UserProgress, QuizType, WordCategory } from '@/types';
+import { ActivityDay, LearningProgress, UserProgress, WordCategory } from '@/types';
 import { StatsSummary } from '@/types/stats';
 import { totalReviewsIn, WEEKDAY_LABELS, weekdayColumn } from '@/lib/activity';
 import { Plus } from 'lucide-react';
@@ -29,10 +28,14 @@ interface HomeDashboardProps {
   learning: LearningProgress | null;
   /** Reviews per day, oldest first; null until the server answers. */
   activity: ActivityDay[] | null;
-  /** Words due for review right now — Memori nudges toward them. */
-  dueCount?: number;
+  /**
+   * Words due right now, of any phase (`GET /reviews/queue`); null until the
+   * server answers.
+   */
+  dueCount: number | null;
+  isStartingReview?: boolean;
+  reviewError?: string | null;
   focusCategories?: WordCategory[];
-  onStartQuiz: (quizType: QuizType) => void;
   onStartReview: () => void;
   onOpenAddWord: () => void;
 }
@@ -42,9 +45,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   summary = null,
   learning,
   activity,
-  dueCount = 0,
+  dueCount,
+  isStartingReview = false,
+  reviewError = null,
   focusCategories = [],
-  onStartQuiz,
   onStartReview,
   onOpenAddWord,
 }) => {
@@ -85,13 +89,40 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     ? ['worried', 'streakAtRisk', streak]
     : goalPercentage >= 100
     ? ['cheer', 'goalDone']
-    : dueCount > 0
+    : dueCount !== null && dueCount > 0
     ? ['think', 'dueReview', dueCount]
     : ['wave', greetingMoment()];
   const mascotLine = useMascotLine(mascotMoment, mascotCount);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 space-y-6 pb-28 animate-fadeIn">
+      {/* The one main action: review what is due, or add words when nothing is. */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={dueCount === 0 ? onOpenAddWord : onStartReview}
+          disabled={isStartingReview}
+          className="w-full py-5 rounded-[24px] bg-emerald-600 hover:bg-emerald-700 border-clay border-emerald-400 text-white font-black text-lg md:text-xl shadow-clay-lg flex items-center justify-center gap-3 active:scale-[0.98] disabled:opacity-60 transition-all"
+        >
+          {dueCount === 0 ? <Plus className="w-6 h-6" /> : <Brain className="w-6 h-6" />}
+          <span>
+            {isStartingReview
+              ? 'Đang tải…'
+              : dueCount === null
+              ? 'Ôn tập'
+              : dueCount === 0
+              ? 'Thêm từ mới'
+              : `Ôn ${dueCount} từ`}
+          </span>
+          <ChevronRight className="w-5 h-5" />
+        </button>
+        {reviewError && (
+          <p role="alert" className="text-xs font-bold text-red-500 text-center">
+            {reviewError}
+          </p>
+        )}
+      </div>
+
       {/* Top Banner: Daily Goal & Focus Categories */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Daily Goal Progress Card */}
@@ -190,8 +221,8 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         </div>
       </div>
 
-      {/* Main Action Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Secondary action */}
+      <div className="grid grid-cols-1 gap-4">
         {/* Quick Add Custom Word Card */}
         <div
           onClick={onOpenAddWord}
@@ -221,66 +252,6 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </div>
         </div>
 
-        {/* Continue Learning */}
-        <div
-          onClick={() => onStartQuiz('flashcards')}
-          className="bg-white dark:bg-slate-800 rounded-[24px] p-5 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm hover:shadow-clay-lg hover:border-blue-500/50 cursor-pointer transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <span className="text-[10px] font-extrabold bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 px-2.5 py-1 rounded-full">
-              Flashcards
-            </span>
-          </div>
-
-          <div className="mt-4">
-            <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              Tiếp tục học
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Thẻ lật 3D tương tác & phiên âm chuẩn
-            </p>
-          </div>
-
-          <div className="mt-3 flex items-center text-xs font-bold text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform">
-            <span>Vào học ngay</span>
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </div>
-        </div>
-
-        {/* Review Today */}
-        <div
-          onClick={onStartReview}
-          className="bg-white dark:bg-slate-800 rounded-[24px] p-5 border border-emerald-500/30 dark:border-emerald-500/20 shadow-clay-sm hover:shadow-clay-lg hover:border-emerald-500 cursor-pointer transition-all duration-300 group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Brain className="w-6 h-6" />
-            </div>
-            <span className="text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full">
-              SRS Spaced
-            </span>
-          </div>
-
-          <div className="mt-4">
-            <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-              Ôn tập hôm nay
-            </h4>
-            {/* No count here: how many words are due is only known once the
-                review tab has asked `/reviews/due`, so promising a number on
-                this screen would mean asking for it on every visit. */}
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Ghi nhớ ngắt quãng theo lịch SRS
-            </p>
-          </div>
-
-          <div className="mt-3 flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400 group-hover:translate-x-1 transition-transform">
-            <span>Ôn tập ngay</span>
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </div>
-        </div>
       </div>
 
       {/* Quick Stats Summary Grid & Weekly Activity Grid */}

@@ -39,8 +39,6 @@ interface SettingsModalProps {
   pushStatus?: PushSubscriptionStatus;
 }
 
-const REMINDER_INTERVALS = [30, 60, 180, 360];
-
 /**
  * Emoji per category name — decoration only. The list itself comes from
  * `/vocabulary-sets`, so a name that is not here still renders, just without
@@ -191,7 +189,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   Nhắc ôn tập
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  Báo khi có từ tới hạn ôn tập
+                  Mỗi ngày tối đa một thông báo, lúc 20:00
                 </p>
               </div>
             </div>
@@ -267,27 +265,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </span>
                 </div>
               )}
-
-              {/* Throttle — a big due batch should not turn into a stream of pings. */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Khoảng cách tối thiểu giữa 2 lần nhắc
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {REMINDER_INTERVALS.map((minutes) => (
-                    <button
-                      key={minutes}
-                      onClick={() => onUpdateSettings({ reminderIntervalMinutes: minutes })}
-                      className={`py-2 rounded-button text-[11px] font-bold border transition-all ${settings.reminderIntervalMinutes === minutes
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200'
-                        }`}
-                    >
-                      {minutes < 60 ? `${minutes} phút` : `${minutes / 60} giờ`}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {/* Quiet hours */}
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border-clay border-blue-200 dark:border-slate-800">

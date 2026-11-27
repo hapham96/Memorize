@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Flame, Zap, Settings, Plus } from 'lucide-react';
+import { Flame, Zap, Settings, Coins } from 'lucide-react';
 import { LearningProgress, UserProgress } from '@/types';
 import { Mascot } from '@/components/mascot/Mascot';
 
@@ -11,6 +11,9 @@ interface HeaderBarProps {
   onOpenProgress: () => void;
   onOpenSettings: () => void;
   onOpenAddWord?: () => void;
+  /** Null while xu is switched off: then there is no wallet to show. */
+  xuBalance?: number | null;
+  onOpenWallet?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -19,6 +22,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenProgress,
   onOpenSettings,
   onOpenAddWord,
+  xuBalance = null,
+  onOpenWallet,
 }) => {
   const levelPercent = learning ? (learning.xpIntoLevel / learning.xpPerLevel) * 100 : 0;
 
@@ -78,6 +83,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </span>
         </button>
 
+
+        {xuBalance !== null && (
+          <button
+            type="button"
+            onClick={onOpenWallet}
+            aria-label={`${xuBalance} xu. Mở ví`}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border-2 border-amber-300 dark:border-amber-500/50 text-amber-700 dark:text-amber-300 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay cursor-pointer tabular-nums"
+          >
+            <Coins className="w-4 h-4 text-amber-500" />
+            {xuBalance}
+          </button>
+        )}
 
         <button
           onClick={onOpenSettings}

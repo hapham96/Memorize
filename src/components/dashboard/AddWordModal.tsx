@@ -903,7 +903,12 @@ export const AddWordModal: React.FC<AddWordModalProps> = ({
         meaningId: meaning.id,
         // With no definition to send, a rejection is most likely the API refusing an empty
         // `meaning` — point at that instead of a dead-end "try again later".
-        message: definition
+        // Out of xu, over a daily limit or past the month's AI budget: the
+        // server's own words say which.
+        message:
+          err instanceof ApiError && [402, 429, 503].includes(err.status)
+            ? err.message
+            : definition
           ? "Không tạo được câu ví dụ. Thử lại sau nhé."
           : "Nhập định nghĩa trước để AI viết được ví dụ đúng nghĩa nhé.",
       });

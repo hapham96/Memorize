@@ -2,19 +2,9 @@ import { SRSData, UserWordListItem, Word } from '@/types';
 
 /**
  * Review reminders driven by the SRS due time (`dueAt` on the backend,
- * `nextReviewDate` locally). Three channels, one decision:
- *
- * - a browser `Notification`, which reaches the user even when the tab is in
- *   the background — but only while the tab is still open
- * - a Web Push notification raised by the service worker (`public/sw.js`),
- *   which also reaches a closed tab; it reuses `REMINDER_TAG` so the two never
- *   double up on the same due batch
- * - an in-app banner, which always shows so the feature still works when the
- *   user never granted notification permission
+ * `nextReviewDate` locally). The open app only shows an in-app banner; the one
+ * system notification a day is a Web Push the server sends (`public/sw.js`).
  */
-
-/** Shared tag collapses repeat reminders into one OS notification. */
-export const REMINDER_TAG = 'memorize-due-reminder';
 
 /** Cap on remembered keys, so localStorage does not grow without bound. */
 const MAX_REMEMBERED_KEYS = 300;
@@ -233,50 +223,4 @@ export function markNotified(
     lastNotifiedAt: now.toISOString(),
     notifiedKeys: merged.slice(-MAX_REMEMBERED_KEYS),
   };
-}
-
-export function buildReminderMessage(items: DueReminderItem[]): {
-  title: string;
-  body: string;
-} {
-  const preview = items.slice(0, 3).map((item) => item.word.word);
-  const rest = items.length - preview.length;
-
-  return {
-    title: 'Đến giờ ôn tập rồi! 📚',
-    body:
-      rest > 0
-        ? `${items.length} từ đang chờ: ${preview.join(', ')} và ${rest} từ khác.`
-        : `${items.length} từ đang chờ: ${preview.join(', ')}.`,
-  };
-}
-
-/**
- * Returns false when nothing was shown (no permission, no items, or the
- * browser refused) — the in-app banner is the fallback in that case.
- */
-export function showDueNotification(
-  items: DueReminderItem[],
-  onClick?: () => void
-): boolean {
-  if (items.length === 0) return false;
-  if (getNotificationPermission() !== 'granted') return false;
-
-  try {
-    const { title, body } = buildReminderMessage(items);
-    // `renotify` is not in every lib.dom NotificationOptions yet.
-    const options = { body, tag: REMINDER_TAG, renotify: true } as NotificationOptions;
-    const notification = new Notification(title, options);
-
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-      onClick?.();
-    };
-
-    return true;
-  } catch (e) {
-    console.warn('Could not show review reminder notification:', e);
-    return false;
-  }
 }

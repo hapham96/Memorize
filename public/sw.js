@@ -1,9 +1,7 @@
 // Web Push service worker. Kept as a plain file (not compiled by Next/TS) —
 // browsers fetch it directly from /sw.js, so it can't depend on app modules.
 
-// Must match REMINDER_TAG in src/lib/notifications.ts. The app raises its own
-// `Notification` for a due batch while a tab is open; sharing the tag lets the
-// OS collapse that and a server push into one instead of pinging twice.
+// A newer reminder replaces an unread one instead of piling up.
 const REMINDER_TAG = 'memorize-due-reminder';
 
 self.addEventListener('install', () => {

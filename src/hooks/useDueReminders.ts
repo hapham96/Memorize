@@ -19,7 +19,6 @@ import {
   getNotificationPermission,
   markNotified,
   requestNotificationPermission,
-  showDueNotification,
 } from '@/lib/notifications';
 
 /**
@@ -74,9 +73,7 @@ export interface UseDueRemindersResult {
 }
 
 /**
- * Watches for words whose due time has arrived and raises a reminder — an
- * in-app banner always, plus a browser notification when permission was
- * granted.
+ * Watches for words whose due time has arrived and raises an in-app banner.
  *
  * The account's cached word library is the primary source: every row carries the
  * backend's own `dueAt`, so this needs no polling at all — `getUserWordLibrary`
@@ -327,7 +324,6 @@ export function useDueReminders({
     saveReminderState(nextState);
 
     setActiveReminder({ items: dueItems, raisedAt: raisedAt.getTime() });
-    showDueNotification(dueItems, () => onOpenReviewRef.current());
   }, [isReady, clock, dueItems, settings]);
 
   // Turning reminders off should also clear anything already on screen.

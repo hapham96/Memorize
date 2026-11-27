@@ -46,7 +46,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ activity }) =>
           </h3>
           <p className="text-[11px] text-slate-400 font-medium mt-0.5">
             {activity
-              ? `${activeDays} ngày có học · ${totalReviewsIn(days)} lượt ôn`
+              ? `Đã học ${activeDays} ngày · ${totalReviewsIn(days)} lượt ôn`
               : 'Đang tải…'}
           </p>
         </div>

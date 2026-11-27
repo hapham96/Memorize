@@ -22,6 +22,7 @@ const STORAGE_KEYS = {
   CUSTOM_WORDS: 'memorize_custom_words',
   AUTH: 'memorize_auth',
   REMINDERS: 'memorize_reminder_state',
+  NOTIFICATION_PROMPT: 'memorize_notification_prompt',
   CATEGORIES: 'memorize_categories',
   WORD_LIBRARY: 'memorize_word_library',
   LEARNING: 'memorize_learning_progress',
@@ -36,6 +37,7 @@ const SCOPED_KEYS = [
   STORAGE_KEYS.SRS,
   STORAGE_KEYS.CUSTOM_WORDS,
   STORAGE_KEYS.REMINDERS,
+  STORAGE_KEYS.NOTIFICATION_PROMPT,
   // `/vocabulary-sets` is authenticated, so the list may well be the account's
   // own — scoping costs one duplicated copy and rules out showing another user's.
   STORAGE_KEYS.CATEGORIES,
@@ -434,6 +436,30 @@ export function clearWordLibraryCache(): void {
  * Which due moments have already been announced, per account. Kept out of
  * `AppSettings` because it is bookkeeping, not a user preference.
  */
+/** How often the app has asked to turn notifications on. */
+export interface NotificationPromptState {
+  asks: number;
+  lastAskedAt: string | null;
+}
+
+export function loadNotificationPrompt(): NotificationPromptState {
+  const empty = { asks: 0, lastAskedAt: null };
+  try {
+    const data = readScoped(STORAGE_KEYS.NOTIFICATION_PROMPT);
+    return data ? { ...empty, ...JSON.parse(data) } : empty;
+  } catch {
+    return empty;
+  }
+}
+
+export function saveNotificationPrompt(state: NotificationPromptState): void {
+  try {
+    writeScoped(STORAGE_KEYS.NOTIFICATION_PROMPT, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to save notification prompt state', e);
+  }
+}
+
 export function loadReminderState(): ReminderState {
   if (typeof window === 'undefined') return EMPTY_REMINDER_STATE;
   try {
