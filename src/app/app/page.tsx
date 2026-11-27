@@ -28,7 +28,7 @@ import {
   getReviewQueue,
   fetchStarterWords,
   giveStarterWords,
-  splitQueue,
+  countQueue,
   StarterWord,
 } from '@/lib/api/review-queue-client';
 import { fetchWallet, Wallet } from '@/lib/api/wallet-client';
@@ -58,9 +58,8 @@ import {
   getUserWordLibrary,
   invalidateUserWordLibrary,
   resolveWordForUserWord,
-  submitReviewWord,
+  submitQueueWord,
 } from '@/lib/api/word-client';
-import { submitFlashcardExercise } from '@/lib/api/exercise-client';
 import { syncVocabularySets } from '@/lib/api/category-client';
 import { fetchStatsSummary } from '@/lib/api/stats-client';
 import {
@@ -153,8 +152,6 @@ export default function Home() {
   const [reviewQueue, setReviewQueue] = useState<BackendDueReview[] | null>(null);
   const [isStartingReview, setIsStartingReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  /** The flashcard run on screen reviews graduated words, graded as reviews. */
-  const isReviewRunRef = useRef(false);
   /** A session just ended and it is a good moment to ask about notifications. */
   const [isAskingNotifications, setIsAskingNotifications] = useState(false);
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -683,11 +680,10 @@ export default function Home() {
     trackEvent('app_screen_view', { screen_name: analyticsScreen });
   }, [isMounted, analyticsScreen]);
 
-  const queueCounts = useMemo(() => {
-    if (reviewQueue === null) return null;
-    const { review, practice } = splitQueue(reviewQueue);
-    return { review: review.length, practice: practice.length };
-  }, [reviewQueue]);
+  const queueCounts = useMemo(
+    () => (reviewQueue === null ? null : countQueue(reviewQueue)),
+    [reviewQueue],
+  );
 
   // Everything derivable is recomputed here, so the UI can never render a
   // counter that drifted away from the SRS map, the XP total or the settings.
@@ -738,27 +734,21 @@ export default function Home() {
 
   };
 
-  /**
-   * The home button's flashcard run: the words to review, or, when there are
-   * none, the ones still being practised. The two are never mixed.
-   */
+  /** The home button's flashcard run: every due word, new and old together. */
   const startQueueReview = async () => {
     setReviewError(null);
     setIsStartingReview(true);
     try {
       const queue = await getReviewQueue();
       setReviewQueue(queue);
-      const { review, practice } = splitQueue(queue);
-      const rows = review.length > 0 ? review : practice;
-      if (rows.length === 0) return;
+      if (queue.length === 0) return;
 
-      isReviewRunRef.current = review.length > 0;
-      setQuizSessionWords(rows.map((row) => resolveWordForUserWord(row, allWords)));
+      setQuizSessionWords(queue.map((row) => resolveWordForUserWord(row, allWords)));
       setIsSettingsOpen(false);
       setIsQueueRun(true);
       trackEvent('quiz_start', {
-        quiz_type: review.length > 0 ? 'review_queue' : 'practice_queue',
-        item_count: rows.length,
+        quiz_type: 'study_queue',
+        item_count: queue.length,
       });
     } catch (err) {
       console.error('API getReviewQueue error:', err);
@@ -829,12 +819,11 @@ export default function Home() {
     try {
       // `word.id` is the queue row's `userWordId`, and this rating applies to
       // every due meaning bundled under it at once.
-      const submit = isReviewRunRef.current ? submitReviewWord : submitFlashcardExercise;
-      const definitions = await trackSubmit(submit(word.id, rating));
+      const definitions = await trackSubmit(submitQueueWord(word.id, rating));
       const backendSRS = mapWordRatingToSRS(definitions);
       if (backendSRS) handleUpdateSRS(word.id, backendSRS);
     } catch (err) {
-      console.error('API submitFlashcardExercise error:', err);
+      console.error('API submitQueueWord error:', err);
     }
   };
 
@@ -1110,8 +1099,8 @@ export default function Home() {
           summary={statsSummary}
           learning={learning}
           activity={activity}
-          dueCount={queueCounts?.review ?? null}
-          practiceCount={queueCounts?.practice ?? 0}
+          queue={queueCounts}
+          onOpenPractice={() => setActiveTab('learn')}
           isStartingReview={isStartingReview}
           reviewError={reviewError}
           onStartReview={() => void startQueueReview()}

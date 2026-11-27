@@ -135,19 +135,17 @@ export async function updateWordDefinition(
 }
 
 /**
- * Rates a Flashcard in the Reviewing phase — one `quality` applied to every
- * DUE meaning under `userWordId` at once
- * (`docs/adr/0013-flashcard-blends-grading-across-due-meanings`). Supersedes
- * the old per-definition `/reviews/:id`, which the Flashcard UI no longer
- * calls.
+ * Rates a Flashcard from the home queue — one `quality` applied to every DUE
+ * meaning under `userWordId` at once, whatever its phase
+ * (`docs/adr/0013-flashcard-blends-grading-across-due-meanings`).
  */
-export async function submitReviewWord(
+export async function submitQueueWord(
   userWordId: number | string,
   quality: ReviewQuality,
 ): Promise<WordRatingResponse> {
   const body: ReviewWordRequest = { quality };
   const response = await postAsync<WordRatingResponse>(
-    `/reviews/word/${userWordId}`,
+    `/reviews/queue/${userWordId}`,
     body,
     { auth: true },
   );
@@ -634,8 +632,7 @@ export function invalidateUserWordLibrary(): void {
  *
  * This is what keeps the cache — and therefore the reminders that read it —
  * honest between two reads of `GET /words`. Every endpoint that reschedules a
- * word must call it: `submitReviewWord` here, `submitExercise`/
- * `submitFlashcardExercise` in `exercise-client`. `wordId` here is the
+ * word must call it, as `submitQueueWord` here does. `wordId` here is the
  * *parent word* id (a review/exercise reschedules one or more definitions,
  * but the cached row only tracks one representative state for the whole word).
  */

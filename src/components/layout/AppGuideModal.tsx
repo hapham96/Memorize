@@ -169,7 +169,7 @@ const SLIDES: GuideSlide[] = [
     icon: Brain,
     title: '3. Ôn tập hoạt động thế nào?',
     subtitle:
-      'Nút "Ôn N từ" ở Trang chủ dùng thuật toán lặp lại ngắt quãng (SM-2): bạn ôn một từ ngay trước khi sắp quên nó.',
+      'Nút "Học N từ hôm nay" ở Trang chủ dùng thuật toán lặp lại ngắt quãng (SM-2): bạn ôn một từ ngay trước khi sắp quên nó.',
     body: (
       <div className="space-y-3.5">
         <div className="space-y-1.5">
@@ -263,7 +263,7 @@ const SLIDES: GuideSlide[] = [
       <div className="space-y-2.5">
         <div className="rounded-2xl p-4 bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1.5">
           <p>💡 Mẹo: thêm khoảng <b>5–10 từ</b> rồi học bằng Flashcards trước.</p>
-          <p>📅 Sau đó mỗi ngày bấm nút <b>Ôn</b> ở Trang chủ để ôn hết các từ đến hạn.</p>
+          <p>📅 Sau đó mỗi ngày bấm nút <b>Học</b> ở Trang chủ để học hết các từ đến hạn.</p>
           <p>⚙️ Bạn có thể xem lại hướng dẫn này bất cứ lúc nào trong <b>Cài đặt</b>.</p>
         </div>
       </div>

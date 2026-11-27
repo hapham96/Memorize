@@ -70,7 +70,7 @@ What is due is read off the **cached word library** (see below), which costs a l
 
 The reminder merges two sources and settles conflicts by **date, not by origin**: `latestDueMs` takes the later of the library's `dueAt` and the local `nextReviewDate` per word. `resolveWord` also drops local SRS keys the library has never heard of.
 
-**The home screen has one main button, and it never mixes phases.** `GET /reviews/queue` ([review-queue-client](src/lib/api/review-queue-client.ts)) returns every due word; `splitQueue` separates graduated meanings from new/learning ones. `HomeDashboard` shows "Ôn N từ" (graded at `/reviews/word/:id`), else "Luyện tập M từ" (graded at `/exercises/word/:id/submit`), else "Thêm từ mới". `BottomNav` still shows no badge.
+**The home screen has one main button for new and old words together.** `GET /reviews/queue` ([review-queue-client](src/lib/api/review-queue-client.ts)) returns every due word of any phase; the button reads "Học N từ hôm nay" and every rating goes to `/reviews/queue/:userWordId`. `countQueue` only splits the number for the line under it ("từ mới" / "từ ôn lại"). With nothing due it reads "Luyện thêm" (opens the Luyện tập tab), or "Thêm từ mới" for an account with no words. `BottomNav` still shows no badge.
 
 Notifications: the app never raises a system `Notification` itself (the server sends at most one push a day); it shows an in-app banner, and asks for permission through `NotificationPrompt` after a finished session. A new account picks Starter Words (`GET`/`POST /starter-words`, `StarterWordsModal`) after the CEFR question. Xu (`GET /wallet`) is hidden whenever the server says `enabled: false`.
 
