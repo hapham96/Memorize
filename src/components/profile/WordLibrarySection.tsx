@@ -744,7 +744,8 @@ export const WordLibrarySection: React.FC<WordLibrarySectionProps> = ({
                         {[item.word.pos, item.word.level].filter(Boolean).join(' · ')}
                       </span>
                     </span>
-                    <span className="flex items-center gap-2 min-h-[1.25rem] pr-1.5">
+                    {/* pr-0.5 puts the dot's centre under the heart's. */}
+                    <span className="flex items-center gap-2 min-h-[1.25rem] pr-0.5">
                       <span className="min-w-0 truncate text-[11px] text-slate-400">
                         {item.word.ipa}
                       </span>
