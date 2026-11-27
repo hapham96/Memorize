@@ -102,7 +102,7 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
       setLeftOut([]);
       setRightPlaces(null);
       setChain(result.chain);
-      setView('order');
+      setView('chain');
     });
 
   const suggest = () =>
@@ -309,6 +309,17 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => {
+            soundFX.playPop();
+            setRightPlaces(null);
+            setView('order');
+          }}
+          className={secondaryClass}
+        >
+          Thử tự sắp xếp
+        </button>
+        <button
+          type="button"
           disabled={Boolean(busy)}
           onClick={() =>
             void make(
@@ -347,7 +358,8 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          onClick={onClose}
+          // Out of an exercise first, then out of the chain.
+          onClick={() => (chain && view !== 'chain' ? setView('chain') : onClose())}
           aria-label="Quay lại"
           className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
         >

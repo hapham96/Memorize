@@ -124,7 +124,7 @@ The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx),
 
 ### Argument Chain ("Chuỗi nhớ")
 
-Started from the Luyện tập tab ([ChainScreen](src/components/chain/ChainScreen.tsx), [ChainViews](src/components/chain/ChainViews.tsx), [chain-client](src/lib/api/chain-client.ts)). Creating and suggesting words are paid AI calls: fire them from a tap, never from an effect. A saved chain carries its own text, so opening and practising it calls no AI. Ordering the words and filling the hidden links are graded on the client; finishing the latter only reports `/practised` for the streak. A suggested new word is added with the ordinary `addWord` before the chain is made.
+Started from the Luyện tập tab ([ChainScreen](src/components/chain/ChainScreen.tsx), [ChainViews](src/components/chain/ChainViews.tsx), [chain-client](src/lib/api/chain-client.ts)). Creating and suggesting words are paid AI calls: fire them from a tap, never from an effect. A saved chain carries its own text, so opening and practising it calls no AI. A new chain is shown at once; ordering the words is an optional exercise. It and filling the hidden links are graded on the client; finishing the latter only reports `/practised` for the streak. A suggested new word is added with the ordinary `addWord` before the chain is made.
 
 ### Home counters come from `/stats/summary`
 

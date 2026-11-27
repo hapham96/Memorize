@@ -121,7 +121,7 @@ function scramble(length: number): number[] {
   return order.every((v, i) => v === i) ? [...order.slice(1), order[0]] : order;
 }
 
-/** The User's own guess at the order, before the suggested one is shown. */
+/** Practice: the User puts the words in order, then compares. */
 export const OrderGuess: React.FC<{
   chain: ArgumentChain;
   onDone: (rightPlaces: number) => void;
