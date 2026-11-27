@@ -18,6 +18,8 @@ export const WalletModal: React.FC<WalletModalProps> = ({ wallet, onClose }) => 
   const rows: [string, number][] = [
     ['AI viết câu ví dụ', prices.example],
     ['AI tạo nghĩa cho từ mới', prices.wordEntry],
+    ['Tạo chuỗi nhớ', prices.chain],
+    ['Gợi ý từ cho chuỗi nhớ', prices.chainWords],
   ];
 
   return (

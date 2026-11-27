@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   Flame,
   Gamepad2,
+  Link2,
   Headphones,
   Layers,
   ListChecks,
@@ -158,6 +159,9 @@ const SLIDES: GuideSlide[] = [
         </GuideRow>
         <GuideRow icon={Headphones} tone="bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300" title="Nghe">
           Nghe phát âm rồi gõ lại từ — luyện tai và chính tả cùng lúc.
+        </GuideRow>
+        <GuideRow icon={Link2} tone="bg-purple-100 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300" title="Chuỗi nhớ">
+          Chọn 3–8 từ, AI nối chúng thành chuỗi nguyên nhân → kết quả để nhớ cùng nhau.
         </GuideRow>
         <GuideRow icon={Gamepad2} tone="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300" title="Battle Game">
           Đấu từ vựng trực tiếp với 1–3 bạn bè qua mã phòng.

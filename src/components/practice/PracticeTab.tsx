@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Heart, Loader2, Play, Plus, RotateCcw, Swords } from 'lucide-react';
+import { Heart, Link2, Loader2, Play, Plus, RotateCcw, Swords } from 'lucide-react';
 import { UserWordListItem, VocabularySet, Word } from '@/types';
 import { PracticeChoices, PracticeMode, PracticeSitting } from '@/types/practice';
 import { fetchPracticeChoices, fetchPracticeSitting, startPractice } from '@/lib/api/practice-client';
@@ -9,6 +9,9 @@ import { getUserWordLibrary } from '@/lib/api/word-client';
 import { ApiError } from '@/lib/api/client';
 import { soundFX } from '@/lib/audio';
 import { trackEvent } from '@/lib/analytics';
+import { SavedChains } from '@/components/chain/SavedChains';
+import { MAX_CHAIN_WORDS } from '@/lib/api/chain-client';
+import { ChainStart } from '@/types/chain';
 import { EMPTY_SELECTION, WordPicker, WordSelection, isWordChosen } from './WordPicker';
 
 interface PracticeTabProps {
@@ -18,6 +21,7 @@ interface PracticeTabProps {
   onOpenSitting: (sitting: PracticeSitting) => void;
   onOpenBattle: () => void;
   onOpenAddWord: () => void;
+  onOpenChain: (start: ChainStart) => void;
   /** The home screen's review run. */
   onStartReview: () => void;
 }
@@ -50,6 +54,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   onOpenBattle,
   onOpenAddWord,
   onStartReview,
+  onOpenChain,
 }) => {
   const [items, setItems] = useState<UserWordListItem[] | null>(null);
   const [choices, setChoices] = useState<PracticeChoices | null>(null);
@@ -101,9 +106,8 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   // before it is asked for.
   const reviewDue = new Set(choices?.reviewDueIds ?? []);
   const practisable = (items ?? []).filter((item) => !reviewDue.has(Number(item.word.id)));
-  const chosenCount = practisable.filter((item) =>
-    isWordChosen(selection, item, shortcuts),
-  ).length;
+  const chosen = practisable.filter((item) => isWordChosen(selection, item, shortcuts));
+  const chosenCount = chosen.length;
   const canStart = chosenCount > 0 && (modes === null || modes.length > 0) && !isStarting;
 
   const resume = () => {
@@ -284,6 +288,29 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
             )}
           </section>
 
+          <button
+            type="button"
+            disabled={!chosenCount || chosenCount > MAX_CHAIN_WORDS}
+            onClick={() => {
+              soundFX.playPop();
+              onOpenChain({
+                kind: 'new',
+                words: chosen.map((item) => ({
+                  userWordId: Number(item.word.id),
+                  headword: item.word.word,
+                })),
+              });
+            }}
+            className="w-full py-3 rounded-2xl bg-white dark:bg-slate-800 border-clay border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300 font-extrabold text-sm shadow-clay-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 transition-all"
+          >
+            <Link2 className="w-5 h-5" /> Tạo chuỗi nhớ
+          </button>
+          {chosenCount > MAX_CHAIN_WORDS && (
+            <p className="text-xs text-slate-400 text-center">
+              Chuỗi nhớ dùng tối đa {MAX_CHAIN_WORDS} từ.
+            </p>
+          )}
+
           {isAsking ? (
             <div className={`${sectionClass} flex flex-col items-center text-center`}>
               <p className={titleClass}>Bạn còn một buổi đang dở. Làm tiếp hay bắt đầu buổi mới?</p>
@@ -321,6 +348,8 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
           )}
         </>
       )}
+
+      <SavedChains onOpen={(chainId) => onOpenChain({ kind: 'saved', chainId })} />
 
       {error && (
         <p role="alert" className="text-xs font-bold text-amber-600 dark:text-amber-400 text-center">

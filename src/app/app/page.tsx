@@ -12,6 +12,8 @@ import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
 import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
 import { PracticeTab } from '@/components/practice/PracticeTab';
 import { PracticeSession } from '@/components/practice/PracticeSession';
+import { ChainScreen } from '@/components/chain/ChainScreen';
+import { ChainStart } from '@/types/chain';
 import { BattleGame } from '@/components/battle/BattleGame';
 import { BATTLE_INVITE_PARAM, normalizeRoomCode } from '@/lib/battle';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
@@ -128,6 +130,9 @@ export default function Home() {
   const [isQueueRun, setIsQueueRun] = useState(false);
   /** The Free Practice sitting on screen. */
   const [practiceSitting, setPracticeSitting] = useState<PracticeSitting | null>(null);
+  /** The Argument Chain on screen. */
+  const [chainStart, setChainStart] = useState<ChainStart | null>(null);
+  const hasChainWordsRef = useRef(false);
   /** A practice answer rescheduled something the cached library still shows. */
   const hasPracticeReviewsRef = useRef(false);
   /** Battle Game is online-only and owns its own socket, so it is a screen of its own rather than a quiz mode. */
@@ -694,6 +699,7 @@ export default function Home() {
   const openReview = () => {
     setIsQueueRun(false);
     setPracticeSitting(null);
+    setChainStart(null);
     setIsSettingsOpen(false);
     setActiveTab('home');
   };
@@ -704,6 +710,17 @@ export default function Home() {
     if (!hasPracticeReviewsRef.current) return;
     hasPracticeReviewsRef.current = false;
     invalidateUserWordLibrary();
+    void hydrateFromApi(allWords);
+    void refreshStats();
+  };
+
+  /** Making a chain can spend xu, extend the streak and add words. */
+  const closeChain = () => {
+    setChainStart(null);
+    void refreshWallet();
+    void refreshProgress();
+    if (!hasChainWordsRef.current) return;
+    hasChainWordsRef.current = false;
     void hydrateFromApi(allWords);
     void refreshStats();
   };
@@ -1082,6 +1099,22 @@ export default function Home() {
     );
   }
 
+  if (chainStart) {
+    return (
+      <MobileContainer>
+        <ChainScreen
+          start={chainStart}
+          prices={wallet?.enabled ? wallet.prices : null}
+          track={trackSubmit}
+          onWordAdded={() => {
+            hasChainWordsRef.current = true;
+          }}
+          onClose={closeChain}
+        />
+      </MobileContainer>
+    );
+  }
+
   // Main Dashboard View with Bottom Navigation
   return (
     <MobileContainer>
@@ -1121,6 +1154,7 @@ export default function Home() {
             setIsBattleOpen(true);
           }}
           onOpenAddWord={() => setIsAddWordOpen(true)}
+          onOpenChain={setChainStart}
           // From home, so a failed start has somewhere to say so.
           onStartReview={() => {
             setActiveTab('home');
