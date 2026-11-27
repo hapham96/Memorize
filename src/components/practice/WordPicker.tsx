@@ -189,22 +189,34 @@ export const WordPicker: React.FC<WordPickerProps> = ({
             </div>
             {isOpen && (
               <ul className="max-h-56 overflow-y-auto border-t-2 border-slate-200 dark:border-slate-700 p-1.5">
-                {words.map((item) => (
-                  <li key={String(item.word.id)}>
-                    <label className="flex items-center gap-2 px-2 py-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isWordChosen(selection, item, shortcuts)}
-                        onChange={() => toggleWord(item)}
-                        className="w-4 h-4 accent-blue-600"
-                      />
-                      <span className="shrink-0 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        {item.word.word}
-                      </span>
-                      <span className="truncate text-xs text-slate-400">{item.word.definition}</span>
-                    </label>
-                  </li>
-                ))}
+                {words.map((item) => {
+                  const isChosen = isWordChosen(selection, item, shortcuts);
+                  const WordIcon = isChosen ? CheckSquare : Square;
+                  return (
+                    <li key={String(item.word.id)}>
+                      <label className="flex items-center gap-2 px-1.5 py-1.5 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 select-none">
+                        {/* The native box can't be themed: hidden, but still
+                            what the keyboard and screen readers use. */}
+                        <input
+                          type="checkbox"
+                          checked={isChosen}
+                          onChange={() => toggleWord(item)}
+                          className="peer sr-only"
+                        />
+                        <WordIcon
+                          aria-hidden
+                          className={`w-5 h-5 shrink-0 rounded peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 ${
+                            isChosen ? 'text-blue-600' : 'text-slate-400'
+                          }`}
+                        />
+                        <span className="shrink-0 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          {item.word.word}
+                        </span>
+                        <span className="truncate text-xs text-slate-400">{item.word.definition}</span>
+                      </label>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </li>
