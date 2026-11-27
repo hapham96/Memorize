@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Heart, Link2, Loader2, Play, Plus, RotateCcw, Swords } from 'lucide-react';
+import { Heart, Link2, Loader2, Play, Plus, RotateCcw, Sparkles, Swords } from 'lucide-react';
 import { UserWordListItem, VocabularySet, Word } from '@/types';
 import { PracticeChoices, PracticeMode, PracticeSitting } from '@/types/practice';
 import { fetchPracticeChoices, fetchPracticeSitting, startPractice } from '@/lib/api/practice-client';
@@ -10,7 +10,8 @@ import { ApiError } from '@/lib/api/client';
 import { soundFX } from '@/lib/audio';
 import { trackEvent } from '@/lib/analytics';
 import { SavedChains } from '@/components/chain/SavedChains';
-import { MAX_CHAIN_WORDS } from '@/lib/api/chain-client';
+import { MAX_CHAIN_WORDS, chainErrorText, suggestChainWords } from '@/lib/api/chain-client';
+import { XuPrices } from '@/lib/api/wallet-client';
 import { ChainStart } from '@/types/chain';
 import { EMPTY_SELECTION, WordPicker, WordSelection, isWordChosen } from './WordPicker';
 
@@ -22,6 +23,8 @@ interface PracticeTabProps {
   onOpenBattle: () => void;
   onOpenAddWord: () => void;
   onOpenChain: (start: ChainStart) => void;
+  /** Null while xu is switched off. */
+  prices: XuPrices | null;
   /** The home screen's review run. */
   onStartReview: () => void;
 }
@@ -55,6 +58,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   onOpenAddWord,
   onStartReview,
   onOpenChain,
+  prices,
 }) => {
   const [items, setItems] = useState<UserWordListItem[] | null>(null);
   const [choices, setChoices] = useState<PracticeChoices | null>(null);
@@ -65,6 +69,7 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   const [modes, setModes] = useState<PracticeMode[] | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Read through a ref so a new array identity does not reload the screen.
   const latestRef = useRef({ allWords, vocabularySets });
@@ -109,6 +114,33 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
   const chosen = practisable.filter((item) => isWordChosen(selection, item, shortcuts));
   const chosenCount = chosen.length;
   const canStart = chosenCount > 0 && (modes === null || modes.length > 0) && !isStarting;
+
+  /**
+   * A chain without picking: one weak word (often missed, else still being
+   * learnt, else any), and the AI finds what links to it.
+   */
+  const suggestChain = async () => {
+    const missed = practisable.filter((item) =>
+      shortcuts.oftenMissedIds.includes(Number(item.word.id)),
+    );
+    const learning = practisable.filter((item) => item.state === 'learning');
+    const pool = missed.length ? missed : learning.length ? learning : practisable;
+    const seed = pool[Math.floor(Math.random() * pool.length)];
+    if (!seed) return;
+
+    soundFX.playPop();
+    setError(null);
+    setIsSuggesting(true);
+    const word = { userWordId: Number(seed.word.id), headword: seed.word.word };
+    try {
+      const suggested = await suggestChainWords([word.userWordId]);
+      onOpenChain({ kind: 'new', words: [word], suggested });
+    } catch (err) {
+      console.warn('Could not suggest a chain:', err);
+      setError(chainErrorText(err));
+      setIsSuggesting(false);
+    }
+  };
 
   const resume = () => {
     if (!unfinished) return;
@@ -304,6 +336,20 @@ export const PracticeTab: React.FC<PracticeTabProps> = ({
             className="w-full py-3 rounded-2xl bg-white dark:bg-slate-800 border-clay border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300 font-extrabold text-sm shadow-clay-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-40 transition-all"
           >
             <Link2 className="w-5 h-5" /> Tạo chuỗi nhớ
+          </button>
+          <button
+            type="button"
+            disabled={isSuggesting || !areChoicesSettled || !practisable.length}
+            onClick={() => void suggestChain()}
+            className="w-full py-2 flex items-center justify-center gap-2 text-sm font-bold text-purple-700 dark:text-purple-300 disabled:opacity-40"
+          >
+            {isSuggesting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            {isSuggesting ? 'Đang tìm từ hợp…' : 'Gợi ý chuỗi cho tôi'}
+            {!isSuggesting && prices?.chainWords ? ` (${prices.chainWords} xu)` : ''}
           </button>
           {chosenCount > MAX_CHAIN_WORDS && (
             <p className="text-xs text-slate-400 text-center">

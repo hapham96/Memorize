@@ -53,7 +53,13 @@ export interface ChainPick {
   headword: string;
 }
 
+/** Words offered to complete a chain, and the Set a new one goes into. */
+export interface ChainSuggestions {
+  vocabularySetId: number;
+  suggestions: WordSuggestion[];
+}
+
 /** What the chain screen was opened for. */
 export type ChainStart =
-  | { kind: 'new'; words: ChainPick[] }
+  | { kind: 'new'; words: ChainPick[]; suggested?: ChainSuggestions }
   | { kind: 'saved'; chainId: number };

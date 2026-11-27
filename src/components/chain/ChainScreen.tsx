@@ -2,7 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Plus, Trash2, X } from 'lucide-react';
-import { ArgumentChain, ChainPick, ChainStart, LeftOutWord, WordSuggestion } from '@/types/chain';
+import {
+  ArgumentChain,
+  ChainPick,
+  ChainStart,
+  ChainSuggestions,
+  LeftOutWord,
+} from '@/types/chain';
 import {
   MAX_CHAIN_WORDS,
   MIN_CHAIN_WORDS,
@@ -38,11 +44,6 @@ interface ChainScreenProps {
   onClose: () => void;
 }
 
-interface Suggested {
-  vocabularySetId: number;
-  list: WordSuggestion[];
-}
-
 export const ChainScreen: React.FC<ChainScreenProps> = ({
   start,
   prices,
@@ -51,7 +52,9 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
   onClose,
 }) => {
   const [words, setWords] = useState<ChainPick[]>(start.kind === 'new' ? start.words : []);
-  const [suggested, setSuggested] = useState<Suggested | null>(null);
+  const [suggested, setSuggested] = useState<ChainSuggestions | null>(
+    (start.kind === 'new' && start.suggested) || null,
+  );
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [leftOut, setLeftOut] = useState<LeftOutWord[]>([]);
   const [chain, setChain] = useState<ArgumentChain | null>(null);
@@ -107,8 +110,7 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
 
   const suggest = () =>
     run('Memo đang tìm từ hợp…', async () => {
-      const next = await suggestChainWords(words.map((w) => w.userWordId));
-      setSuggested({ vocabularySetId: next.vocabularySetId, list: next.suggestions });
+      setSuggested(await suggestChainWords(words.map((w) => w.userWordId)));
       setTicked(new Set());
     });
 
@@ -116,7 +118,7 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
   const addTicked = () =>
     run('Đang thêm từ…', async () => {
       if (!suggested) return;
-      for (const item of suggested.list.filter((s) => ticked.has(s.headword))) {
+      for (const item of suggested.suggestions.filter((s) => ticked.has(s.headword))) {
         let userWordId = item.userWordId;
         if (userWordId === null) {
           const added = await track(
@@ -140,7 +142,10 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
         // Kept as each one lands, so a failure part way loses nothing.
         setWords((prev) => [...prev, pick]);
         setSuggested((prev) =>
-          prev && { ...prev, list: prev.list.filter((s) => s.headword !== item.headword) },
+          prev && {
+            ...prev,
+            suggestions: prev.suggestions.filter((s) => s.headword !== item.headword),
+          },
         );
       }
       setSuggested(null);
@@ -167,11 +172,11 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
   const picking = suggested ? (
     <div className="space-y-3">
       <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-        {suggested.list.length
-          ? 'Chọn từ muốn thêm. Từ mới được lưu vào cùng bộ từ.'
+        {suggested.suggestions.length
+          ? `Chọn từ ghép với ${words.map((w) => w.headword).join(', ')}. Từ mới được lưu vào cùng bộ từ.`
           : 'Chưa tìm được từ nào hợp.'}
       </p>
-      {suggested.list.map((item) => {
+      {suggested.suggestions.map((item) => {
         const isTicked = ticked.has(item.headword);
         return (
           <label key={item.headword} className={`${cardClass} flex gap-3 cursor-pointer`}>

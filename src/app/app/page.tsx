@@ -1155,6 +1155,7 @@ export default function Home() {
           }}
           onOpenAddWord={() => setIsAddWordOpen(true)}
           onOpenChain={setChainStart}
+          prices={wallet?.enabled ? wallet.prices : null}
           // From home, so a failed start has somewhere to say so.
           onStartReview={() => {
             setActiveTab('home');
