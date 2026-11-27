@@ -186,23 +186,4 @@ export interface Leaderboard {
   entries: LeaderboardEntry[];
 }
 
-export type ActiveTab = 'home' | 'learn' | 'review' | 'stats' | 'profile';
-
-export type QuizType =
-  | 'flashcards'
-  | 'multiple-choice'
-  | 'fill-blank'
-  | 'type-word'
-  | 'listening'
-  | 'image';
-
-export interface QuizSessionResult {
-  quizType: QuizType;
-  total: number;
-  correct: number;
-  /** `unknown` when the server could not close the run. */
-  xpEarned: number | 'pending' | 'unknown';
-  /** Identifies the run, so a late answer cannot land on a newer result. */
-  runId: number;
-  mistakeCount: number;
-}
+export type ActiveTab = 'home' | 'learn' | 'stats' | 'profile';

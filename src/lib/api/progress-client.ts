@@ -1,5 +1,4 @@
 import { ActivityDay, LearningProgress } from "@/types";
-import { AutoGradedExerciseType, ExerciseItem } from "@/types/exercise";
 import { getAsync, patchAsync, postAsync } from "./client";
 
 /** Longest window the stats screen draws; the home chart takes its last week. */
@@ -13,26 +12,6 @@ export async function fetchLearningProgress(): Promise<LearningProgress> {
 /** The last `days` Vietnam days, oldest first, empty days included. */
 export async function fetchActivity(days = ACTIVITY_DAYS): Promise<ActivityDay[]> {
   return getAsync<ActivityDay[]>(`/stats/activity?days=${days}`, { auth: true });
-}
-
-/**
- * Starts a run: the server picks the due questions and remembers them.
- * `sessionId` is null when nothing is due.
- */
-export async function startQuizSession(
-  exerciseType: AutoGradedExerciseType,
-): Promise<{ sessionId: number | null; exercises: ExerciseItem[] }> {
-  return postAsync("/quiz-sessions", { exerciseType }, { auth: true });
-}
-
-/**
- * Asks for the completion bonus. The server answers `session: null` unless
- * every question of the run reached it.
- */
-export async function completeQuizSession(
-  sessionId: number,
-): Promise<{ session: { xpEarned: number } | null }> {
-  return postAsync(`/quiz-sessions/${sessionId}/complete`, {}, { auth: true });
 }
 
 /** `PATCH /words/favorites` takes at most 500 ids per call. */

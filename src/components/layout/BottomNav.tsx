@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Home, BookOpen, Brain, BarChart3, User } from 'lucide-react';
+import { Home, BookOpen, BarChart3, User } from 'lucide-react';
 import { ActiveTab } from '@/types';
 
 interface BottomNavProps {
@@ -13,9 +13,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) 
   const tabs = [
     { id: 'home' as ActiveTab, label: 'Trang chủ', icon: Home },
     { id: 'learn' as ActiveTab, label: 'Luyện tập', icon: BookOpen },
-    // No due-count badge: the review tab owns that number, and it is only known
-    // once `/reviews/due` has been asked — which now happens on that tab alone.
-    { id: 'review' as ActiveTab, label: 'Ôn tập', icon: Brain },
     { id: 'stats' as ActiveTab, label: 'Thống kê', icon: BarChart3 },
     { id: 'profile' as ActiveTab, label: 'Cá nhân', icon: User },
   ];

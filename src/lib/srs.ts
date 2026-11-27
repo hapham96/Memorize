@@ -86,7 +86,7 @@ const BACKEND_SRS_STATUSES: Record<string, SRSState> = {
  *
  * Every path that takes a status off the wire must come through here. A raw
  * `as SRSState` cast puts `reviewing` into `SRSData.state`, where it matches no
- * comparison the app makes: `ReviewDashboard`'s upcoming count, the library's
+ * comparison the app makes: the library's
  * status filter and both status pills all test for `review` and would silently
  * miss every graduated word.
  *

@@ -51,7 +51,6 @@ export async function addWord(word: AddWordRequest): Promise<AddWordResponse> {
   const response = await postAsync<AddWordResponse>("/words", word, {
     auth: true,
   });
-  invalidateDueReviews();
   invalidateUserWordLibrary();
   return response;
 }
@@ -67,7 +66,6 @@ export async function addWordsBulk(
   const response = await postAsync<BulkAddWordResponse>("/words/bulk", words, {
     auth: true,
   });
-  invalidateDueReviews();
   invalidateUserWordLibrary();
   return response;
 }
@@ -77,12 +75,10 @@ export async function addWordsBulk(
  *
  * The cached library row goes with it rather than the whole cache: dropping the
  * cache would cost a full refetch on the next reminder tick, and the one row
- * that changed is known here. `invalidateDueReviews` still runs because a
- * deleted word must not be served as due.
+ * that changed is known here.
  */
 export async function deleteUserWord(wordId: number | string): Promise<void> {
   await deleteAsync<void>(`/words/${wordId}`, { auth: true });
-  invalidateDueReviews();
   updateCachedUserWordRow(wordId, () => null);
 }
 
@@ -93,7 +89,7 @@ export async function deleteUserWord(wordId: number | string): Promise<void> {
  * SRS is scheduled per sense, so removing one can change which sense the row's
  * `state`/`dueAt` stand for — but only the backend knows the new representative,
  * so the cached row keeps its schedule and the sense list is what is rewritten.
- * The due list is invalidated for the same reason. Answers the word as it now
+ * Answers the word as it now
  * stands, so the caller renders exactly what was cached.
  */
 export async function deleteWordDefinition(
@@ -103,7 +99,6 @@ export async function deleteWordDefinition(
   await deleteAsync<void>(`/words/${word.id}/definitions/${definitionId}`, {
     auth: true,
   });
-  invalidateDueReviews();
 
   const updated = removeWordMeaning(word, definitionId);
   updateCachedUserWordRow(word.id, (item) => ({ ...item, word: updated }));
@@ -156,7 +151,6 @@ export async function submitReviewWord(
     body,
     { auth: true },
   );
-  invalidateDueReviews();
   // A rating moves every due definition's status and due date. Patching the
   // parent word's cached row (by the soonest-due meaning) keeps the cached
   // library honest without re-reading every page of it.
@@ -165,76 +159,6 @@ export async function submitReviewWord(
     patchCachedUserWord(userWordId, representative.status, representative.dueAt);
   }
   return response;
-}
-
-/**
- * How long a due list is reused. Long enough to collapse the burst that mount,
- * a tab switch and the reminder poll produce together; short enough that a word
- * falling due is picked up on the next poll rather than a stale one.
- */
-const DUE_CACHE_TTL_MS = 30_000;
-
-interface DueCacheEntry {
-  fetchedAt: number;
-  data: BackendDueReview[];
-}
-
-const dueCache = new Map<string, DueCacheEntry>();
-const dueInFlight = new Map<string, Promise<BackendDueReview[]>>();
-
-/**
- * Drops every cached due list so the next read goes to the backend. Called
- * after anything that changes what is due, and on account changes.
- */
-export function invalidateDueReviews(): void {
-  dueCache.clear();
-  dueInFlight.clear();
-}
-
-/**
- * Three independent callers ask for this — mount hydration, the review tab and
- * the reminder poll — so results are shared for `DUE_CACHE_TTL_MS` and
- * concurrent asks collapse into a single request. Pass `force` when the answer
- * must be fresh; failures are never cached.
- *
- * The backend reads the account off the bearer token, so no id is sent. The id
- * is still read locally for two reasons: a signed-out client has nothing to ask
- * for, and the cache stays keyed per account so a new sign-in can never be
- * answered out of the previous user's entry.
- */
-export async function getDueReviews(
-  options: { force?: boolean } = {},
-): Promise<BackendDueReview[]> {
-  const userId = getCurrentUserId();
-  if (userId === null) return [];
-
-  const key = String(userId);
-
-  if (!options.force) {
-    const cached = dueCache.get(key);
-    if (cached && Date.now() - cached.fetchedAt < DUE_CACHE_TTL_MS)
-      return cached.data;
-
-    const pending = dueInFlight.get(key);
-    if (pending) return pending;
-  }
-
-  const request: Promise<BackendDueReview[]> = getAsync<BackendDueReview[]>(
-    "/reviews/due",
-    { auth: true },
-  )
-    .then((data) => {
-      dueCache.set(key, { fetchedAt: Date.now(), data });
-      return data;
-    })
-    .finally(() => {
-      // Only clear the slot this request owns — a later `force` call may have
-      // already replaced it.
-      if (dueInFlight.get(key) === request) dueInFlight.delete(key);
-    });
-
-  dueInFlight.set(key, request);
-  return request;
 }
 
 /** Long-form parts of speech the backend may hold, in the form the UI renders. */
@@ -429,31 +353,6 @@ export function mapWordRatingToSRS(response: WordRatingResponse): SRSData | unde
     lastReviewed: new Date().toISOString(),
     nextReviewDate: representative.dueAt,
     state: normalizeSRSState(representative.status) ?? "learning",
-  };
-}
-
-/**
- * Maps one `/reviews/due` row's definitions to the SRS schedule they carry —
- * the soonest-due meaning stands in for the whole word. `lastReviewed` stays
- * `null`, unlike `mapWordRatingToSRS`: reading the due list is not a review
- * event.
- */
-function mapDueDefinitionsToSRS(
-  userWordId: number,
-  definitions: BackendWordDefinition[],
-): SRSData | undefined {
-  const representative = pickRepresentativeDefinition(definitions);
-  if (!representative) return undefined;
-
-  return {
-    userWordId,
-    wordId: String(userWordId),
-    interval: representative.interval,
-    easeFactor: representative.easinessFactor,
-    repetitions: representative.repetitions,
-    lastReviewed: null,
-    nextReviewDate: representative.dueAt,
-    state: normalizeSRSState(representative.status) ?? "new",
   };
 }
 
@@ -860,9 +759,4 @@ export async function getUserWordLibrary(
   libraryInFlight.set(scope, request);
   const items = await request;
   return { items, fetchedAt: Date.now(), fromCache: false };
-}
-
-/** Maps one `/reviews/due` row straight to the SRS schedule it carries. */
-export function mapBackendUserWordToSRS(dueRow: BackendDueReview): SRSData | undefined {
-  return mapDueDefinitionsToSRS(dueRow.userWordId, dueRow.definitions);
 }

@@ -44,7 +44,6 @@ const MAX_TIMEOUT_MS = 2_000_000_000;
 interface UseDueRemindersArgs {
   /** Full word list — also used to name words the backend reports as due. */
   allWords: Word[];
-  /** Empty means "no filter"; mirrors the review tab's active pool. */
   srsMap: Record<string, SRSData>;
   settings: AppSettings;
   /** Held false until localStorage is read, so nothing fires on half-loaded state. */
@@ -77,9 +76,7 @@ export interface UseDueRemindersResult {
  * The account's cached word library is the primary source: every row carries the
  * backend's own `dueAt`, so this needs no polling at all — `getUserWordLibrary`
  * answers from localStorage and only fetches when there is nothing cached (a new
- * device, or right after a word was added, which drops the cache). `/reviews/due`
- * is deliberately *not* used here; it is only worth a request where its
- * `userWordId` is needed, i.e. the review tab.
+ * device, or after something that drops the cache).
  *
  * The local SRS map is the second source, so a word reviewed on this device — or
  * added while the backend was unreachable — still counts. Where both know a word,

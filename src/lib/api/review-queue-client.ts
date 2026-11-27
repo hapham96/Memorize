@@ -2,7 +2,7 @@ import { CEFRLevel } from "@/types";
 import { BackendDueReview } from "@/types/word";
 import { normalizeSRSState } from "@/lib/srs";
 import { getAsync, postAsync } from "./client";
-import { invalidateDueReviews, invalidateUserWordLibrary } from "./word-client";
+import { invalidateUserWordLibrary } from "./word-client";
 
 /**
  * Every due word of any phase. Unlike `/reviews/due` it includes new and
@@ -61,7 +61,6 @@ export async function giveStarterWords(
     { cefrLevel, headwords },
     { auth: true },
   );
-  invalidateDueReviews();
   invalidateUserWordLibrary();
   return result;
 }

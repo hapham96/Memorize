@@ -9,17 +9,11 @@ import { AppGuideModal } from '@/components/layout/AppGuideModal';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { LevelSelectModal } from '@/components/auth/LevelSelectModal';
 import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
-import { QuizSelection } from '@/components/quiz/QuizSelection';
 import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
-import { MultipleChoiceQuiz } from '@/components/quiz/MultipleChoiceQuiz';
-import { FillBlankQuiz } from '@/components/quiz/FillBlankQuiz';
-import { TypeWordQuiz } from '@/components/quiz/TypeWordQuiz';
-import { ListeningQuiz } from '@/components/quiz/ListeningQuiz';
-import { QuizResultModal } from '@/components/quiz/QuizResultModal';
-import { MistakeReviewScreen } from '@/components/quiz/MistakeReviewScreen';
+import { PracticeTab } from '@/components/practice/PracticeTab';
+import { PracticeSession } from '@/components/practice/PracticeSession';
 import { BattleGame } from '@/components/battle/BattleGame';
 import { BATTLE_INVITE_PARAM, normalizeRoomCode } from '@/lib/battle';
-import { ReviewDashboard } from '@/components/review/ReviewDashboard';
 import { StatsDashboard } from '@/components/stats/StatsDashboard';
 import { ProfileScreen } from '@/components/profile/ProfileScreen';
 import { SettingsModal } from '@/components/profile/SettingsModal';
@@ -47,10 +41,8 @@ import {
 import {
   ActiveTab,
   VocabularySet,
-  QuizType,
   UserProgress,
   SRSData,
-  QuizSessionResult,
   LearningProgress,
   ActivityDay,
   Word,
@@ -58,34 +50,17 @@ import {
 import { BackendDueReview, ReviewQuality } from '@/types/word';
 import { CEFRLevel } from '@/types';
 import { StatsSummary } from '@/types/stats';
-import {
-  AutoGradedExercise,
-  ExerciseAnswerResult,
-  ExerciseMistake,
-  isFlashcardExercise,
-  isMultipleChoiceExercise,
-  isFillInBlankExercise,
-  isTypeMissingWordExercise,
-  isListeningExercise,
-} from '@/types/exercise';
+import { PracticeSitting } from '@/types/practice';
 import { calculateNextSRS } from '@/lib/srs';
 import {
   mapReviewResponseToSRS,
   mapWordRatingToSRS,
   getUserWordLibrary,
-  invalidateDueReviews,
   invalidateUserWordLibrary,
   resolveWordForUserWord,
   submitReviewWord,
 } from '@/lib/api/word-client';
-import {
-  getDueExercises,
-  submitExercise,
-  submitFlashcardExercise,
-  isExerciseAnswerCorrect,
-  mapFlashcardExerciseToWord,
-  QUIZ_TYPE_TO_EXERCISE_TYPE,
-} from '@/lib/api/exercise-client';
+import { submitFlashcardExercise } from '@/lib/api/exercise-client';
 import { syncVocabularySets } from '@/lib/api/category-client';
 import { fetchStatsSummary } from '@/lib/api/stats-client';
 import {
@@ -126,8 +101,6 @@ import { mascotMotion } from '@/lib/mascot-motion';
 import { generateAvatar } from '@/lib/avatar';
 import { deriveProgress } from '@/lib/progress';
 import {
-  completeQuizSession,
-  startQuizSession,
   fetchActivity,
   fetchLearningProgress,
   setFavorites,
@@ -151,22 +124,17 @@ export default function Home() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [authView, setAuthView] = useState<AuthView>('onboarding');
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
-  const [activeQuizMode, setActiveQuizMode] = useState<QuizType | null>(null);
+  /** The home button's flashcard run is on screen. */
+  const [isQueueRun, setIsQueueRun] = useState(false);
+  /** The Free Practice sitting on screen. */
+  const [practiceSitting, setPracticeSitting] = useState<PracticeSitting | null>(null);
+  /** A practice answer rescheduled something the cached library still shows. */
+  const hasPracticeReviewsRef = useRef(false);
   /** Battle Game is online-only and owns its own socket, so it is a screen of its own rather than a quiz mode. */
   const [isBattleOpen, setIsBattleOpen] = useState(false);
   /** The room code an invite link brought in, pre-filled into the join box. */
   const [battleInviteCode, setBattleInviteCode] = useState('');
   const [quizSessionWords, setQuizSessionWords] = useState<Word[]>([]);
-  // Backend-driven exercise modes (multiple-choice, fill-blank, type-word,
-  // listening) get their question data from `/exercises/due` instead of the
-  // local pool — flashcards are the only mode still using `quizSessionWords`.
-  const [exerciseSessionItems, setExerciseSessionItems] = useState<AutoGradedExercise[]>([]);
-  const [exerciseMistakes, setExerciseMistakes] = useState<ExerciseMistake[]>([]);
-  /** The read-only recap of `exerciseMistakes`, opened from the result modal. */
-  const [isReviewingMistakes, setIsReviewingMistakes] = useState(false);
-  const [loadingQuizType, setLoadingQuizType] = useState<QuizType | null>(null);
-  const [quizStartError, setQuizStartError] = useState<string | null>(null);
-  const [sessionResult, setSessionResult] = useState<QuizSessionResult | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAddWordOpen, setIsAddWordOpen] = useState(false);
@@ -215,12 +183,6 @@ export default function Home() {
   const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Answer submissions still in flight — a session is reported after them. */
   const pendingSubmitsRef = useRef<Set<Promise<unknown>>>(new Set());
-  const quizRunRef = useRef(0);
-  /** The server's id for the run in progress; flashcards have none. */
-  const quizSessionIdRef = useRef<number | null>(null);
-  /** XP level when the run began — answers raise it while the run is still on. */
-  const quizStartLevelRef = useRef<number | undefined>(undefined);
-
   /**
    * Refreshes the cached `/vocabulary-sets` list. Only sign-in passes `force`
    * — the list barely changes, so every other entry into the app reads the
@@ -425,9 +387,8 @@ export default function Home() {
   ) => {
     setStorageScope(activeSession?.userId ?? null);
     setSession(activeSession);
-    // Sign-in and sign-out both land here; the previous account's due list and
-    // summary must not answer for the new one.
-    invalidateDueReviews();
+    // Sign-in and sign-out both land here; the previous account's summary must
+    // not answer for the new one.
     setStatsSummary(null);
     setActivity(null);
     setReviewQueue(null);
@@ -508,9 +469,9 @@ export default function Home() {
     );
 
     loadAccountState(null);
-    setActiveQuizMode(null);
+    setIsQueueRun(false);
+    setPracticeSitting(null);
     setIsBattleOpen(false);
-    setSessionResult(null);
     setIsSettingsOpen(false);
     setIsAddWordOpen(false);
     setIsLevelPickerOpen(false);
@@ -712,9 +673,11 @@ export default function Home() {
     ? `auth_${authView}`
     : isBattleOpen
       ? 'battle'
-      : activeQuizMode
-        ? `quiz_${activeQuizMode}`
-        : activeTab;
+      : isQueueRun
+        ? 'quiz_flashcards'
+        : practiceSitting
+          ? 'practice'
+          : activeTab;
   useEffect(() => {
     if (!isMounted) return;
     trackEvent('app_screen_view', { screen_name: analyticsScreen });
@@ -730,11 +693,22 @@ export default function Home() {
   // counter that drifted away from the SRS map, the XP total or the settings.
   const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
 
+  /** Where a reminder leads: the home screen, whose button reviews what is due. */
   const openReview = () => {
-    setActiveQuizMode(null);
-    setSessionResult(null);
+    setIsQueueRun(false);
+    setPracticeSitting(null);
     setIsSettingsOpen(false);
-    setActiveTab('review');
+    setActiveTab('home');
+  };
+
+  /** Practice reschedules words without saying how, so read the library again. */
+  const closePractice = () => {
+    setPracticeSitting(null);
+    if (!hasPracticeReviewsRef.current) return;
+    hasPracticeReviewsRef.current = false;
+    invalidateUserWordLibrary();
+    void hydrateFromApi(allWords);
+    void refreshStats();
   };
 
   /**
@@ -779,10 +753,9 @@ export default function Home() {
       if (rows.length === 0) return;
 
       isReviewRunRef.current = review.length > 0;
-      setSessionResult(null);
       setQuizSessionWords(rows.map((row) => resolveWordForUserWord(row, allWords)));
       setIsSettingsOpen(false);
-      setActiveQuizMode('flashcards');
+      setIsQueueRun(true);
       trackEvent('quiz_start', {
         quiz_type: review.length > 0 ? 'review_queue' : 'practice_queue',
         item_count: rows.length,
@@ -837,150 +810,6 @@ export default function Home() {
     await startQueueReview();
   };
 
-  const handleStartQuiz = async (type: QuizType) => {
-    isReviewRunRef.current = false;
-    // Nothing to quiz on yet — every word in the library is one the user
-    // added, so send them to add some instead of opening an empty session.
-    if (allWords.length === 0) {
-      setIsAddWordOpen(true);
-      return;
-    }
-
-    const exerciseType = QUIZ_TYPE_TO_EXERCISE_TYPE[type];
-    // 'image' (and any other not-yet-implemented mode) has no backend flow.
-    if (!exerciseType) return;
-
-    setQuizStartError(null);
-    setLoadingQuizType(type);
-    // Never carry the previous session's score or misses into a new one.
-    setSessionResult(null);
-    setExerciseMistakes([]);
-    setIsReviewingMistakes(false);
-    quizStartLevelRef.current = learning?.level;
-    try {
-      let items;
-      quizSessionIdRef.current = null;
-      if (exerciseType === 'flashcard') {
-        items = await getDueExercises(exerciseType);
-      } else {
-        const started = await startQuizSession(exerciseType);
-        quizSessionIdRef.current = started.sessionId;
-        items = started.exercises;
-      }
-      if (items.length === 0) {
-        setQuizStartError('Không có từ nào cần luyện tập cho chế độ này ngay bây giờ.');
-        return;
-      }
-
-      if (type === 'flashcards') {
-        setQuizSessionWords(
-          items.filter(isFlashcardExercise).map((item) => mapFlashcardExerciseToWord(item, allWords))
-        );
-      } else {
-        setExerciseSessionItems(items as AutoGradedExercise[]);
-      }
-      setActiveQuizMode(type);
-      trackEvent('quiz_start', { quiz_type: type, item_count: items.length });
-    } catch (err) {
-      trackEvent('quiz_start_failed', { quiz_type: type });
-      console.error('getDueExercises error:', err);
-      // Out of xu or past the month's AI budget: the server's words say which.
-      setQuizStartError(
-        err instanceof ApiError && [402, 503].includes(err.status)
-          ? err.message
-          : 'Không thể tải bài tập. Vui lòng thử lại sau.',
-      );
-    } finally {
-      setLoadingQuizType(null);
-    }
-  };
-
-  const handleExerciseQuizComplete = (correctCount: number, mistakes: ExerciseMistake[]) => {
-    const total = exerciseSessionItems.length;
-    const runId = ++quizRunRef.current;
-
-    setExerciseMistakes(mistakes);
-    handleSessionFinished();
-    setSessionResult({
-      quizType: activeQuizMode || 'multiple-choice',
-      total,
-      correct: correctCount,
-      xpEarned: 'pending',
-      runId,
-      mistakeCount: mistakes.length,
-    });
-
-    void reportQuizSession(runId, total, correctCount);
-  };
-
-  /**
-   * Closes the finished run and shows what the server paid for it. Waits for
-   * the last answers to land first, or the server would see it as unfinished.
-   */
-  const reportQuizSession = async (runId: number, total: number, correct: number) => {
-    const sessionId = quizSessionIdRef.current;
-    let xpEarned: number | 'unknown' = 'unknown';
-    try {
-      await Promise.allSettled(Array.from(pendingSubmitsRef.current));
-      if (sessionId !== null) {
-        const { session: saved } = await completeQuizSession(sessionId);
-        if (saved) xpEarned = saved.xpEarned;
-      }
-    } catch (err) {
-      console.error('API completeQuizSession error:', err);
-    }
-
-    trackEvent('quiz_complete', {
-      quiz_type: activeQuizMode ?? 'unknown',
-      total,
-      correct,
-      accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
-      ...(xpEarned === 'unknown' ? {} : { xp_earned: xpEarned }),
-    });
-
-    setSessionResult((prev) => (prev?.runId === runId ? { ...prev, xpEarned } : prev));
-    await refreshProgress();
-    void refreshStats();
-  };
-
-  /**
-   * Grades one exercise answer against the backend, which is the only source
-   * of truth for `multiple_choice` (the payload never reveals which option is
-   * correct). For the other exercise types the caller already graded locally
-   * against the known headword — this call exists mainly to sync the SRS
-   * schedule, and its resolved value is unused by those callers.
-   */
-  const handleSubmitExerciseAnswer = async (
-    exercise: AutoGradedExercise,
-    answer: string
-  ): Promise<ExerciseAnswerResult> => {
-    try {
-      const response = await trackSubmit(
-        submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer),
-      );
-      // Keyed by the parent word id, matching how the library's own SRS
-      // entries are keyed — distinct from the flashcard flow, which keys by
-      // the definition id itself (see `handleRateFlashcardWord`).
-      handleUpdateSRS(String(response.userWordId), mapReviewResponseToSRS(response));
-      return {
-        isCorrect: isExerciseAnswerCorrect(response),
-        // The graded row IS the meaning being tested, which is the answer
-        // `multiple_choice` needs to reveal (its question payload never says).
-        correctDefinition: response.definition,
-      };
-    } catch (err) {
-      console.error('API submitExercise error:', err);
-      // No server verdict to trust. For the free-answer modes the headword IS
-      // the answer, so grade locally rather than blocking the session — but
-      // multiple_choice has no local fallback, so it counts as a miss.
-      return {
-        isCorrect:
-          exercise.exerciseType !== 'multiple_choice' &&
-          answer.trim().toLowerCase() === exercise.headword.trim().toLowerCase(),
-      };
-    }
-  };
-
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
     trackEvent('flashcard_rate', { rating });
 
@@ -998,9 +827,8 @@ export default function Home() {
     handleUpdateSRS(word.id, updated);
 
     try {
-      // Learning-phase Flashcard: `word.id` is the `userWordId` from
-      // `getDueExercises('flashcard')`, and this rating applies to every due
-      // meaning bundled under it at once.
+      // `word.id` is the queue row's `userWordId`, and this rating applies to
+      // every due meaning bundled under it at once.
       const submit = isReviewRunRef.current ? submitReviewWord : submitFlashcardExercise;
       const definitions = await trackSubmit(submit(word.id, rating));
       const backendSRS = mapWordRatingToSRS(definitions);
@@ -1036,20 +864,6 @@ export default function Home() {
       return updatedMap;
     });
   };
-
-  /**
-   * Folds a whole batch of backend SRS rows in at once. The review tab reads a
-   * due list of arbitrary length, and calling `handleUpdateSRS` per row would
-   * mean one state update and one localStorage write each.
-   */
-  const handleMergeSRS = useCallback((entries: Record<string, SRSData>) => {
-    if (Object.keys(entries).length === 0) return;
-    setSrsMap((prev) => {
-      const updatedMap = { ...prev, ...entries };
-      saveSRSData(updatedMap);
-      return updatedMap;
-    });
-  }, []);
 
   /**
    * Re-keys a word from its optimistic local id to the id the backend assigned.
@@ -1138,29 +952,29 @@ export default function Home() {
   // the user lands back on that screen — a finished session or a review just
   // moved every number on it.
   useEffect(() => {
-    if (!isMounted || activeTab !== 'home' || activeQuizMode) return;
+    if (!isMounted || activeTab !== 'home' || isQueueRun || practiceSitting) return;
     void refreshStats();
-  }, [activeTab, activeQuizMode, isMounted, refreshStats]);
+  }, [activeTab, isQueueRun, practiceSitting, isMounted, refreshStats]);
 
   // The home button's count. Asked again on landing back on home, which is
   // also right after a run.
   useEffect(() => {
-    if (!isMounted || !session || activeTab !== 'home' || activeQuizMode) return;
+    if (!isMounted || !session || activeTab !== 'home' || isQueueRun || practiceSitting) return;
     void refreshQueue();
-  }, [activeTab, activeQuizMode, isMounted, session, refreshQueue]);
+  }, [activeTab, isQueueRun, practiceSitting, isMounted, session, refreshQueue]);
 
   // Studying earns xu and the AI buttons spend it.
   useEffect(() => {
-    if (!isMounted || activeQuizMode || isAddWordOpen) return;
+    if (!isMounted || isQueueRun || practiceSitting || isAddWordOpen) return;
     void refreshWallet();
-  }, [activeTab, activeQuizMode, isAddWordOpen, isMounted, session, refreshWallet]);
+  }, [activeTab, isQueueRun, practiceSitting, isAddWordOpen, isMounted, session, refreshWallet]);
 
   // XP and streak also move on other devices and in PDF Reader, and the header
   // shows them on every tab.
   useEffect(() => {
-    if (!isMounted || activeQuizMode) return;
+    if (!isMounted || isQueueRun || practiceSitting) return;
     void refreshProgress();
-  }, [activeTab, activeQuizMode, isMounted, refreshProgress]);
+  }, [activeTab, isQueueRun, practiceSitting, isMounted, refreshProgress]);
 
   const { pushStatus } = usePushSubscription({
     isReady: isMounted,
@@ -1245,87 +1059,34 @@ export default function Home() {
     );
   }
 
-  // Render Active Quiz Mode
-  if (activeQuizMode) {
+  if (isQueueRun) {
     return (
       <MobileContainer>
-        {activeQuizMode === 'flashcards' && (
-          <FlashcardQuiz
-            words={quizSessionWords}
-            favorites={userProgress.favorites}
-            onToggleFavorite={handleToggleFavorite}
-            onRateWord={handleRateFlashcardWord}
-            onClose={() => setActiveQuizMode(null)}
-            onFinish={handleSessionFinished}
-          />
-        )}
+        <FlashcardQuiz
+          words={quizSessionWords}
+          favorites={userProgress.favorites}
+          onToggleFavorite={handleToggleFavorite}
+          onRateWord={handleRateFlashcardWord}
+          onClose={() => setIsQueueRun(false)}
+          onFinish={handleSessionFinished}
+        />
+      </MobileContainer>
+    );
+  }
 
-        {activeQuizMode === 'multiple-choice' && (
-          <MultipleChoiceQuiz
-            exercises={exerciseSessionItems.filter(isMultipleChoiceExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'fill-blank' && (
-          <FillBlankQuiz
-            exercises={exerciseSessionItems.filter(isFillInBlankExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'type-word' && (
-          <TypeWordQuiz
-            exercises={exerciseSessionItems.filter(isTypeMissingWordExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {activeQuizMode === 'listening' && (
-          <ListeningQuiz
-            exercises={exerciseSessionItems.filter(isListeningExercise)}
-            onSubmitAnswer={handleSubmitExerciseAnswer}
-            onComplete={handleExerciseQuizComplete}
-            onClose={() => setActiveQuizMode(null)}
-          />
-        )}
-
-        {sessionResult && (
-          <QuizResultModal
-            quizType={sessionResult.quizType}
-            totalQuestions={sessionResult.total}
-            correctCount={sessionResult.correct}
-            xpEarned={sessionResult.xpEarned}
-            learning={learning}
-            startLevel={quizStartLevelRef.current}
-            mistakeCount={sessionResult.mistakeCount}
-            onContinue={() => {
-              setSessionResult(null);
-              setActiveQuizMode(null);
-              setIsReviewingMistakes(false);
-              setExerciseMistakes([]);
-            }}
-            onReviewMistakes={() => {
-              if (exerciseMistakes.length > 0) setIsReviewingMistakes(true);
-            }}
-          />
-        )}
-
-        {/* Mounted after the result modal so it portals on top of it — the
-            modal stays alive underneath, so closing the recap lands back on
-            the score rather than out of the session. */}
-        {isReviewingMistakes && exerciseMistakes.length > 0 && (
-          <MistakeReviewScreen
-            mistakes={exerciseMistakes}
-            onClose={() => setIsReviewingMistakes(false)}
-          />
-        )}
+  if (practiceSitting) {
+    return (
+      <MobileContainer>
+        <PracticeSession
+          key={practiceSitting.id}
+          initial={practiceSitting}
+          track={trackSubmit}
+          onReviewed={() => {
+            hasPracticeReviewsRef.current = true;
+          }}
+          onRoundFinished={handleSessionFinished}
+          onClose={closePractice}
+        />
       </MobileContainer>
     );
   }
@@ -1359,32 +1120,16 @@ export default function Home() {
       )}
 
       {activeTab === 'learn' && (
-        <QuizSelection
-          onSelectQuiz={handleStartQuiz}
+        <PracticeTab
+          allWords={allWords}
+          vocabularySets={vocabularySets}
+          favorites={userProgress.favorites}
+          onOpenSitting={setPracticeSitting}
           onOpenBattle={() => {
             trackEvent('battle_open', { source: 'home' });
             setIsBattleOpen(true);
           }}
-          loadingQuizType={loadingQuizType}
-          errorMessage={quizStartError}
-          aiRunPrice={wallet?.enabled ? wallet.prices.practiceRun : null}
-        />
-      )}
-
-      {activeTab === 'review' && (
-        <ReviewDashboard
-          allWords={allWords}
-          vocabularySets={vocabularySets}
-          srsMap={srsMap}
-          summary={statsSummary}
-          onUpdateSRS={handleUpdateSRS}
-          onReviewSubmitted={scheduleProgressRefresh}
-          onSessionFinished={handleSessionFinished}
-          onMergeSRS={handleMergeSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
-          onDueListChanged={refreshDue}
-          favorites={userProgress.favorites}
-          onToggleFavorite={handleToggleFavorite}
         />
       )}
 
@@ -1501,8 +1246,7 @@ export default function Home() {
         onWordSynced={handleWordSynced}
       />
 
-      {/* Hidden while the review tab is already open — the user is there. */}
-      {activeReminder && activeTab !== 'review' && (
+      {activeReminder && (
         <DueReminderToast
           items={activeReminder.items}
           onReview={() => {

@@ -147,14 +147,14 @@ const SLIDES: GuideSlide[] = [
   {
     icon: BookOpen,
     title: '2. Luyện tập',
-    subtitle: 'Tab Luyện tập có nhiều dạng bài, câu hỏi lấy từ chính kho từ của bạn.',
+    subtitle: 'Chọn bộ từ hoặc từng từ rồi bắt đầu. Từ chưa đến hạn vẫn luyện được.',
     body: (
       <div className="space-y-2.5">
-        <GuideRow icon={Layers} tone="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300" title="Flashcards">
+        <GuideRow icon={Layers} tone="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300" title="Flashcard">
           Lật thẻ, nghe phát âm, tự chấm mức độ nhớ — cách tốt nhất để học từ mới.
         </GuideRow>
-        <GuideRow icon={ListChecks} tone="bg-purple-100 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300" title="Trắc nghiệm & Điền từ">
-          Chọn đáp án đúng hoặc gõ từ còn thiếu trong câu ví dụ thật.
+        <GuideRow icon={ListChecks} tone="bg-purple-100 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300" title="Trắc nghiệm, nối cặp & gõ từ">
+          Chọn nghĩa đúng, nối từ với nghĩa, điền chỗ trống hoặc gõ từ theo nghĩa.
         </GuideRow>
         <GuideRow icon={Headphones} tone="bg-rose-100 dark:bg-rose-500/15 text-rose-600 dark:text-rose-300" title="Nghe">
           Nghe phát âm rồi gõ lại từ — luyện tai và chính tả cùng lúc.
@@ -169,7 +169,7 @@ const SLIDES: GuideSlide[] = [
     icon: Brain,
     title: '3. Ôn tập hoạt động thế nào?',
     subtitle:
-      'Tab Ôn tập dùng thuật toán lặp lại ngắt quãng (SM-2): bạn ôn một từ ngay trước khi sắp quên nó.',
+      'Nút "Ôn N từ" ở Trang chủ dùng thuật toán lặp lại ngắt quãng (SM-2): bạn ôn một từ ngay trước khi sắp quên nó.',
     body: (
       <div className="space-y-3.5">
         <div className="space-y-1.5">
@@ -244,7 +244,7 @@ const SLIDES: GuideSlide[] = [
           Vào Cài đặt (biểu tượng bánh răng) → bật thông báo và chọn tần suất nhắc. Trong app sẽ hiện thẻ nhắc khi có từ cần ôn.
         </GuideRow>
         <GuideRow icon={Flame} tone="bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300" title="Chuỗi ngày & XP">
-          Học mỗi ngày để giữ streak. +5 XP mỗi nghĩa nhớ đúng (kể cả flashcard), +10 XP khi xong một phiên, lên cấp mỗi 300 XP.
+          Học mỗi ngày để giữ streak. +5 XP mỗi nghĩa nhớ đúng (kể cả flashcard), +10 XP khi xong một vòng luyện có từ 5 lượt ôn, lên cấp mỗi 300 XP.
         </GuideRow>
         <GuideRow icon={BarChart3} tone="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300" title="Thống kê & đua top">
           Xem số từ đã học, đang ôn, đã thành thạo và hoạt động 7 ngày gần nhất. Bảng xếp hạng Top 10 tính điểm theo tháng và làm mới vào đầu mỗi tháng — học đều để giữ chỗ trên bảng!
@@ -263,7 +263,7 @@ const SLIDES: GuideSlide[] = [
       <div className="space-y-2.5">
         <div className="rounded-2xl p-4 bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1.5">
           <p>💡 Mẹo: thêm khoảng <b>5–10 từ</b> rồi học bằng Flashcards trước.</p>
-          <p>📅 Sau đó mỗi ngày mở tab <b>Ôn tập</b> và ôn hết các từ đến hạn.</p>
+          <p>📅 Sau đó mỗi ngày bấm nút <b>Ôn</b> ở Trang chủ để ôn hết các từ đến hạn.</p>
           <p>⚙️ Bạn có thể xem lại hướng dẫn này bất cứ lúc nào trong <b>Cài đặt</b>.</p>
         </div>
       </div>

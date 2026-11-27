@@ -19,7 +19,7 @@ Env: copy `.env.example` → `.env`. `NEXT_PUBLIC_API_URL` defaults to empty str
 
 [src/lib/analytics.ts](src/lib/analytics.ts) is the only file that touches `gtag`; call `trackEvent(name, params)` and never `window.gtag` directly. Every call is a no-op unless the measurement id is a well-formed `G-…` (it is interpolated into an inline script, so a malformed one must not reach it). The root layout inlines a `<head>` bootstrap (defines `gtag`, queues `config`) so events fired during hydration are not dropped; [Analytics](src/components/analytics/Analytics.tsx) loads `gtag.js` and reports Web Vitals (`LCP`, `INP`, `CLS`, `FCP`, `TTFB`) as events.
 
-Page views come from GA's enhanced measurement (history changes). Inside `/app` there is no routing, so `page.tsx` sends `app_screen_view { screen_name }` per tab / quiz mode / auth view — `screen_view` itself is reserved on web. Business events: `login`/`sign_up { method }`, `quiz_start`, `quiz_start_failed`, `quiz_complete`, `flashcard_rate`, `add_words { count, source: manual|excel }`, `import_sync_result` (backend outcome of an Excel import, not a second count), `export_words`, `battle_open { source: home|invite }`. **No PII** in params — no email, name or typed word; `user_id` is the backend's numeric id only. New params must be registered as custom dimensions in GA4 to show in reports.
+Page views come from GA's enhanced measurement (history changes). Inside `/app` there is no routing, so `page.tsx` sends `app_screen_view { screen_name }` per tab / run / auth view — `screen_view` itself is reserved on web. Business events: `login`/`sign_up { method }`, `quiz_start` (home run), `practice_start`, `practice_round_complete`, `flashcard_rate`, `add_words { count, source: manual|excel }`, `import_sync_result` (backend outcome of an Excel import, not a second count), `export_words`, `battle_open { source: home|invite }`. **No PII** in params — no email, name or typed word; `user_id` is the backend's numeric id only. New params must be registered as custom dimensions in GA4 to show in reports.
 
 ## Architecture
 
@@ -34,8 +34,8 @@ SEO plumbing: site constants (production origin `https://app.memoraise.pro.vn`, 
 The entire app is one client component: [src/app/app/page.tsx](src/app/app/page.tsx). Inside it there is no routing. The manifest `start_url`, Battle invite links (`battleInviteLink`) and the service worker's default notification URL all point at `/app`. Navigation is `useState` in that file:
 
 - `session` is `null` → early return renders onboarding or the auth screen (`authView`); **nothing below is reachable signed out**
-- `activeQuizMode` → early return renders the active quiz
-- `activeTab` (`home | learn | review | stats | profile`) → renders the corresponding dashboard
+- `isQueueRun` → the home button's flashcard run; `practiceSitting` → a Free Practice sitting; both are early returns
+- `activeTab` (`home | learn | stats | profile`; `learn` is the "Luyện tập" tab) → renders the corresponding dashboard
 
 All persistent app state (`allWords`, `userProgress`, `srsMap`, `settings`) is owned by `page.tsx` and threaded to children as props. There is no Context, reducer, or store — new shared state goes in `page.tsx` and gets passed down.
 
@@ -49,7 +49,7 @@ Per-account keys (progress, SRS, custom words, reminders, categories, word libra
 
 ### SRS: local-first, backend-overwrites
 
-Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([src/app/app/page.tsx](src/app/app/page.tsx)) and `ReviewDashboard`:
+Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([src/app/app/page.tsx](src/app/app/page.tsx)):
 
 1. `calculateNextSRS()` ([src/lib/srs.ts](src/lib/srs.ts)) computes SM-2 locally and updates state immediately
 2. `submitReview()` POSTs to the backend
@@ -60,21 +60,19 @@ Reviews follow an optimistic dual-source flow. In `handleRateFlashcardWord` ([sr
 
 Rating scale is SM-2 quality 0–5 (`ReviewQuality`); `q < 3` resets repetitions. State derives from interval/reps: `interval >= 21` → `mastered`, `repetitions > 1` → `review`.
 
-#### `/reviews/due` is asked once, by the review tab only
+#### Due dates come from the cached library
 
-`GET /reviews/due` is the only endpoint that carries `userWordId` — the id `POST /reviews/:id` is sent to — and that is the only reason to call it. So [ReviewDashboard](src/components/review/ReviewDashboard.tsx) is its **single** caller: a mount-only effect (the component exists only while the tab is open), the header refresh button, "Bắt đầu ôn tập", and the end of a queue. Its props are read through `latestRef` so a new `allWords` identity cannot turn that into another request.
+What is due is read off the **cached word library** (see below), which costs a localStorage read:
 
-Everything else that needs to know what is due reads `dueAt` off the **cached word library** instead (see below), which costs a localStorage read:
+- [useDueReminders](src/hooks/useDueReminders.ts) calls `getUserWordLibrary()` on its tick (5-min poll, foreground events, the exact due timer, `refreshDue()`).
+- `hydrateFromApi` in `page.tsx` does the same on account load, and folds each row's `dueAt`/`status` into `srsMap` — **preserving** `userWordId`/`interval`/`repetitions`/`easeFactor`, which only exist locally.
+- A review that answers with the new schedule patches the cached row (`patchCachedUserWord`). Free Practice answers don't carry it, so closing a sitting that made a real review drops the cache and re-hydrates.
 
-- [useDueReminders](src/hooks/useDueReminders.ts) calls `getUserWordLibrary()` on its tick (5-min poll, foreground events, the exact due timer, `refreshDue()`), never `/reviews/due`.
-- `hydrateFromApi` in `page.tsx` does the same on account load, and folds each row's `dueAt`/`status` into `srsMap` — **preserving** `userWordId`/`interval`/`repetitions`/`easeFactor`, which only exist locally. This is also what finally gives `srsMap` the whole library rather than only the words that happened to be due.
-- Every path that reschedules a word patches the cached row so the reminders follow: `submitReview` and `submitExercise` both call `patchCachedUserWord`.
-
-The reminder merges two sources and settles conflicts by **date, not by origin**: `latestDueMs` takes the later of the library's `dueAt` and the local `nextReviewDate` per word, and an item survives only if that latest schedule is in the past. Without it a word reviewed through the quiz flow (which moves the local entry) would be re-announced from a stale cached row. `resolveWord` also drops local SRS keys the library has never heard of, which is what stops flashcard sessions — keyed by `userWordId`, see `mapFlashcardExerciseToWord` — from announcing "Word #123".
+The reminder merges two sources and settles conflicts by **date, not by origin**: `latestDueMs` takes the later of the library's `dueAt` and the local `nextReviewDate` per word. `resolveWord` also drops local SRS keys the library has never heard of.
 
 **The home screen has one main button, and it never mixes phases.** `GET /reviews/queue` ([review-queue-client](src/lib/api/review-queue-client.ts)) returns every due word; `splitQueue` separates graduated meanings from new/learning ones. `HomeDashboard` shows "Ôn N từ" (graded at `/reviews/word/:id`), else "Luyện tập M từ" (graded at `/exercises/word/:id/submit`), else "Thêm từ mới". `BottomNav` still shows no badge.
 
-Notifications: the app never raises a system `Notification` itself (the server sends at most one push a day); it shows an in-app banner, and asks for permission through `NotificationPrompt` after a finished session. A new account picks Starter Words (`GET`/`POST /starter-words`, `StarterWordsModal`) after the CEFR question. With xu on, Multiple Choice and Type Missing Word cost xu per run. Xu (`GET /wallet`) is hidden whenever the server says `enabled: false`.
+Notifications: the app never raises a system `Notification` itself (the server sends at most one push a day); it shows an in-app banner, and asks for permission through `NotificationPrompt` after a finished session. A new account picks Starter Words (`GET`/`POST /starter-words`, `StarterWordsModal`) after the CEFR question. Xu (`GET /wallet`) is hidden whenever the server says `enabled: false`.
 
 ### Failures are enveloped; successes are not
 
@@ -118,7 +116,11 @@ The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new |
 
 `as SRSState` is the bug this replaced: it wrote `reviewing` into `SRSData.state`, which matches nothing the app compares against — `ReviewDashboard`'s `upcomingCount` (`state === 'review'`), the library status filter, and both status pills all missed every graduated word. Two migrations clean up what those casts persisted: `loadSRSData()` rewrites stored states through the mapper once per device, and `WORD_LIBRARY_CACHE_VERSION` went to **2** so a cached library whose `reviewing` rows were dropped to `undefined` is refetched rather than read.
 
-`GET /reviews/due` sends no `userId` — the account comes from the bearer token. Each row is a `BackendDueReview` (`BackendUserWord` + an optional embedded `word` carrying `definitions[].examples[]`); `mapBackendWordToWord` turns that into a full `Word`, and `resolveWordForUserWord` prefers it over the local copy, falling back to `createPlaceholderWord` only when the row has no embed and the device has never seen the word. `hydrateFromApi` adopts words the local library is missing — from `GET /words` now, not from the due list.
+`GET /reviews/queue` sends no `userId` — the account comes from the bearer token. Each row is a `BackendDueReview` (`BackendUserWord` + an optional embedded `word` carrying `definitions[].examples[]`); `mapBackendWordToWord` turns that into a full `Word`, and `resolveWordForUserWord` prefers it over the local copy, falling back to `createPlaceholderWord` only when the row has no embed and the device has never seen the word. `hydrateFromApi` adopts words the local library is missing — from `GET /words` now, not from the due list.
+
+### Free Practice is the server's
+
+The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx), Battle included) chooses words and modes; [PracticeSession](src/components/practice/PracticeSession.tsx) shows whatever `/practice` says. Rounds, mode order, what counts as a review and the round bonus are decided server-side ([practice-client](src/lib/api/practice-client.ts)) — never re-derive them here, and never grade locally. 409 means another device replaced the sitting, 410 that it could not be restored, 422 that the question moved on (re-read it). It is online-only.
 
 ### Home counters come from `/stats/summary`
 
@@ -162,7 +164,7 @@ It is also the app's source of truth for **what is due** — `useDueReminders` a
 What invalidates it:
 
 - **Adding words** — `addWord`/`addWordsBulk` call `invalidateUserWordLibrary()` alongside `invalidateDueReviews()`. This is the only thing that drops the cache.
-- **A review** does *not* refetch: `submitReview` and `submitExercise` patch that one cached row's `state`/`dueAt` via `patchCachedUserWord`, keeping `fetchedAt` so the row rewrite does not pose as a fresh read.
+- **A review** does *not* refetch: the review submits patch that one cached row's `state`/`dueAt` via `patchCachedUserWord`, keeping `fetchedAt` so the row rewrite does not pose as a fresh read.
 - **An edit or a deletion** does *not* refetch either: `updateWordDefinition`, `deleteWordDefinition` and `deleteUserWord` rewrite (or drop) that one row. Every in-place cache write — those three and `patchCachedUserWord` — goes through `updateCachedUserWordRow`, which keeps `fetchedAt` for the same reason.
 - **The refresh button** in the section header (`force: true`).
 - **Sign-out**, through `clearScopedData()`.
@@ -199,7 +201,7 @@ There is no demo mode, no guest mode and no bundled vocabulary. A user must log 
 
 - `AuthScreen` only ever calls `onLoginSuccess` with a real `AuthSession` from `/auth/login` or `/auth/register`.
 - `getCurrentUserId()` returns `number | null` — **never invent an id**. `getDueReviews()` returns `[]` and `AddWordModal` skips the POST when it is null, because a fabricated id writes into someone else's account.
-- A new account legitimately has zero words. Guard anything that assumes a non-empty library (`handleStartQuiz` opens `AddWordModal` instead of an empty session; `ReviewDashboard` shows an empty-library state).
+- A new account legitimately has zero words. Guard anything that assumes a non-empty library (the practice tab shows an empty-library state).
 
 ### Known incomplete integration points
 
@@ -230,5 +232,5 @@ It also handles bulk Excel/CSV import and template export via `xlsx`.
   - Ready-made classes: `.clay-card`, `.clay-btn`, `.clay-well`, `.clay-nav`, `.clay-pill`. Motion uses `ease-clay` (`cubic-bezier(0.34, 1.56, 0.64, 1)`).
 - **Fonts must carry the `vietnamese` subset.** UI copy is Vietnamese and `ọ ợ ệ` live only in that subset — a font without it falls back mid-word. Baloo 2 (display) + Nunito (body); Fredoka was rejected for exactly this reason. See [src/app/layout.tsx](src/app/layout.tsx).
 - Every component under `src/components/` is `'use client'`. Animations are Framer Motion; icons are `lucide-react`.
-- **Audio** ships no assets — [src/lib/audio.ts](src/lib/audio.ts) uses Web Speech API for pronunciation and a Web Audio oscillator engine (`soundFX`) for UI sounds. Where the backend supplies a recording (`Word.audioUrl`, `exercise.audioUrl`) it is played first and `speakWord` is the fallback, as in `WordDetailModal` and `ListeningQuiz`.
-- XP, level, streak, accuracy, quiz history and the activity heatmap are **server-owned** (`GET /users/progress`, `GET /stats/activity`, `POST /quiz-sessions` + `/:id/complete`, via [src/lib/api/progress-client.ts](src/lib/api/progress-client.ts)). Never compute or increment them in the app; call `scheduleProgressRefresh()` in `page.tsx` after anything that can move them. Show XP as `xpIntoLevel / xpPerLevel`, not the lifetime total. Days are Vietnam (UTC+7) days. An auto-graded run gets its questions from `startQuizSession`, not `getDueExercises`, or it earns no completion bonus.
+- **Audio** ships no assets — [src/lib/audio.ts](src/lib/audio.ts) uses Web Speech API for pronunciation and a Web Audio oscillator engine (`soundFX`) for UI sounds. Where the backend supplies a recording (`Word.audioUrl`, `exercise.audioUrl`) it is played first and `speakWord` is the fallback, as in `WordDetailModal` and `PracticeQuestionView`.
+- XP, level, streak, accuracy, quiz history and the activity heatmap are **server-owned** (`GET /users/progress`, `GET /stats/activity`, via [src/lib/api/progress-client.ts](src/lib/api/progress-client.ts)). Never compute or increment them in the app; call `scheduleProgressRefresh()` in `page.tsx` after anything that can move them. Show XP as `xpIntoLevel / xpPerLevel`, not the lifetime total. Days are Vietnam (UTC+7) days.
