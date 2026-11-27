@@ -11,13 +11,14 @@ import {
 import { ApiError } from '@/lib/api/client';
 import { soundFX } from '@/lib/audio';
 
+/** What the word list is narrowed to: one set, the Favorites, or nothing (null). */
+export type SetFilter = number | 'favorites' | null;
+
 interface VocabularySetBarProps {
   sets: VocabularySet[];
-  /** The set the list is narrowed to, or null for every set. */
-  selectedId: number | null;
-  onSelect: (id: number | null) => void;
-  favoritesOnly: boolean;
-  onToggleFavoritesOnly: () => void;
+  /** Exactly one chip is lit at a time. */
+  filter: SetFilter;
+  onSelect: (filter: SetFilter) => void;
   /** A set was created, renamed or deleted; resolves once the new list is in. */
   onChanged: () => Promise<void>;
 }
@@ -35,10 +36,8 @@ const actionClass =
 /** The set filter above the word list, with the sets' own create/rename/delete. */
 export const VocabularySetBar: React.FC<VocabularySetBarProps> = ({
   sets,
-  selectedId,
+  filter,
   onSelect,
-  favoritesOnly,
-  onToggleFavoritesOnly,
   onChanged,
 }) => {
   // 'new' while naming a new set, 'rename' while renaming the selected one.
@@ -47,7 +46,15 @@ export const VocabularySetBar: React.FC<VocabularySetBarProps> = ({
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selected = sets.find((set) => set.id === selectedId);
+  const selected = sets.find((set) => set.id === filter);
+  const favoritesOnly = filter === 'favorites';
+
+  /** Picks a chip, closing a name form left open for the previous one. */
+  const choose = (next: SetFilter) => {
+    setEditing(null);
+    setError(null);
+    onSelect(next);
+  };
 
   const run = async (change: () => Promise<void>) => {
     setIsBusy(true);
@@ -105,10 +112,10 @@ export const VocabularySetBar: React.FC<VocabularySetBarProps> = ({
   return (
     <div className="mb-2.5 space-y-1.5">
       <div className="flex items-center gap-1 overflow-x-auto pb-1 -mx-1 px-1">
-        <button type="button" onClick={() => onSelect(null)} aria-pressed={selectedId === null} className={chipClass(selectedId === null)}>
+        <button type="button" onClick={() => choose(null)} aria-pressed={filter === null} className={chipClass(filter === null)}>
           Tất cả bộ
         </button>
-        <button type="button" onClick={onToggleFavoritesOnly} aria-pressed={favoritesOnly} className={chipClass(favoritesOnly)}>
+        <button type="button" onClick={() => choose(favoritesOnly ? null : 'favorites')} aria-pressed={favoritesOnly} className={chipClass(favoritesOnly)}>
           <Heart className={`w-3 h-3 ${favoritesOnly ? 'fill-white' : ''}`} />
           Yêu thích
         </button>
@@ -116,9 +123,9 @@ export const VocabularySetBar: React.FC<VocabularySetBarProps> = ({
           <button
             key={set.id}
             type="button"
-            onClick={() => onSelect(set.id === selectedId ? null : set.id)}
-            aria-pressed={set.id === selectedId}
-            className={chipClass(set.id === selectedId)}
+            onClick={() => choose(set.id === filter ? null : set.id)}
+            aria-pressed={set.id === filter}
+            className={chipClass(set.id === filter)}
           >
             <span className="max-w-32 truncate">{set.name}</span>
           </button>
