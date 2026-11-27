@@ -35,29 +35,41 @@ function play(step: ChainStep) {
   void new Audio(step.audioUrl).play().catch(() => speakWord(step.headword));
 }
 
-/** One step; tapping it says the word and opens its meaning. */
+/** One step: the card opens its meaning, the speaker only says the word. */
 const Step: React.FC<{ step: ChainStep }> = ({ step }) => {
   const [isOpen, setIsOpen] = useState(false);
   const role = ROLES[step.role];
   return (
-    <button
-      type="button"
-      aria-expanded={isOpen}
-      onClick={() => {
-        play(step);
-        setIsOpen(!isOpen);
-      }}
-      className={`w-full text-left rounded-2xl border-2 p-3 ${role.tone}`}
+    // The headword button is the keyboard's way in; its click lands here too.
+    <div
+      onClick={() => setIsOpen(!isOpen)}
+      className={`rounded-2xl border-2 p-3 cursor-pointer ${role.tone}`}
     >
       <span className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
         {role.label}
       </span>
-      <span className="flex items-center gap-2 text-lg font-black text-slate-900 dark:text-slate-100 break-words">
-        {step.headword}
-        <Volume2 className="w-4 h-4 shrink-0 text-slate-400" />
-      </span>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          className="min-w-0 text-left text-lg font-black text-slate-900 dark:text-slate-100 break-words"
+        >
+          {step.headword}
+        </button>
+        <button
+          type="button"
+          aria-label={`Nghe ${step.headword}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            play(step);
+          }}
+          className="shrink-0 p-2 rounded-full text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-slate-700"
+        >
+          <Volume2 className="w-4 h-4" />
+        </button>
+      </div>
       {isOpen && (
-        <span className="block mt-1 text-sm text-slate-700 dark:text-slate-300">
+        <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
           {step.partOfSpeech && (
             <i className="text-xs text-slate-400 mr-1.5">{step.partOfSpeech}</i>
           )}
@@ -65,9 +77,9 @@ const Step: React.FC<{ step: ChainStep }> = ({ step }) => {
           {step.example && (
             <span className="block text-xs italic text-slate-500">“{step.example}”</span>
           )}
-        </span>
+        </p>
       )}
-    </button>
+    </div>
   );
 };
 
