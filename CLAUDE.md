@@ -120,11 +120,7 @@ The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new |
 
 ### Home counters come from `/stats/summary`
 
-[src/lib/api/stats-client.ts](src/lib/api/stats-client.ts) maps `GET /stats/summary` (`todayLearntWord`, `totalWords`, `learningWord`, `masteredWord`, `streak`, `weeklyActivity`) into `StatsSummary`. `page.tsx` holds it in `statsSummary`, refreshed on account load, on landing back on the home tab, and after a word syncs; `HomeDashboard` prefers it and falls back to `deriveProgress`/`buildActivitySeries` while it is null.
-
-`streak` is the one field mapped as **optional** (`toOptionalCount`) rather than defaulting to 0, because it is folded into `displayProgress` — which the header, stats and profile screens all read. Missing means "keep the local streak"; a real `0` overrides it. `bestStreak` only ever follows it up.
-
-`weeklyActivity` is keyed by **weekday name**, not date, and its key order is not display order — `buildRemoteActivitySeries` lays the names over the last 7 calendar days so labels and `isToday` stay real. Seven days is the ceiling: beyond that the names repeat and an older bucket would reuse a newer day's count.
+[src/lib/api/stats-client.ts](src/lib/api/stats-client.ts) maps `GET /stats/summary` (`todayLearntWord`, `totalWords`, `learningWord`, `masteredWord`) into `StatsSummary`. `page.tsx` holds it in `statsSummary`, refreshed on account load, on landing back on the home tab, and after a word syncs. Streak and the weekly chart do not come from it — see the progress client under Conventions.
 
 ### The profile word library reads `GET /words`
 
@@ -233,4 +229,4 @@ It also handles bulk Excel/CSV import and template export via `xlsx`.
 - **Fonts must carry the `vietnamese` subset.** UI copy is Vietnamese and `ọ ợ ệ` live only in that subset — a font without it falls back mid-word. Baloo 2 (display) + Nunito (body); Fredoka was rejected for exactly this reason. See [src/app/layout.tsx](src/app/layout.tsx).
 - Every component under `src/components/` is `'use client'`. Animations are Framer Motion; icons are `lucide-react`.
 - **Audio** ships no assets — [src/lib/audio.ts](src/lib/audio.ts) uses Web Speech API for pronunciation and a Web Audio oscillator engine (`soundFX`) for UI sounds. Where the backend supplies a recording (`Word.audioUrl`, `exercise.audioUrl`) it is played first and `speakWord` is the fallback, as in `WordDetailModal` and `ListeningQuiz`.
-- XP/leveling constants are inline in `page.tsx`: 5 XP per correct + 10 completion bonus, 20 XP per custom word, level = `floor(xp / 300) + 1`.
+- XP, level, streak, accuracy, quiz history and the activity heatmap are **server-owned** (`GET /users/progress`, `GET /stats/activity`, `POST /quiz-sessions` + `/:id/complete`, via [src/lib/api/progress-client.ts](src/lib/api/progress-client.ts)). Never compute or increment them in the app; call `scheduleProgressRefresh()` in `page.tsx` after anything that can move them. Show XP as `xpIntoLevel / xpPerLevel`, not the lifetime total. Days are Vietnam (UTC+7) days. An auto-graded run gets its questions from `startQuizSession`, not `getDueExercises`, or it earns no completion bonus.

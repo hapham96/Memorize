@@ -138,7 +138,7 @@ const SLIDES: GuideSlide[] = [
         <GuideRow icon={FileSpreadsheet} tone="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" title="Nhập hàng loạt từ Excel">
           Tải file mẫu ngay trong form, điền danh sách từ rồi tải lên — thêm hàng chục từ chỉ trong một lần.
         </GuideRow>
-        <GuideRow icon={Zap} tone="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300" title="+20 XP mỗi từ mới">
+        <GuideRow icon={Zap} tone="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300" title="+20 XP mỗi từ mới (tối đa 10 từ/ngày)">
           Mỗi từ thêm vào sẽ vào hàng đợi ôn tập ngay lập tức.
         </GuideRow>
       </div>
@@ -244,7 +244,7 @@ const SLIDES: GuideSlide[] = [
           Vào Cài đặt (biểu tượng bánh răng) → bật thông báo và chọn tần suất nhắc. Trong app sẽ hiện thẻ nhắc khi có từ cần ôn.
         </GuideRow>
         <GuideRow icon={Flame} tone="bg-orange-100 dark:bg-orange-500/15 text-orange-600 dark:text-orange-300" title="Chuỗi ngày & XP">
-          Học mỗi ngày để giữ streak. +5 XP mỗi câu đúng, +10 XP khi xong một phiên, lên cấp mỗi 300 XP.
+          Học mỗi ngày để giữ streak. +5 XP mỗi nghĩa nhớ đúng (kể cả flashcard), +10 XP khi xong một phiên, lên cấp mỗi 300 XP.
         </GuideRow>
         <GuideRow icon={BarChart3} tone="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300" title="Thống kê & đua top">
           Xem số từ đã học, đang ôn, đã thành thạo và hoạt động 7 ngày gần nhất. Bảng xếp hạng Top 10 tính điểm theo tháng và làm mới vào đầu mỗi tháng — học đều để giữ chỗ trên bảng!

@@ -32,6 +32,8 @@ interface ReviewDashboardProps {
    */
   summary?: StatsSummary | null;
   onUpdateSRS: (wordId: string, updatedSRS: SRSData) => void;
+  /** A rating reached the server, which may have moved XP and streak. */
+  onReviewSubmitted: () => void;
   /** Folds a whole due list into the SRS map in one write. */
   onMergeSRS?: (entries: Record<string, SRSData>) => void;
   onOpenAddWord?: () => void;
@@ -81,6 +83,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
   srsMap,
   summary = null,
   onUpdateSRS,
+  onReviewSubmitted,
   onMergeSRS,
   onOpenAddWord,
   onDueListChanged,
@@ -282,6 +285,7 @@ export const ReviewDashboard: React.FC<ReviewDashboardProps> = ({
       // Reviewing-phase Flashcard: applies to every due meaning bundled under
       // `userWordId` at once.
       const definitions = await submitReviewWord(userWordId, rating);
+      onReviewSubmitted();
       const backendSRS = mapWordRatingToSRS(definitions);
       if (backendSRS) onUpdateSRS(wordId, backendSRS);
     } catch (err) {

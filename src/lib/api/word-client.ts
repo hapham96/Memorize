@@ -751,6 +751,11 @@ export function patchCachedUserWord(
   }));
 }
 
+/** Keeps the cached library's star in step with a toggle made on this device. */
+export function patchCachedFavorite(wordId: number | string, isFavorite: boolean): void {
+  updateCachedUserWordRow(wordId, (item) => ({ ...item, isFavorite }));
+}
+
 /**
  * Rewrites — or, when `update` answers `null`, drops — the cached row for one
  * word, keeping `fetchedAt` so the rewrite does not pose as a fresh read of

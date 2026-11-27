@@ -127,13 +127,27 @@ export interface SRSData {
   state: SRSState;
 }
 
-export interface QuizHistoryItem {
-  id: string;
-  timestamp: string;
-  quizType: string;
-  totalQuestions: number;
-  correctCount: number;
-  xpEarned: number;
+/** `GET /users/progress` — everything here is counted by the server. */
+export interface LearningProgress {
+  xp: number;
+  level: number;
+  /** XP earned inside the current level, `0 .. xpPerLevel - 1`. */
+  xpIntoLevel: number;
+  xpPerLevel: number;
+  streak: number;
+  /** Whether a streak action already happened today (UTC). */
+  activeToday: boolean;
+  bestStreak: number;
+  totalReviews: number;
+  correctReviews: number;
+  totalSessions: number;
+}
+
+/** Reviews submitted on one UTC day, from `GET /stats/activity`. */
+export interface ActivityDay {
+  /** `YYYY-MM-DD` */
+  date: string;
+  count: number;
 }
 
 export interface UserProgress {
@@ -143,19 +157,10 @@ export interface UserProgress {
   /** Numeric user id from the JWT `sub` claim; null if the token carried none. */
   userId: number | null;
   avatar: string;
-  level: number;
-  xp: number;
-  streak: number;
-  bestStreak: number;
-  lastActiveDate: string;
   dailyGoal: number; // e.g. 20 words
-  dailyGoalProgress: number; // e.g. 12 words today
   wordsLearned: number;
   masteredCount: number;
-  totalCorrect: number;
-  totalAttempted: number;
   favorites: string[]; // word IDs
-  history: QuizHistoryItem[];
 }
 
 /**
@@ -193,6 +198,9 @@ export interface QuizSessionResult {
   quizType: QuizType;
   total: number;
   correct: number;
-  xpEarned: number;
+  /** `unknown` when the server could not close the run. */
+  xpEarned: number | 'pending' | 'unknown';
+  /** Identifies the run, so a late answer cannot land on a newer result. */
+  runId: number;
   mistakeCount: number;
 }

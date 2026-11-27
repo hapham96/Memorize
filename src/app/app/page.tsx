@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { MobileContainer } from '@/components/layout/MobileContainer';
 import { HeaderBar } from '@/components/layout/HeaderBar';
 import { BottomNav } from '@/components/layout/BottomNav';
@@ -35,6 +35,8 @@ import {
   UserProgress,
   SRSData,
   QuizSessionResult,
+  LearningProgress,
+  ActivityDay,
   Word,
 } from '@/types';
 import { ReviewQuality } from '@/types/word';
@@ -81,6 +83,10 @@ import {
   saveUserProgress,
   loadSRSData,
   saveSRSData,
+  loadLearningProgress,
+  saveLearningProgress,
+  hasUploadedFavorites,
+  markFavoritesUploaded,
   loadSettings,
   saveSettings,
   loadAllWords,
@@ -98,7 +104,15 @@ import { createInitialSRS } from '@/lib/srs';
 import { soundFX } from '@/lib/audio';
 import { mascotMotion } from '@/lib/mascot-motion';
 import { generateAvatar } from '@/lib/avatar';
-import { applyDailyRollover, deriveProgress, levelFromXp, recordActivity } from '@/lib/progress';
+import { deriveProgress } from '@/lib/progress';
+import {
+  completeQuizSession,
+  startQuizSession,
+  fetchActivity,
+  fetchLearningProgress,
+  setFavorites,
+} from '@/lib/api/progress-client';
+import { patchCachedFavorite } from '@/lib/api/word-client';
 import { useDueReminders } from '@/hooks/useDueReminders';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
 import { unsubscribeFromPush } from '@/lib/push';
@@ -160,6 +174,17 @@ export default function Home() {
    * the home screen falls back to its locally derived counters while it is null.
    */
   const [statsSummary, setStatsSummary] = useState<StatsSummary | null>(null);
+  /** XP, level, streak and accuracy as the server last reported them. */
+  const [learning, setLearning] = useState<LearningProgress | null>(null);
+  const [activity, setActivity] = useState<ActivityDay[] | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Answer submissions still in flight — a session is reported after them. */
+  const pendingSubmitsRef = useRef<Set<Promise<unknown>>>(new Set());
+  const quizRunRef = useRef(0);
+  /** The server's id for the run in progress; flashcards have none. */
+  const quizSessionIdRef = useRef<number | null>(null);
+  /** XP level when the run began — answers raise it while the run is still on. */
+  const quizStartLevelRef = useRef<number | undefined>(undefined);
 
   /**
    * Refreshes the cached `/vocabulary-sets` list. Only sign-in passes `force`
@@ -256,6 +281,44 @@ export default function Home() {
   }, []);
 
   /**
+   * Re-reads XP, level, streak and the activity series. Called after anything
+   * that can move them; failure keeps the last answer on screen.
+   */
+  const refreshProgress = useCallback(async () => {
+    const token = getCurrentSession()?.accessToken;
+    if (!token) return;
+
+    try {
+      const [next, days] = await Promise.all([fetchLearningProgress(), fetchActivity()]);
+      // The account may have changed while the request was in flight.
+      if (getCurrentSession()?.accessToken !== token) return;
+      setLearning(next);
+      setActivity(days);
+      saveLearningProgress(next);
+    } catch (err) {
+      console.warn('Could not load progress from API:', err);
+    }
+  }, []);
+
+  /** Coalesces the burst a bulk import or a run of ratings produces. */
+  const scheduleProgressRefresh = useCallback(() => {
+    if (progressTimerRef.current) clearTimeout(progressTimerRef.current);
+    progressTimerRef.current = setTimeout(() => void refreshProgress(), 400);
+  }, [refreshProgress]);
+
+  /** Remembers a submission until it settles, then refreshes the badges. */
+  const trackSubmit = <T,>(request: Promise<T>): Promise<T> => {
+    const pending = pendingSubmitsRef.current;
+    pending.add(request);
+    const done = () => {
+      pending.delete(request);
+      scheduleProgressRefresh();
+    };
+    request.then(done, done);
+    return request;
+  };
+
+  /**
    * Loads the state belonging to `activeSession`. Storage is scoped by user id
    * first, so one account never reads another's progress, and identity fields
    * always come from the API session rather than whatever was stored earlier.
@@ -277,6 +340,8 @@ export default function Home() {
     // summary must not answer for the new one.
     invalidateDueReviews();
     setStatsSummary(null);
+    setActivity(null);
+    setLearning(activeSession ? loadLearningProgress() : null);
 
     const loadedSettings = loadSettings();
     applySettingsEffects(loadedSettings);
@@ -298,17 +363,17 @@ export default function Home() {
 
     const loadedSRS = loadSRSData();
     const loadedWords = loadAllWords();
-    const rolledOver = applyDailyRollover(loadUserProgress());
+    const storedProgress = loadUserProgress();
 
     // What the user typed at registration wins, then the account's own name from
     // `/users/profile`, then whatever this device recorded before.
     const name =
       displayName?.trim() ||
       activeSession.name?.trim() ||
-      rolledOver.name ||
+      storedProgress.name ||
       getDisplayName(activeSession);
     const loadedProgress = {
-      ...rolledOver,
+      ...storedProgress,
       name,
       email: activeSession.email,
       userId: activeSession.userId,
@@ -322,6 +387,7 @@ export default function Home() {
 
     hydrateFromApi(loadedWords);
     void refreshStats();
+    void refreshProgress();
   };
 
   /**
@@ -425,20 +491,9 @@ export default function Home() {
         return merged;
       });
 
-      const favorites = items
-        .filter((item) => item.isFavorite)
-        .map((item) => String(item.word.id));
-
-      if (favorites.length > 0) {
-        setUserProgress((prev) => {
-          const updated = {
-            ...prev,
-            favorites: Array.from(new Set([...prev.favorites, ...favorites])),
-          };
-          saveUserProgress(updated);
-          return updated;
-        });
-      }
+      await syncFavorites(
+        items.filter((item) => item.isFavorite).map((item) => String(item.word.id)),
+      );
     } catch (err) {
       // A rejected token means the stored session is dead — the app has no
       // signed-out mode, so send the user back to sign in rather than showing
@@ -449,6 +504,31 @@ export default function Home() {
       }
       console.warn('Could not hydrate progress from API, using local data:', err);
     }
+  };
+
+  /**
+   * Favorites used to live on the device only. The first load after that sends
+   * them up once; from then on the server's list is the answer, keeping only
+   * the local-only words it has never heard of.
+   */
+  const syncFavorites = async (remote: string[]) => {
+    let favorites = remote;
+
+    if (!hasUploadedFavorites()) {
+      const local = loadUserProgress().favorites;
+      await setFavorites(local, true);
+      local.forEach((id) => patchCachedFavorite(id, true));
+      markFavoritesUploaded();
+      favorites = Array.from(new Set([...remote, ...local]));
+    }
+
+    setUserProgress((prev) => {
+      const localOnly = prev.favorites.filter((id) => !/^\d+$/.test(id));
+      // A set: on the upload pass `favorites` already holds the local-only ids.
+      const updated = { ...prev, favorites: Array.from(new Set([...favorites, ...localOnly])) };
+      saveUserProgress(updated);
+      return updated;
+    });
   };
 
   /**
@@ -549,18 +629,6 @@ export default function Home() {
   // counter that drifted away from the SRS map, the XP total or the settings.
   const derivedProgress = deriveProgress(userProgress, srsMap, settings.dailyGoal);
 
-  // The streak belongs to the account, not the device: a fresh install has no
-  // local history to count one from, so `/stats/summary` wins wherever it
-  // answered. `bestStreak` follows it up, never down.
-  const displayProgress: UserProgress =
-    statsSummary?.streak === undefined
-      ? derivedProgress
-      : {
-          ...derivedProgress,
-          streak: statsSummary.streak,
-          bestStreak: Math.max(derivedProgress.bestStreak, statsSummary.streak),
-        };
-
   // Filter word dataset according to user's focusCategories setting. Memoised
   // because `useDueReminders` scans this list on every identity change.
   const focusCategories = useMemo(
@@ -607,14 +675,6 @@ export default function Home() {
     setSrsMap(updatedSRSMap);
     saveSRSData(updatedSRSMap);
 
-    // Reward user with 20 XP per added custom word. wordsLearned is derived
-    // from the SRS map, so it is not incremented by hand here.
-    setUserProgress((prev) => {
-      const xp = prev.xp + newWords.length * 20;
-      const updated = recordActivity({ ...prev, xp, level: levelFromXp(xp) });
-      saveUserProgress(updated);
-      return updated;
-    });
   };
 
   const handleStartQuiz = async (type: QuizType) => {
@@ -635,8 +695,17 @@ export default function Home() {
     setSessionResult(null);
     setExerciseMistakes([]);
     setIsReviewingMistakes(false);
+    quizStartLevelRef.current = learning?.level;
     try {
-      const items = await getDueExercises(exerciseType);
+      let items;
+      quizSessionIdRef.current = null;
+      if (exerciseType === 'flashcard') {
+        items = await getDueExercises(exerciseType);
+      } else {
+        const started = await startQuizSession(exerciseType);
+        quizSessionIdRef.current = started.sessionId;
+        items = started.exercises;
+      }
       if (items.length === 0) {
         setQuizStartError('Không có từ nào cần luyện tập cho chế độ này ngay bây giờ.');
         return;
@@ -662,51 +731,49 @@ export default function Home() {
 
   const handleExerciseQuizComplete = (correctCount: number, mistakes: ExerciseMistake[]) => {
     const total = exerciseSessionItems.length;
-    const xpEarned = correctCount * 5 + 10; // 5 XP per correct + 10 completion bonus
-
-    trackEvent('quiz_complete', {
-      quiz_type: activeQuizMode ?? 'unknown',
-      total,
-      correct: correctCount,
-      accuracy: total > 0 ? Math.round((correctCount / total) * 100) : 0,
-      xp_earned: xpEarned,
-    });
+    const runId = ++quizRunRef.current;
 
     setExerciseMistakes(mistakes);
     setSessionResult({
       quizType: activeQuizMode || 'multiple-choice',
       total,
       correct: correctCount,
-      xpEarned,
+      xpEarned: 'pending',
+      runId,
       mistakeCount: mistakes.length,
     });
 
-    // Update User Progress. wordsLearned/masteredCount/level are derived at
-    // render time from the SRS map and XP, so only real events are stored.
-    const active = recordActivity(userProgress);
-    const xp = active.xp + xpEarned;
-    const updatedProgress: UserProgress = {
-      ...active,
-      xp,
-      level: levelFromXp(xp),
-      dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + total),
-      totalCorrect: active.totalCorrect + correctCount,
-      totalAttempted: active.totalAttempted + total,
-      history: [
-        {
-          id: `h_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          quizType: activeQuizMode?.replace('-', ' ') || 'Quiz',
-          totalQuestions: total,
-          correctCount,
-          xpEarned,
-        },
-        ...active.history,
-      ],
-    };
+    void reportQuizSession(runId, total, correctCount);
+  };
 
-    setUserProgress(updatedProgress);
-    saveUserProgress(updatedProgress);
+  /**
+   * Closes the finished run and shows what the server paid for it. Waits for
+   * the last answers to land first, or the server would see it as unfinished.
+   */
+  const reportQuizSession = async (runId: number, total: number, correct: number) => {
+    const sessionId = quizSessionIdRef.current;
+    let xpEarned: number | 'unknown' = 'unknown';
+    try {
+      await Promise.allSettled(Array.from(pendingSubmitsRef.current));
+      if (sessionId !== null) {
+        const { session: saved } = await completeQuizSession(sessionId);
+        if (saved) xpEarned = saved.xpEarned;
+      }
+    } catch (err) {
+      console.error('API completeQuizSession error:', err);
+    }
+
+    trackEvent('quiz_complete', {
+      quiz_type: activeQuizMode ?? 'unknown',
+      total,
+      correct,
+      accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+      ...(xpEarned === 'unknown' ? {} : { xp_earned: xpEarned }),
+    });
+
+    setSessionResult((prev) => (prev?.runId === runId ? { ...prev, xpEarned } : prev));
+    await refreshProgress();
+    void refreshStats();
   };
 
   /**
@@ -721,7 +788,9 @@ export default function Home() {
     answer: string
   ): Promise<ExerciseAnswerResult> => {
     try {
-      const response = await submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer);
+      const response = await trackSubmit(
+        submitExercise(exercise.userWordDefinitionId, exercise.exerciseType, answer),
+      );
       // Keyed by the parent word id, matching how the library's own SRS
       // entries are keyed — distinct from the flashcard flow, which keys by
       // the definition id itself (see `handleRateFlashcardWord`).
@@ -748,19 +817,6 @@ export default function Home() {
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
     trackEvent('flashcard_rate', { rating });
 
-    // Increment daily goal progress on flashcard view
-    setUserProgress((prev) => {
-      const active = recordActivity(prev);
-      const updated = {
-        ...active,
-        dailyGoalProgress: Math.min(settings.dailyGoal, active.dailyGoalProgress + 1),
-        totalAttempted: active.totalAttempted + 1,
-        totalCorrect: active.totalCorrect + (rating >= 3 ? 1 : 0),
-      };
-      saveUserProgress(updated);
-      return updated;
-    });
-
     const currentSRS = srsMap[word.id] || {
       wordId: word.id,
       interval: 0,
@@ -778,7 +834,7 @@ export default function Home() {
       // Learning-phase Flashcard: `word.id` is the `userWordId` from
       // `getDueExercises('flashcard')`, and this rating applies to every due
       // meaning bundled under it at once.
-      const definitions = await submitFlashcardExercise(word.id, rating);
+      const definitions = await trackSubmit(submitFlashcardExercise(word.id, rating));
       const backendSRS = mapWordRatingToSRS(definitions);
       if (backendSRS) handleUpdateSRS(word.id, backendSRS);
     } catch (err) {
@@ -787,14 +843,21 @@ export default function Home() {
   };
 
   const handleToggleFavorite = (wordId: string) => {
-    setUserProgress((prev) => {
-      const isFav = prev.favorites.includes(wordId);
-      const updatedFavs = isFav
-        ? prev.favorites.filter((id) => id !== wordId)
-        : [...prev.favorites, wordId];
-      const updated = { ...prev, favorites: updatedFavs };
-      saveUserProgress(updated);
-      return updated;
+    const isFavorite = !userProgress.favorites.includes(wordId);
+    const apply = (value: boolean) => {
+      setUserProgress((prev) => {
+        const others = prev.favorites.filter((id) => id !== wordId);
+        const updated = { ...prev, favorites: value ? [...others, wordId] : others };
+        saveUserProgress(updated);
+        return updated;
+      });
+      patchCachedFavorite(wordId, value);
+    };
+
+    apply(isFavorite);
+    setFavorites([wordId], isFavorite).catch((err) => {
+      console.error('API setFavorites error:', err);
+      apply(!isFavorite);
     });
   };
 
@@ -829,6 +892,7 @@ export default function Home() {
     // The word reached the backend, so its totals moved — even when the id came
     // back unchanged and there is nothing local to re-key.
     void refreshStats();
+    scheduleProgressRefresh();
 
     if (syncedWord.id === localId) return;
 
@@ -890,6 +954,7 @@ export default function Home() {
     });
 
     void refreshStats();
+    scheduleProgressRefresh();
     refreshDue();
   };
 
@@ -908,6 +973,13 @@ export default function Home() {
     if (!isMounted || activeTab !== 'home' || activeQuizMode) return;
     void refreshStats();
   }, [activeTab, activeQuizMode, isMounted, refreshStats]);
+
+  // XP and streak also move on other devices and in PDF Reader, and the header
+  // shows them on every tab.
+  useEffect(() => {
+    if (!isMounted || activeQuizMode) return;
+    void refreshProgress();
+  }, [activeTab, activeQuizMode, isMounted, refreshProgress]);
 
   const { pushStatus } = usePushSubscription({
     isReady: isMounted,
@@ -1048,6 +1120,8 @@ export default function Home() {
             totalQuestions={sessionResult.total}
             correctCount={sessionResult.correct}
             xpEarned={sessionResult.xpEarned}
+            learning={learning}
+            startLevel={quizStartLevelRef.current}
             mistakeCount={sessionResult.mistakeCount}
             onContinue={() => {
               setSessionResult(null);
@@ -1078,15 +1152,19 @@ export default function Home() {
   return (
     <MobileContainer>
       <HeaderBar
-        progress={displayProgress}
+        progress={derivedProgress}
+        learning={learning}
+        onOpenProgress={() => setActiveTab('stats')}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAddWord={() => setIsAddWordOpen(true)}
       />
 
       {activeTab === 'home' && (
         <HomeDashboard
-          progress={displayProgress}
+          progress={derivedProgress}
           summary={statsSummary}
+          learning={learning}
+          activity={activity}
           dueCount={dueItems.length}
           focusCategories={settings.focusCategories}
           onStartQuiz={handleStartQuiz}
@@ -1114,6 +1192,7 @@ export default function Home() {
           srsMap={srsMap}
           summary={statsSummary}
           onUpdateSRS={handleUpdateSRS}
+          onReviewSubmitted={scheduleProgressRefresh}
           onMergeSRS={handleMergeSRS}
           onOpenAddWord={() => setIsAddWordOpen(true)}
           onDueListChanged={refreshDue}
@@ -1121,12 +1200,13 @@ export default function Home() {
       )}
 
       {activeTab === 'stats' && (
-        <StatsDashboard progress={displayProgress} />
+        <StatsDashboard progress={derivedProgress} learning={learning} activity={activity} />
       )}
 
       {activeTab === 'profile' && (
         <ProfileScreen
-          progress={displayProgress}
+          progress={derivedProgress}
+          learning={learning}
           allWords={allWords}
           srsMap={srsMap}
           vocabularySets={vocabularySets}
@@ -1160,7 +1240,7 @@ export default function Home() {
 
       {isEditProfileOpen && session && (
         <EditProfileModal
-          currentName={displayProgress.name}
+          currentName={derivedProgress.name}
           email={session.email}
           onClose={() => setIsEditProfileOpen(false)}
           onNameUpdated={applySession}

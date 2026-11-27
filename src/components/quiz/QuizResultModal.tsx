@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Trophy, Zap, CheckCircle2, RotateCcw, ArrowRight } from 'lucide-react';
-import { QuizType } from '@/types';
+import { LearningProgress, QuizType } from '@/types';
 import { soundFX } from '@/lib/audio';
 import { ModalPortal } from '@/components/layout/ModalPortal';
 import { Mascot } from '@/components/mascot/Mascot';
@@ -13,7 +13,11 @@ interface QuizResultModalProps {
   quizType: QuizType;
   totalQuestions: number;
   correctCount: number;
-  xpEarned: number;
+  /** `unknown` when the server could not close the run. */
+  xpEarned: number | 'pending' | 'unknown';
+  learning: LearningProgress | null;
+  /** The level held when the run began, to tell a level-up apart. */
+  startLevel?: number;
   mistakeCount: number;
   onContinue: () => void;
   onReviewMistakes: () => void;
@@ -24,6 +28,8 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
   totalQuestions,
   correctCount,
   xpEarned,
+  learning,
+  startLevel,
   mistakeCount,
   onContinue,
   onReviewMistakes,
@@ -31,6 +37,14 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
   const accuracy = Math.round((correctCount / Math.max(1, totalQuestions)) * 100);
   const isHighScore = accuracy >= 80;
   const resultLine = useMascotLine(isHighScore ? 'resultHigh' : 'resultLow');
+
+  const leveledUp = startLevel !== undefined && (learning?.level ?? 0) > startLevel;
+
+  useEffect(() => {
+    if (!leveledUp) return;
+    soundFX.playLevelUp();
+    confetti({ particleCount: 140, spread: 100, origin: { y: 0.5 } });
+  }, [leveledUp]);
 
   useEffect(() => {
     soundFX.playLevelUp();
@@ -77,7 +91,7 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
             <span className="text-[10px] text-slate-400 font-medium">XP Gained</span>
             <p className="text-lg font-black text-blue-600 dark:text-blue-400 flex items-center justify-center gap-0.5">
               <Zap className="w-4 h-4 fill-blue-500 text-blue-500" />
-              <span>+{xpEarned}</span>
+              <span>{typeof xpEarned === 'number' ? `+${xpEarned}` : xpEarned === 'pending' ? '…' : '—'}</span>
             </p>
           </div>
 
@@ -88,6 +102,34 @@ export const QuizResultModal: React.FC<QuizResultModalProps> = ({
             </p>
           </div>
         </div>
+
+        {xpEarned === 'unknown' && (
+          <p className="text-[11px] text-slate-400" role="status">
+            Chưa lưu được phiên này nên không có thưởng hoàn thành. XP của các câu đã gửi vẫn được tính.
+          </p>
+        )}
+
+        {learning && (
+          <div className="space-y-1.5" aria-live="polite">
+            {leveledUp && (
+              <p className="text-sm font-black text-blue-600 dark:text-blue-300">
+                ⭐ Lên cấp {learning.level}!
+              </p>
+            )}
+            <div className="flex justify-between text-[11px] font-bold text-slate-400 tabular-nums">
+              <span>Cấp {learning.level}</span>
+              <span>
+                {learning.xpIntoLevel} / {learning.xpPerLevel} XP
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 shadow-clay-inset overflow-hidden">
+              <div
+                className="h-full rounded-full bg-blue-600 transition-all duration-700 ease-clay"
+                style={{ width: `${(learning.xpIntoLevel / learning.xpPerLevel) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Mistakes Alert if any */}
         {mistakeCount > 0 && (

@@ -436,14 +436,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
           <button
             onClick={() => {
-              if (confirm('Are you sure you want to reset all progress data?')) {
+              if (confirm('Xoá dữ liệu đã lưu trên máy này? XP, cấp, chuỗi ngày và từ vựng trên tài khoản vẫn được giữ.')) {
                 onResetProgress();
               }
             }}
             className="w-full py-3 rounded-button bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold border border-red-200/50 flex items-center justify-center gap-2 hover:bg-red-100 transition-all"
           >
             <Trash2 className="w-4 h-4" />
-            <span>Reset All Progress Data</span>
+            <span>Xoá dữ liệu trên máy này</span>
           </button>
         </div>
       </div>

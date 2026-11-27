@@ -1,7 +1,7 @@
 import {
   VocabularySet,
   CEFRLevel,
-  UserProgress,
+  UserProgress, LearningProgress,
   SRSData,
   UserWordListItem,
   Word,
@@ -24,11 +24,15 @@ const STORAGE_KEYS = {
   REMINDERS: 'memorize_reminder_state',
   CATEGORIES: 'memorize_categories',
   WORD_LIBRARY: 'memorize_word_library',
+  LEARNING: 'memorize_learning_progress',
+  FAVORITES_UPLOADED: 'memorize_favorites_uploaded',
 };
 
 /** Keys holding per-account data — scoped by user id, unlike AUTH and SETTINGS. */
 const SCOPED_KEYS = [
   STORAGE_KEYS.PROGRESS,
+  STORAGE_KEYS.LEARNING,
+  STORAGE_KEYS.FAVORITES_UPLOADED,
   STORAGE_KEYS.SRS,
   STORAGE_KEYS.CUSTOM_WORDS,
   STORAGE_KEYS.REMINDERS,
@@ -125,19 +129,10 @@ export function createEmptyUserProgress(
     email,
     userId,
     avatar: generateAvatar(name || email),
-    level: 1,
-    xp: 0,
-    streak: 0,
-    bestStreak: 0,
-    lastActiveDate: new Date().toISOString(),
     dailyGoal: DEFAULT_SETTINGS.dailyGoal,
-    dailyGoalProgress: 0,
     wordsLearned: 0,
     masteredCount: 0,
-    totalCorrect: 0,
-    totalAttempted: 0,
     favorites: [],
-    history: [],
   };
 }
 
@@ -161,10 +156,8 @@ function normalizeProgress(progress: UserProgress): UserProgress {
     ...progress,
     email: progress.email ?? '',
     userId: progress.userId ?? null,
-    bestStreak: progress.bestStreak ?? progress.streak ?? 0,
     // Favourites pointing at the removed dataset can never resolve to a word.
     favorites: (progress.favorites ?? []).filter((id) => !LEGACY_DATASET_ID.test(id)),
-    history: progress.history ?? [],
   };
 }
 
@@ -224,6 +217,37 @@ function normalizeStoredStates(
     return [wordId, { ...srs, state }] as const;
   });
   return changed ? { map: Object.fromEntries(entries), changed } : { map: srsMap, changed };
+}
+
+/**
+ * The server's last answer, kept only so the badges have something to show
+ * before the next one arrives. Never edited on this device.
+ */
+export function loadLearningProgress(): LearningProgress | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const data = readScoped(STORAGE_KEYS.LEARNING);
+    return data ? (JSON.parse(data) as LearningProgress) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLearningProgress(progress: LearningProgress): void {
+  try {
+    writeScoped(STORAGE_KEYS.LEARNING, JSON.stringify(progress));
+  } catch (e) {
+    console.error('Failed to save learning progress', e);
+  }
+}
+
+/** Whether this device already sent its pre-server favorites up. */
+export function hasUploadedFavorites(): boolean {
+  return readScoped(STORAGE_KEYS.FAVORITES_UPLOADED) === '1';
+}
+
+export function markFavoritesUploaded(): void {
+  writeScoped(STORAGE_KEYS.FAVORITES_UPLOADED, '1');
 }
 
 export function loadSRSData(): Record<string, SRSData> {

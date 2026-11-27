@@ -2,12 +2,13 @@
 
 import React from 'react';
 import { Pencil, LogOut } from 'lucide-react';
-import { SRSData, UserProgress, VocabularySet, Word } from '@/types';
+import { SRSData, UserProgress, LearningProgress, VocabularySet, Word } from '@/types';
 import { WordLibrarySection } from './WordLibrarySection';
 import { Mascot } from '@/components/mascot/Mascot';
 
 interface ProfileScreenProps {
   progress: UserProgress;
+  learning: LearningProgress | null;
   /** Local library, used as the fallback for the word list below. */
   allWords: Word[];
   srsMap: Record<string, SRSData>;
@@ -24,6 +25,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   progress,
+  learning,
   allWords,
   srsMap,
   vocabularySets,
@@ -32,11 +34,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onEditProfile,
   onLogout,
 }) => {
-  const xpForNextLevel = progress.level * 300;
-  const currentLevelProgress = Math.min(
-    100,
-    Math.round(((progress.xp % 300) / 300) * 100)
-  );
+  const levelPercent = learning
+    ? Math.round((learning.xpIntoLevel / learning.xpPerLevel) * 100)
+    : 0;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-5 overflow-y-auto overscroll-contain px-5 py-4 pb-28">
@@ -57,7 +57,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             className="w-20 h-20 rounded-full object-cover ring-4 ring-blue-500/20 mx-auto"
           />
           <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white font-extrabold text-xs px-2 py-0.5 rounded-full shadow">
-            L{progress.level}
+            L{learning?.level ?? '–'}
           </span>
         </div>
 
@@ -68,16 +68,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         {/* Level XP Progress Bar */}
         <div className="mt-4 max-w-xs mx-auto space-y-1.5">
-          <div className="flex justify-between text-xs font-semibold">
-            <span className="text-blue-600 dark:text-blue-400">Level {progress.level}</span>
-            <span className="text-slate-400">{progress.xp} / {xpForNextLevel} XP</span>
+          <div className="flex justify-between text-xs font-semibold tabular-nums">
+            <span className="text-blue-600 dark:text-blue-400">Cấp {learning?.level ?? '–'}</span>
+            <span className="text-slate-400">
+              {learning ? `${learning.xpIntoLevel} / ${learning.xpPerLevel} XP` : '– XP'}
+            </span>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-600">
+          <div
+            role="progressbar"
+            aria-label="Tiến độ cấp"
+            aria-valuenow={levelPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            className="w-full bg-slate-200 dark:bg-slate-700 h-3 rounded-full overflow-hidden shadow-clay-inset border-2 border-slate-300 dark:border-slate-600"
+          >
             <div
               className="bg-blue-600 h-full rounded-full transition-all duration-500"
-              style={{ width: `${currentLevelProgress}%` }}
+              style={{ width: `${levelPercent}%` }}
             />
           </div>
+          {learning && (
+            <p className="text-[11px] text-slate-400 font-medium">
+              Còn {learning.xpPerLevel - learning.xpIntoLevel} XP nữa lên cấp {learning.level + 1}
+            </p>
+          )}
         </div>
       </div>
 

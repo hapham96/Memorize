@@ -11,10 +11,9 @@ import {
   Award,
   TrendingUp,
 } from 'lucide-react';
-import { UserProgress, QuizType, WordCategory } from '@/types';
+import { ActivityDay, LearningProgress, UserProgress, QuizType, WordCategory } from '@/types';
 import { StatsSummary } from '@/types/stats';
-import { buildActivitySeries, isActiveToday } from '@/lib/progress';
-import { buildRemoteActivitySeries } from '@/lib/api/stats-client';
+import { totalReviewsIn, WEEKDAY_LABELS, weekdayColumn } from '@/lib/activity';
 import { Plus } from 'lucide-react';
 import { Mascot, MascotMood } from '@/components/mascot/Mascot';
 import { MascotMoment, greetingMoment, useMascotLine } from '@/components/mascot/mascotLines';
@@ -27,6 +26,9 @@ interface HomeDashboardProps {
    * whole account, not just what this device has seen.
    */
   summary?: StatsSummary | null;
+  learning: LearningProgress | null;
+  /** Reviews per day, oldest first; null until the server answers. */
+  activity: ActivityDay[] | null;
   /** Words due for review right now — Memori nudges toward them. */
   dueCount?: number;
   focusCategories?: WordCategory[];
@@ -38,6 +40,8 @@ interface HomeDashboardProps {
 export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   progress,
   summary = null,
+  learning,
+  activity,
   dueCount = 0,
   focusCategories = [],
   onStartQuiz,
@@ -45,7 +49,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   onOpenAddWord,
 }) => {
   // Remote counters when the summary landed, local ones until then.
-  const learnedToday = summary?.learnedToday ?? progress.dailyGoalProgress;
+  const learnedToday = summary?.learnedToday ?? 0;
   const masteredCount = summary?.masteredCount ?? progress.masteredCount;
   // The backend splits the library into learning + mastered; together they are
   // the same "words studied" the local SRS map derives.
@@ -63,20 +67,22 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (goalPercentage / 100) * circumference;
 
-  // Weekly activity from the account's real review history (last 7 days) —
-  // the backend's series when it answered, this device's quiz history otherwise.
-  const weeklyActivity = summary
-    ? buildRemoteActivitySeries(summary, 7)
-    : buildActivitySeries(progress, 7);
-  const weeklyTotal = weeklyActivity.reduce((sum, item) => sum + item.count, 0);
+  // The last seven days of the account's review history.
+  const weeklyActivity = (activity ?? []).slice(-7).map((day, i, week) => ({
+    date: day.date,
+    count: day.count,
+    dayLabel: WEEKDAY_LABELS[weekdayColumn(day.date)],
+    isToday: i === week.length - 1,
+  }));
+  const weeklyTotal = totalReviewsIn(weeklyActivity);
   const weeklyMax = Math.max(...weeklyActivity.map((item) => item.count), 1);
 
-  // Memori says the most urgent thing first. "At risk" needs both signals to be
-  // quiet: the local activity date only knows this device, while the backend's
-  // `learnedToday` also sees today's work from any other device.
-  const streakAtRisk = progress.streak > 0 && learnedToday === 0 && !isActiveToday(progress);
+  // Memori says the most urgent thing first. A streak is at risk while the
+  // server has seen nothing from this account today.
+  const streak = learning?.streak ?? 0;
+  const streakAtRisk = streak > 0 && !learning?.activeToday;
   const [mascotMood, mascotMoment, mascotCount]: [MascotMood, MascotMoment, number?] = streakAtRisk
-    ? ['worried', 'streakAtRisk', progress.streak]
+    ? ['worried', 'streakAtRisk', streak]
     : goalPercentage >= 100
     ? ['cheer', 'goalDone']
     : dueCount > 0
@@ -285,12 +291,14 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
             <span>ĐỘ CHÍNH XÁC (ACCURACY)</span>
           </div>
           <p className="text-3xl font-black text-slate-900 dark:text-slate-100">
-            {progress.totalAttempted > 0
-              ? `${Math.round((progress.totalCorrect / progress.totalAttempted) * 100)}%`
+            {learning && learning.totalReviews > 0
+              ? `${Math.round((learning.correctReviews / learning.totalReviews) * 100)}%`
               : '—'}
           </p>
           <p className="text-xs text-slate-400 font-bold mt-2 flex items-center gap-1">
-            <span>{progress.totalCorrect}/{progress.totalAttempted} câu đúng</span>
+            <span>
+              {learning?.correctReviews ?? 0}/{learning?.totalReviews ?? 0} lượt đúng
+            </span>
           </p>
         </div>
 
@@ -313,10 +321,10 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           <div className="flex justify-between items-center mb-3">
             <div>
               <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100">Hoạt động tuần</h4>
-              <p className="text-[11px] text-slate-400">Số từ ôn luyện theo ngày</p>
+              <p className="text-[11px] text-slate-400">Số lượt ôn theo ngày</p>
             </div>
             <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-full">
-              {weeklyTotal} Từ
+              {weeklyTotal} lượt
             </span>
           </div>
 

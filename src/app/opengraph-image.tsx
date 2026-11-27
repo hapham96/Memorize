@@ -1,5 +1,8 @@
 import { ImageResponse } from 'next/og';
 
+// The Node build of `next/og` fails with `Invalid URL` when built on Windows
+// (Next 14), so this image is drawn by the edge build, on request.
+export const runtime = 'edge';
 export const alt = 'Memorize - Học từ vựng tiếng Anh với Flashcard & Lặp lại ngắt quãng';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
