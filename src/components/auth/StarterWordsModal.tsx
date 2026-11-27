@@ -8,15 +8,18 @@ import { ModalPortal } from '@/components/layout/ModalPortal';
 interface StarterWordsModalProps {
   words: StarterWord[];
   onConfirm: (headwords: string[]) => void;
+  /** Takes none: the learner adds their own words from the home screen. */
+  onSkip: () => void;
 }
 
 /**
  * The second question of a new account: its Starter Words, all ticked, so the
- * ones already known can be left out. At least one has to stay.
+ * ones already known can be left out — or all of them skipped.
  */
 export const StarterWordsModal: React.FC<StarterWordsModalProps> = ({
   words,
   onConfirm,
+  onSkip,
 }) => {
   const [picked, setPicked] = useState(() => new Set(words.map((w) => w.headword)));
 
@@ -89,6 +92,13 @@ export const StarterWordsModal: React.FC<StarterWordsModalProps> = ({
           >
             <span>Học {picked.size} từ</span>
             <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            className="-mt-2 w-full py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
+            Không lấy, tôi tự thêm từ
           </button>
         </div>
       </div>

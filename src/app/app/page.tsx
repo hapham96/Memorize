@@ -1445,6 +1445,7 @@ export default function Home() {
         <StarterWordsModal
           words={starterOffer.words}
           onConfirm={(headwords) => void startFirstRun(starterOffer.level, headwords)}
+          onSkip={() => setStarterOffer(null)}
         />
       )}
 
