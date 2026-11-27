@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2, Plus, Trash2, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckSquare,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  Square,
+  Trash2,
+  X,
+} from 'lucide-react';
 import {
   ArgumentChain,
   ChainPick,
@@ -63,6 +72,7 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const savedId = start.kind === 'saved' ? start.chainId : null;
   useEffect(() => {
@@ -178,8 +188,14 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
       </p>
       {suggested.suggestions.map((item) => {
         const isTicked = ticked.has(item.headword);
+        const BoxIcon = isTicked ? CheckSquare : Square;
         return (
-          <label key={item.headword} className={`${cardClass} flex gap-3 cursor-pointer`}>
+          <label
+            key={item.headword}
+            className={`${cardClass} flex gap-3 cursor-pointer ${
+              isTicked ? '!border-blue-500 !bg-blue-50 dark:!bg-blue-950/60' : ''
+            }`}
+          >
             <input
               type="checkbox"
               checked={isTicked}
@@ -190,7 +206,15 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
                 else next.add(item.headword);
                 setTicked(next);
               }}
-              className="mt-1 w-5 h-5 shrink-0 accent-blue-600"
+              // The native box can't be themed: hidden, but still what the
+              // keyboard and screen readers use.
+              className="peer sr-only"
+            />
+            <BoxIcon
+              aria-hidden
+              className={`mt-0.5 w-5 h-5 shrink-0 rounded peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-disabled:opacity-40 ${
+                isTicked ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'
+              }`}
             />
             <span className="min-w-0">
               <span className="font-extrabold text-slate-900 dark:text-slate-100">
@@ -302,94 +326,126 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
           </p>
         )}
         <ChainDiagram chain={chain} />
-        <button
-          type="button"
-          onClick={() => {
-            soundFX.playPop();
-            setView('fill');
-          }}
-          className={primaryClass}
-        >
-          Luyện: điền liên kết
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            soundFX.playPop();
-            setRightPlaces(null);
-            setView('order');
-          }}
-          className={secondaryClass}
-        >
-          Thử tự sắp xếp
-        </button>
-        <button
-          type="button"
-          disabled={Boolean(busy)}
-          onClick={() =>
-            void make(
-              [...chain.steps, ...chain.leftOut]
-                .map((w) => w.userWordId)
-                .slice(0, MAX_CHAIN_WORDS),
-            )
-          }
-          className={secondaryClass}
-        >
-          Tạo lại{price(prices?.chain)}
-        </button>
-        {isDeleting ? (
-          <div className="flex gap-2">
-            <button type="button" onClick={() => void remove()} className={`${secondaryClass} text-red-600`}>
-              Xoá thật
-            </button>
-            <button type="button" onClick={() => setIsDeleting(false)} className={secondaryClass}>
-              Giữ lại
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsDeleting(true)}
-            className="mx-auto flex items-center gap-1.5 text-xs font-bold text-slate-500"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> Xoá chuỗi này
-          </button>
-        )}
       </div>
     ));
 
+  /** The finished chain is on screen, not one of its exercises. */
+  const isViewing = chain !== null && view === 'chain';
+
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 pb-8 space-y-4 bg-slate-50 dark:bg-slate-900">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          // Out of an exercise first, then out of the chain.
-          onClick={() => (chain && view !== 'chain' ? setView('chain') : onClose())}
-          aria-label="Quay lại"
-          className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Chuỗi nhớ</h2>
+    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 dark:bg-slate-900">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-5 pb-8 space-y-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            // Out of an exercise first, then out of the chain.
+            onClick={() => (chain && view !== 'chain' ? setView('chain') : onClose())}
+            aria-label="Quay lại"
+            className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Chuỗi nhớ</h2>
+          {isViewing && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsMenuOpen(!isMenuOpen);
+                setIsDeleting(false);
+              }}
+              aria-label="Thao tác khác"
+              aria-expanded={isMenuOpen}
+              className="ml-auto p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+
+        {chain && isViewing && isMenuOpen && (
+          <div className={`${cardClass} space-y-2`}>
+            <button
+              type="button"
+              onClick={() => {
+                soundFX.playPop();
+                setIsMenuOpen(false);
+                setRightPlaces(null);
+                setView('order');
+              }}
+              className={secondaryClass}
+            >
+              Thử tự sắp xếp
+            </button>
+            <button
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() => {
+                setIsMenuOpen(false);
+                void make(
+                  [...chain.steps, ...chain.leftOut]
+                    .map((w) => w.userWordId)
+                    .slice(0, MAX_CHAIN_WORDS),
+                );
+              }}
+              className={secondaryClass}
+            >
+              Tạo lại{price(prices?.chain)}
+            </button>
+            {isDeleting ? (
+              <div className="flex gap-2">
+                <button type="button" onClick={() => void remove()} className={`${secondaryClass} text-red-600`}>
+                  Xoá thật
+                </button>
+                <button type="button" onClick={() => setIsDeleting(false)} className={secondaryClass}>
+                  Giữ lại
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsDeleting(true)}
+                className={`${secondaryClass} flex items-center justify-center gap-1.5`}
+              >
+                <Trash2 className="w-4 h-4" /> Xoá chuỗi này
+              </button>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="text-sm font-bold text-amber-700 dark:text-amber-300 text-center">
+            {error}
+          </p>
+        )}
+        {busy && (
+          <p role="status" className="flex items-center justify-center gap-2 text-sm font-bold text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> {busy}
+          </p>
+        )}
+
+        {showing ??
+          (savedId === null ? (
+            picking
+          ) : (
+            !error && <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
+          ))}
       </div>
 
-      {error && (
-        <p role="alert" className="text-sm font-bold text-amber-700 dark:text-amber-300 text-center">
-          {error}
-        </p>
+      {isViewing && (
+        <div className="shrink-0 px-4 md:px-8 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={() => {
+              soundFX.playPop();
+              setIsMenuOpen(false);
+              setView('fill');
+            }}
+            className={primaryClass}
+          >
+            Luyện: điền liên kết
+          </button>
+        </div>
       )}
-      {busy && (
-        <p role="status" className="flex items-center justify-center gap-2 text-sm font-bold text-slate-500">
-          <Loader2 className="w-4 h-4 animate-spin" /> {busy}
-        </p>
-      )}
-
-      {showing ??
-        (savedId === null ? (
-          picking
-        ) : (
-          !error && <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
-        ))}
     </div>
   );
 };

@@ -148,7 +148,7 @@ const SLIDES: GuideSlide[] = [
   {
     icon: BookOpen,
     title: '2. Luyện tập',
-    subtitle: 'Chọn bộ từ hoặc từng từ rồi bắt đầu. Từ chưa đến hạn vẫn luyện được; từ đang chờ ôn thì ôn ở Trang chủ.',
+    subtitle: 'Ở mục Bộ từ, chọn cả bộ hoặc từng từ rồi bấm Luyện ngay. Từ chưa đến hạn vẫn luyện được; từ đang chờ ôn thì ôn ở Trang chủ.',
     body: (
       <div className="space-y-2.5">
         <GuideRow icon={Layers} tone="bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300" title="Flashcard">

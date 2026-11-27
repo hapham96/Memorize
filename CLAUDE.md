@@ -120,13 +120,13 @@ The wire status is `new | learning | reviewing | mastered`; `SRSState` is `new |
 
 ### Free Practice is the server's
 
-The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx), Battle included) chooses words and modes; [PracticeSession](src/components/practice/PracticeSession.tsx) shows whatever `/practice` says. Rounds, mode order, what counts as a review and the round bonus are decided server-side ([practice-client](src/lib/api/practice-client.ts)) — never re-derive them here, and never grade locally. 409 means another device replaced the sitting, 410 that it could not be restored, 422 that the question moved on (re-read it). It is online-only.
+The "Luyện tập" tab ([PracticeTab](src/components/practice/PracticeTab.tsx), in three sections: Bộ từ, Chuỗi nhớ, Battle) chooses words and modes; the section is held by `page.tsx` so it survives a trip to the chain screen, and Bộ từ has the one action bar (practise / make a chain); [PracticeSession](src/components/practice/PracticeSession.tsx) shows whatever `/practice` says. Rounds, mode order, what counts as a review and the round bonus are decided server-side ([practice-client](src/lib/api/practice-client.ts)) — never re-derive them here, and never grade locally. 409 means another device replaced the sitting, 410 that it could not be restored, 422 that the question moved on (re-read it). It is online-only.
 
 ### Argument Chain ("Chuỗi nhớ")
 
 Started from the Luyện tập tab ([ChainScreen](src/components/chain/ChainScreen.tsx), [ChainViews](src/components/chain/ChainViews.tsx), [chain-client](src/lib/api/chain-client.ts)). Creating and suggesting words are paid AI calls: fire them from a tap, never from an effect. A saved chain carries its own text, so opening and practising it calls no AI. A new chain is shown at once; ordering the words is an optional exercise. It and filling the hidden links are graded on the client; finishing the latter only reports `/practised` for the streak. A suggested new word is added with the ordinary `addWord` before the chain is made.
 
-### Home counters come from `/stats/summary`
+### Home and Thống kê counters come from `/stats/summary`
 
 [src/lib/api/stats-client.ts](src/lib/api/stats-client.ts) maps `GET /stats/summary` (`todayLearntWord`, `totalWords`, `learningWord`, `masteredWord`) into `StatsSummary`. `page.tsx` holds it in `statsSummary`, refreshed on account load, on landing back on the home tab, and after a word syncs. Streak and the weekly chart do not come from it — see the progress client under Conventions.
 

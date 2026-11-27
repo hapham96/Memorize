@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowDown, Volume2 } from 'lucide-react';
 import { ArgumentChain, ChainRole, ChainStep } from '@/types/chain';
 import { speakWord, soundFX } from '@/lib/audio';
+import { normalizePos } from '@/lib/api/word-client';
 
 export const cardClass =
   'rounded-card p-4 bg-white dark:bg-slate-800 border-clay border-blue-200 dark:border-slate-700 shadow-clay-sm';
@@ -12,18 +13,21 @@ const buttonClass =
 export const primaryClass = `${buttonClass} bg-blue-600 border-blue-400 text-white`;
 export const secondaryClass = `${buttonClass} bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200`;
 
-const ROLES: Record<ChainRole, { label: string; tone: string }> = {
+const ROLES: Record<ChainRole, { label: string; tone: string; text: string }> = {
   cause: {
     label: 'Nguyên nhân',
     tone: 'bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40',
+    text: 'text-amber-700 dark:text-amber-300',
   },
   middle: {
     label: 'Diễn biến',
     tone: 'bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/40',
+    text: 'text-blue-700 dark:text-blue-300',
   },
   result: {
     label: 'Kết quả',
     tone: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-300 dark:border-emerald-500/40',
+    text: 'text-emerald-700 dark:text-emerald-300',
   },
 };
 
@@ -35,14 +39,33 @@ function play(step: ChainStep) {
   void new Audio(step.audioUrl).play().catch(() => speakWord(step.headword));
 }
 
+/** `noun`, `n` and `n.` all show as `n.`. */
+function shortPos(partOfSpeech: string): string {
+  const bare = partOfSpeech.trim().replace(/\.$/, '');
+  const short = normalizePos(bare) ?? bare;
+  return /^(n|v|adj|adv|pron|prep|conj|interj)$/.test(short) ? `${short}.` : short;
+}
+
+/** Which step is open: one at a time, so the chain stays in view. */
+function useOpenStep() {
+  const [open, setOpen] = useState<number | null>(null);
+  return (i: number) => ({
+    isOpen: open === i,
+    onToggle: () => setOpen(open === i ? null : i),
+  });
+}
+
 /** One step: the card opens its meaning, the speaker only says the word. */
-const Step: React.FC<{ step: ChainStep }> = ({ step }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const Step: React.FC<{ step: ChainStep; isOpen: boolean; onToggle: () => void }> = ({
+  step,
+  isOpen,
+  onToggle,
+}) => {
   const role = ROLES[step.role];
   return (
     // The headword button is the keyboard's way in; its click lands here too.
     <div
-      onClick={() => setIsOpen(!isOpen)}
+      onClick={onToggle}
       className={`rounded-2xl border-2 p-3 cursor-pointer ${role.tone}`}
     >
       <span className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
@@ -71,11 +94,13 @@ const Step: React.FC<{ step: ChainStep }> = ({ step }) => {
       {isOpen && (
         <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
           {step.partOfSpeech && (
-            <i className="text-xs text-slate-400 mr-1.5">{step.partOfSpeech}</i>
+            <i className="text-xs text-slate-400 mr-1.5">{shortPos(step.partOfSpeech)}</i>
           )}
           {step.definition}
           {step.example && (
-            <span className="block text-xs italic text-slate-500">“{step.example}”</span>
+            <span className="block text-xs italic text-slate-600 dark:text-slate-300">
+              “{step.example}”
+            </span>
           )}
         </p>
       )}
@@ -90,38 +115,78 @@ const Between: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-/** The whole chain, top to bottom, with its passage and summary. */
-export const ChainDiagram: React.FC<{ chain: ArgumentChain }> = ({ chain }) => (
-  <div className="space-y-4">
-    <div>
-      {chain.steps.map((step, i) => (
-        <React.Fragment key={`${step.userWordId}-${i}`}>
-          <Step step={step} />
-          {step.link && (
-            <Between>
-              <p className="font-bold text-slate-800 dark:text-slate-200">{step.link.en}</p>
-              <p className="text-xs text-slate-500">{step.link.vi}</p>
-            </Between>
-          )}
-        </React.Fragment>
-      ))}
-    </div>
-    <div className={`${cardClass} space-y-2`}>
-      <p className="text-sm text-slate-800 dark:text-slate-200">{chain.passage}</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">{chain.summaryVi}</p>
-    </div>
-    {chain.leftOut.length > 0 && (
-      <div className={`${cardClass} space-y-1`}>
-        <p className="text-xs font-extrabold text-slate-500">Từ không đưa vào chuỗi</p>
-        {chain.leftOut.map((word) => (
-          <p key={word.userWordId} className="text-sm text-slate-700 dark:text-slate-300">
-            <b>{word.headword}</b>: {word.reason}
-          </p>
+/**
+ * The passage with the chain's words coloured by role. The AI inflects them
+ * ("compiles"), so each word of a headword matches by its stem.
+ */
+const Passage: React.FC<{ text: string; steps: ChainStep[] }> = ({ text, steps }) => {
+  const sorted = [...steps].sort((a, b) => b.headword.length - a.headword.length);
+  const patterns = sorted.map((step) =>
+    step.headword
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .map((word) => (word.length > 3 ? `${word.replace(/[ey]$/i, '')}[a-z]{0,4}` : word))
+      .join('\\s+'),
+  );
+  // One group per step, so a match tells which step it is.
+  const matcher = new RegExp(`\\b(?:${patterns.map((p) => `(${p})`).join('|')})\\b`, 'gi');
+  const parts: React.ReactNode[] = [];
+  let from = 0;
+  for (const match of Array.from(text.matchAll(matcher))) {
+    const step = sorted[match.slice(1).findIndex(Boolean)];
+    parts.push(
+      text.slice(from, match.index),
+      <b key={match.index} className={ROLES[step.role].text}>
+        {match[0]}
+      </b>,
+    );
+    from = match.index! + match[0].length;
+  }
+  parts.push(text.slice(from));
+  return <>{parts}</>;
+};
+
+/** The passage and summary, then the whole chain from top to bottom. */
+export const ChainDiagram: React.FC<{ chain: ArgumentChain }> = ({ chain }) => {
+  const stepProps = useOpenStep();
+  return (
+    <div className="space-y-4">
+      <div className={`${cardClass} space-y-2`}>
+        <p className="text-sm text-slate-800 dark:text-slate-200">
+          <Passage text={chain.passage} steps={chain.steps} />
+        </p>
+        <p className="text-xs text-slate-600 dark:text-slate-300">{chain.summaryVi}</p>
+      </div>
+      <p className="text-center text-xs font-bold text-slate-500 dark:text-slate-400">
+        Bấm vào từ để xem nghĩa, bấm loa để nghe
+      </p>
+      <div>
+        {chain.steps.map((step, i) => (
+          <React.Fragment key={`${step.userWordId}-${i}`}>
+            <Step step={step} {...stepProps(i)} />
+            {step.link && (
+              <Between>
+                <p className="font-bold text-slate-800 dark:text-slate-200">{step.link.en}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">{step.link.vi}</p>
+              </Between>
+            )}
+          </React.Fragment>
         ))}
       </div>
-    )}
-  </div>
-);
+      {chain.leftOut.length > 0 && (
+        <div className={`${cardClass} space-y-1`}>
+          <p className="text-xs font-extrabold text-slate-500">Từ không đưa vào chuỗi</p>
+          {chain.leftOut.map((word) => (
+            <p key={word.userWordId} className="text-sm text-slate-700 dark:text-slate-300">
+              <b>{word.headword}</b>: {word.reason}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Never in the right order to begin with.
 function scramble(length: number): number[] {
@@ -193,6 +258,7 @@ export const LinkFill: React.FC<{
   onClose: () => void;
 }> = ({ chain, onComplete, onClose }) => {
   const total = chain.steps.length - 1;
+  const stepProps = useOpenStep();
   const bank = useMemo(() => scramble(total), [total]);
   const [filled, setFilled] = useState(0);
   const [wrong, setWrong] = useState<number | null>(null);
@@ -216,7 +282,7 @@ export const LinkFill: React.FC<{
       <div>
         {chain.steps.map((step, i) => (
           <React.Fragment key={`${step.userWordId}-${i}`}>
-            <Step step={step} />
+            <Step step={step} {...stepProps(i)} />
             {step.link && (
               <Between>
                 {i < filled ? (

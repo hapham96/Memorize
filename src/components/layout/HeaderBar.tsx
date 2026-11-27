@@ -28,10 +28,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const levelPercent = learning ? (learning.xpIntoLevel / learning.xpPerLevel) * 100 : 0;
 
   return (
-    <header className="shrink-0 px-4 md:px-8 py-3.5 flex items-center justify-between bg-blue-50 dark:bg-slate-900 z-30 border-b-clay border-blue-200 dark:border-slate-800 transition-all duration-300">
+    <header className="shrink-0 px-3 md:px-8 py-3.5 flex items-center justify-between gap-2 bg-blue-50 dark:bg-slate-900 z-30 border-b-clay border-blue-200 dark:border-slate-800 transition-all duration-300">
       {/* User Greeting & Level */}
-      <div className="flex items-center gap-3">
-        <div className="relative group cursor-pointer">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <div className="relative shrink-0 group cursor-pointer">
           <img
             src={progress.avatar}
             alt={progress.name}
@@ -41,20 +41,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             L{learning?.level ?? '–'}
           </span>
         </div>
-        <div>
+        <div className="hidden sm:block min-w-0">
           <h2 className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-300 font-bold flex items-center gap-1">
             <span>Welcome!</span>
             <Mascot mood="wave" size={16} interactive={false} />
           </h2>
           <p className="text-sm md:text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-            <span>{progress.name}</span>
+            <span className="truncate">{progress.name}</span>
           </p>
         </div>
       </div>
 
       {/* Badges: Streak, XP, Add Word & Settings */}
-      <div className="flex items-center gap-2 md:gap-3">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-clay-butter dark:bg-amber-500/25 border-2 border-amber-300 dark:border-amber-500/50 text-amber-700 dark:text-amber-300 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay">
+      <div className="shrink-0 flex items-center gap-1.5 md:gap-3">
+        <div className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full bg-clay-butter dark:bg-amber-500/25 border-2 border-amber-300 dark:border-amber-500/50 text-amber-700 dark:text-amber-300 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay">
           <Flame className="w-4 h-4 fill-amber-500 text-amber-500 animate-pulse" />
           <span>{learning ? `${learning.streak}d` : '–'}</span>
         </div>
@@ -68,7 +68,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               ? `Cấp ${learning.level}, ${learning.xpIntoLevel} trên ${learning.xpPerLevel} XP. Mở thống kê`
               : 'Mở thống kê'
           }
-          className="flex flex-col gap-1 px-3 py-1.5 rounded-2xl bg-clay-lilac dark:bg-blue-500/25 border-2 border-blue-300 dark:border-blue-500/50 text-blue-700 dark:text-blue-200 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay cursor-pointer"
+          className="flex flex-col gap-1 px-2 md:px-3 py-1.5 rounded-2xl bg-clay-lilac dark:bg-blue-500/25 border-2 border-blue-300 dark:border-blue-500/50 text-blue-700 dark:text-blue-200 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay cursor-pointer"
         >
           <span className="flex items-center gap-1.5 tabular-nums whitespace-nowrap">
             <Zap className="w-4 h-4 text-blue-600 fill-blue-500" />
@@ -89,7 +89,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             type="button"
             onClick={onOpenWallet}
             aria-label={`${xuBalance} xu. Mở ví`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border-2 border-amber-300 dark:border-amber-500/50 text-amber-700 dark:text-amber-300 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay cursor-pointer tabular-nums"
+            className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border-2 border-amber-300 dark:border-amber-500/50 text-amber-700 dark:text-amber-300 text-xs font-extrabold shadow-clay-sm hover:scale-105 transition-transform duration-200 ease-clay cursor-pointer tabular-nums"
           >
             <Coins className="w-4 h-4 text-amber-500" />
             {xuBalance}

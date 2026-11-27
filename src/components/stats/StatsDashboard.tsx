@@ -3,6 +3,7 @@
 import React from 'react';
 import { Flame, BookOpen, Repeat, Calendar, CheckCircle2 } from 'lucide-react';
 import { ActivityDay, LearningProgress, UserProgress } from '@/types';
+import { StatsSummary } from '@/types/stats';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { LeaderboardCard } from './LeaderboardCard';
 
@@ -10,9 +11,20 @@ interface StatsDashboardProps {
   progress: UserProgress;
   learning: LearningProgress | null;
   activity: ActivityDay[] | null;
+  /** The server's word counters, which win over the local ones; null until it answers. */
+  summary: StatsSummary | null;
 }
 
-export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress, learning, activity }) => {
+export const StatsDashboard: React.FC<StatsDashboardProps> = ({
+  progress,
+  learning,
+  activity,
+  summary,
+}) => {
+  const masteredCount = summary?.masteredCount ?? progress.masteredCount;
+  const wordsLearned = summary
+    ? summary.learningCount + summary.masteredCount
+    : progress.wordsLearned;
   const totalReviews = learning?.totalReviews ?? 0;
   const correctReviews = learning?.correctReviews ?? 0;
   const accuracy = Math.round((correctReviews / Math.max(1, totalReviews)) * 100);
@@ -36,10 +48,11 @@ export const StatsDashboard: React.FC<StatsDashboardProps> = ({ progress, learni
             <span>Từ đã học</span>
           </div>
           <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-            {progress.wordsLearned}
+            {wordsLearned}
           </p>
           <span className="text-[10px] text-emerald-500 font-semibold">
-            {progress.masteredCount} từ đã thành thạo
+            {masteredCount} từ đã thành thạo
+            {summary && ` · ${summary.totalWords} từ trong kho`}
           </span>
         </div>
 

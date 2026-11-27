@@ -12,7 +12,7 @@ export const MASCOT_LINES = {
   greetNight: ['Khuya rồi đó, học nhẹ thôi nhé! 🌌', 'Ôn vài từ rồi đi ngủ nha! 😴', 'Cú đêm à? Memo thức cùng bạn! 🦉'],
   authLogin: ['Memo nhớ bạn ghé học! 👋', 'Chào mừng bạn quay lại! 🐘', 'Lâu quá không gặp! ✨'],
   authRegister: ['Memo chào bạn mới! ✨', 'Cùng học từ vựng nào! 🎓', 'Voi con không bao giờ quên! 🐘'],
-  dueReview: ['Có {n} từ đang chờ bạn ôn! 📚', '{n} từ sắp quên rồi, ôn ngay nhé! ⏰', 'Đến giờ ôn {n} từ rồi! 🔔'],
+  dueReview: ['Học một lượt nhé! 📚', 'Đến giờ học rồi! 🔔', 'Memo chờ bạn học đó! 🐘'],
   goalDone: ['Đạt mục tiêu rồi! 🏆', 'Hôm nay xuất sắc quá! 🎉', 'Mục tiêu hôm nay: xong! ✅'],
   streakAtRisk: ['Chuỗi {n} ngày sắp mất rồi! 😰', 'Học 1 từ để giữ chuỗi {n} ngày nhé! 🔥', 'Đừng để mất chuỗi {n} ngày nha! 🥺'],
   correct: ['Chính xác! 🎉', 'Giỏi quá! ⭐', 'Đúng rồi! 👏', 'Tuyệt vời! ✨'],

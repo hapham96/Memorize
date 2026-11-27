@@ -10,7 +10,7 @@ import { AuthScreen } from '@/components/auth/AuthScreen';
 import { LevelSelectModal } from '@/components/auth/LevelSelectModal';
 import { HomeDashboard } from '@/components/dashboard/HomeDashboard';
 import { FlashcardQuiz } from '@/components/quiz/FlashcardQuiz';
-import { PracticeTab } from '@/components/practice/PracticeTab';
+import { PracticeSection, PracticeTab } from '@/components/practice/PracticeTab';
 import { PracticeSession } from '@/components/practice/PracticeSession';
 import { ChainScreen } from '@/components/chain/ChainScreen';
 import { ChainStart } from '@/types/chain';
@@ -132,6 +132,7 @@ export default function Home() {
   const [practiceSitting, setPracticeSitting] = useState<PracticeSitting | null>(null);
   /** The Argument Chain on screen. */
   const [chainStart, setChainStart] = useState<ChainStart | null>(null);
+  const [practiceSection, setPracticeSection] = useState<PracticeSection>('words');
   const hasChainWordsRef = useRef(false);
   /** A practice answer rescheduled something the cached library still shows. */
   const hasPracticeReviewsRef = useRef(false);
@@ -1145,6 +1146,8 @@ export default function Home() {
 
       {activeTab === 'learn' && (
         <PracticeTab
+          section={practiceSection}
+          onChangeSection={setPracticeSection}
           allWords={allWords}
           vocabularySets={vocabularySets}
           favorites={userProgress.favorites}
@@ -1165,7 +1168,12 @@ export default function Home() {
       )}
 
       {activeTab === 'stats' && (
-        <StatsDashboard progress={derivedProgress} learning={learning} activity={activity} />
+        <StatsDashboard
+          progress={derivedProgress}
+          learning={learning}
+          activity={activity}
+          summary={statsSummary}
+        />
       )}
 
       {activeTab === 'profile' && (
