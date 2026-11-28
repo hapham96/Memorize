@@ -194,7 +194,7 @@ export const WordPicker: React.FC<WordPickerProps> = ({
                   const WordIcon = isChosen ? CheckSquare : Square;
                   return (
                     <li key={String(item.word.id)}>
-                      <label className="flex items-center gap-2 px-1.5 py-1.5 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 select-none">
+                      <label className="relative flex items-center gap-2 px-1.5 py-1.5 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 select-none">
                         {/* The native box can't be themed: hidden, but still
                             what the keyboard and screen readers use. */}
                         <input
