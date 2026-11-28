@@ -34,8 +34,19 @@ declare global {
  * queues `config` before any React code runs, so an event fired during
  * hydration is queued behind the config instead of being dropped — `gtag.js`
  * itself loads later and drains the queue in order.
+ *
+ * `?internal=1` marks this browser as the team's own: GA's `ga-disable-<id>`
+ * switch then stops every hit from it, until `?internal=0`.
  */
 export const GA_BOOTSTRAP_SCRIPT = `
+try {
+  var internal = new URLSearchParams(window.location.search).get('internal');
+  if (internal === '1') localStorage.setItem('analytics_internal', '1');
+  if (internal === '0') localStorage.removeItem('analytics_internal');
+  if (localStorage.getItem('analytics_internal') === '1') {
+    window[${JSON.stringify(`ga-disable-${GA_MEASUREMENT_ID}`)}] = true;
+  }
+} catch (e) {}
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 window.gtag = gtag;

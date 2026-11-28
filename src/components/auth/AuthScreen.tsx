@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { login, loginWithGoogle, register, MIN_PASSWORD_LENGTH } from '@/lib/api/auth-client';
 import { ApiError } from '@/lib/api/client';
@@ -48,6 +48,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [focusedField, setFocusedField] = useState<Field | null>(null);
   const [caret, setCaret] = useState(0);
   const [celebrating, setCelebrating] = useState(false);
+
+  // Funnel step before `sign_up`. Here rather than in the page, because the
+  // form switches between sign-in and registration on its own.
+  useEffect(() => {
+    if (isRegister) trackEvent('register_view');
+  }, [isRegister]);
+
   const watch = (field: Field) => ({
     onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
       setFocusedField(field);

@@ -192,7 +192,9 @@ export const ChainScreen: React.FC<ChainScreenProps> = ({
         return (
           <label
             key={item.headword}
-            className={`${cardClass} flex gap-3 cursor-pointer ${
+            // `relative` keeps the hidden box inside its row: without it, focusing
+            // the box scrolls the app frame away and leaves the screen blank.
+            className={`${cardClass} relative flex gap-3 cursor-pointer ${
               isTicked ? '!border-blue-500 !bg-blue-50 dark:!bg-blue-950/60' : ''
             }`}
           >

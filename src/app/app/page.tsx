@@ -671,22 +671,6 @@ export default function Home() {
     setAnalyticsUser(sessionUserId);
   }, [sessionUserId]);
 
-  // Analytics: `/app` has no routes, so GA's page views stop at the URL. One
-  // `app_screen_view` per screen the user actually lands on fills that gap.
-  const analyticsScreen = !session
-    ? `auth_${authView}`
-    : isBattleOpen
-      ? 'battle'
-      : isQueueRun
-        ? 'quiz_flashcards'
-        : practiceSitting
-          ? 'practice'
-          : activeTab;
-  useEffect(() => {
-    if (!isMounted) return;
-    trackEvent('app_screen_view', { screen_name: analyticsScreen });
-  }, [isMounted, analyticsScreen]);
-
   const queueCounts = useMemo(
     () => (reviewQueue === null ? null : countQueue(reviewQueue)),
     [reviewQueue],
@@ -821,8 +805,6 @@ export default function Home() {
   };
 
   const handleRateFlashcardWord = async (word: Word, rating: ReviewQuality) => {
-    trackEvent('flashcard_rate', { rating });
-
     const currentSRS = srsMap[word.id] || {
       wordId: word.id,
       interval: 0,
